@@ -1,6 +1,7 @@
 import { ME_PLUS_DOMAINS } from "@me-plus/domain";
 import { radius, spacing, typography } from "@me-plus/ui";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
   learning: "Practice, goals and progress",
@@ -17,6 +18,16 @@ export default function HomeScreen() {
       <Text style={styles.lede}>
         Mobile is the quick-capture and device-facing client. Shared business rules stay outside native code.
       </Text>
+
+      <Link href="/sensor-diagnostics" asChild>
+        <Pressable accessibilityRole="button" style={styles.diagnosticsCard}>
+          <Text style={styles.diagnosticsEyebrow}>HEALTH PIPELINE</Text>
+          <Text style={styles.diagnosticsTitle}>Run sensor diagnostics</Text>
+          <Text style={styles.diagnosticsBody}>
+            Exercise exact, missing, changed-value and duplicate fixtures before connecting real Health Connect data.
+          </Text>
+        </Pressable>
+      </Link>
 
       <View style={styles.grid}>
         {ME_PLUS_DOMAINS.map((domain) => (
@@ -57,6 +68,32 @@ const styles = StyleSheet.create({
     color: "#b8c2cf",
     fontSize: typography.body,
     lineHeight: 25,
+  },
+  diagnosticsCard: {
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "#3d6f99",
+    borderRadius: radius.lg,
+    backgroundColor: "#11263a",
+  },
+  diagnosticsEyebrow: {
+    marginBottom: spacing.sm,
+    color: "#8fc8fa",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+  },
+  diagnosticsTitle: {
+    marginBottom: spacing.sm,
+    color: "#f5f7fa",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  diagnosticsBody: {
+    color: "#c2d2e2",
+    fontSize: typography.label,
+    lineHeight: 21,
   },
   grid: {
     gap: spacing.md,
