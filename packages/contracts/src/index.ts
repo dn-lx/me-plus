@@ -75,3 +75,25 @@ export interface SensorDiagnosticSnapshot {
   readings: readonly SensorReading[];
   reconciliation: SensorReconciliationResult;
 }
+
+export interface HealthIngestSource {
+  provider: SensorProvenance["provider"];
+  displayName: string;
+  externalAccountRef?: string;
+  metadata?: Readonly<Record<string, unknown>>;
+}
+
+export interface HealthIngestRequest {
+  source: HealthIngestSource;
+  readings: readonly SensorReading[];
+  cursorAfter?: string;
+}
+
+export interface HealthIngestResult {
+  dataSourceId: string;
+  syncRunId: string;
+  recordsSeen: number;
+  recordsCreated: number;
+  recordsUpdated: number;
+  observationIds: readonly string[];
+}
