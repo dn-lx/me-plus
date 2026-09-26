@@ -13,6 +13,6 @@
     "@me-plus/contracts": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "workspace:catalog"
+    "typescript": "catalog:"
   }
 }
