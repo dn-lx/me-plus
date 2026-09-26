@@ -1,0 +1,2 @@
+# Development tool only; install in an isolated Python environment.
+graphifyy[sql]==0.9.63

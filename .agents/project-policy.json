@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "branches": {
+    "integration": "dev",
+    "production": "prod",
+    "work_prefixes": ["feature/", "fix/", "chore/"]
+  },
+  "release": {
+    "production_requires_explicit_approval": true,
+    "approval_label": "production-approved",
+    "only_integration_may_target_production": true
+  },
+  "continuity": {
+    "draft_pr_for_non_trivial_work": true,
+    "one_writer_per_task_branch": true,
+    "github_state_over_chat_memory": true
+  }
+}

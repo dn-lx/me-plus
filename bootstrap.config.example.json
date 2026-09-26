@@ -1,0 +1,53 @@
+{
+  "projectName": "Example Project",
+  "purpose": "Replace with the project's durable purpose.",
+  "primaryUsers": "Replace with the primary users.",
+  "repository": "owner/repository",
+  "ownerTeam": "owner-or-team",
+  "branches": {
+    "integration": "dev",
+    "production": "prod"
+  },
+  "architecture": {
+    "frontend": "Not applicable",
+    "backend": "Not applicable",
+    "database": "Not applicable",
+    "hosting": "Not configured",
+    "authentication": "Not applicable",
+    "boundaries": "Define before implementation"
+  },
+  "commands": {
+    "install": "Not configured",
+    "dev": "Not configured",
+    "test": "Not configured",
+    "build": "Not configured",
+    "lint": "Not configured",
+    "e2e": "Not used",
+    "performance": "Not used"
+  },
+  "paths": {
+    "app": "Not configured",
+    "tests": "tests/",
+    "database": "Not applicable",
+    "assets": "Not applicable",
+    "infrastructure": "Not applicable"
+  },
+  "capabilities": {
+    "sourceControl": {
+      "status": "Required",
+      "provider": "GitHub",
+      "purpose": "Branches, diffs, pull requests, CI and workflow evidence"
+    },
+    "currentDocs": { "status": "Optional", "provider": "Context7 / official docs" },
+    "database": { "status": "Not used" },
+    "hosting": { "status": "Not used" },
+    "browser": { "status": "Not used" },
+    "codeRelationships": { "status": "Optional", "provider": "Graphify" },
+    "observability": { "status": "Not used" },
+    "analytics": { "status": "Not used" },
+    "payments": { "status": "Not used" },
+    "email": { "status": "Not used" },
+    "documents": { "status": "Not used" },
+    "issues": { "status": "Optional", "provider": "GitHub" }
+  }
+}

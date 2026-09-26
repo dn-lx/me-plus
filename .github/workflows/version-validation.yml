@@ -1,0 +1,33 @@
+name: Version validation
+
+on:
+  pull_request:
+    branches: [dev, prod]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: version-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: policy / version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Validate version and release notes
+        env:
+          VERSION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          VERSION_RELEASE: ${{ github.event_name == 'pull_request' && github.base_ref == 'prod' }}
+        run: node scripts/validate-version.mjs
+      - name: Test lifecycle safeguards
+        run: node --test tests/*.test.mjs

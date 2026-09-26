@@ -1,0 +1,37 @@
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+
+# Dependencies / generated
+node_modules/
+dist/
+build/
+coverage/
+target/
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+
+# Agent/dev tooling
+.graphify/
+.venv-graphify/
+.netlify/
+.tauri/
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Private host preferences and machine MCP configuration
+CLAUDE.local.md
+.claude/settings.local.json
+.gemini/settings.json
+.mcp.json

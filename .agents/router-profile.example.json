@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "execution": {
+    "mode": "local-router",
+    "allowedAgents": ["claude", "gemini"]
+  },
+  "modelClasses": {
+    "coding-high": { "agent": "claude" },
+    "long-context": { "agent": "gemini" },
+    "reasoning-high": { "agent": "coordinator" },
+    "fast-utility": { "agent": "coordinator" }
+  },
+  "policy": {
+    "nativeConnectorFirst": true,
+    "githubViaLocalRouter": false,
+    "allowArbitraryShell": false,
+    "requireScopedTaskPacket": true,
+    "defaultMaxTurns": 12,
+    "defaultTimeoutMs": 900000
+  }
+}

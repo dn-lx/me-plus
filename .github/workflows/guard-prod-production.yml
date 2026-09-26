@@ -1,0 +1,39 @@
+name: Production branch guard
+
+on:
+  pull_request:
+    branches: [prod]
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-release-source:
+    name: policy / prod-source-and-approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require same-repository dev branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REF" != "dev" ]; then
+            echo "::error::Only dev may merge into prod. Current head: $HEAD_REF"
+            exit 1
+          fi
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::Production PR must originate from this repository's dev branch."
+            exit 1
+          fi
+
+      - name: Require production-approved label (supplemental gate)
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          node -e 'const labels=JSON.parse(process.env.LABELS_JSON); if(!labels.includes("production-approved")){console.error("::error::Missing production-approved label."); process.exit(1)}'
