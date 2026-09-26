@@ -35,3 +35,43 @@ export interface ActionProposal {
   rationale: string;
   payload: Readonly<Record<string, unknown>>;
 }
+
+export type HealthMetric = "steps" | "heart-rate" | "sleep-duration";
+
+export type SensorPermissionStatus = "granted" | "denied" | "not-requested" | "unavailable";
+
+export interface SensorProvenance {
+  provider: "health-connect" | "fake-health-connect";
+  sourcePackage: string;
+  device?: string;
+  recordingMethod?: string;
+}
+
+export interface SensorReading {
+  externalId: string;
+  metric: HealthMetric;
+  value: number;
+  unit: "count" | "bpm" | "minutes";
+  observedAt: IsoTimestamp;
+  lastModifiedAt: IsoTimestamp;
+  provenance: SensorProvenance;
+}
+
+export interface SensorReconciliationResult {
+  sourceCount: number;
+  storedCount: number;
+  matchedCount: number;
+  missingCount: number;
+  mismatchedCount: number;
+  duplicateCount: number;
+  isExactMatch: boolean;
+}
+
+export interface SensorDiagnosticSnapshot {
+  provider: SensorProvenance["provider"];
+  mode: "fixture" | "live";
+  permissionStatus: SensorPermissionStatus;
+  checkedAt: IsoTimestamp;
+  readings: readonly SensorReading[];
+  reconciliation: SensorReconciliationResult;
+}
