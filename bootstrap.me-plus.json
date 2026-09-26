@@ -10,31 +10,31 @@
     "production": "prod"
   },
   "architecture": {
-    "frontend": "TypeScript web application; responsive control surface for dashboard, domains, memory, insights, integrations, and settings",
-    "backend": "TypeScript server/API layer plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record",
+    "frontend": "TypeScript monorepo with first-class web and mobile clients. Web handles dashboard, analysis, configuration and administration; mobile handles daily interaction, notifications, capture and device integrations.",
+    "backend": "Shared TypeScript application/domain services plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record.",
     "database": "Supabase Postgres as durable source of truth; migrations in repository; Storage only where needed",
-    "hosting": "TBD after application framework bootstrap; keep deployment provider replaceable",
+    "hosting": "TBD after web/mobile framework bootstrap; keep deployment providers replaceable",
     "authentication": "Supabase Auth with least-privilege access and explicit authorization boundaries",
     "authorization": "User-owned data with row-level security; privileged operations stay server-side",
     "isolation": "Single-owner first, but schema and policies must preserve explicit user ownership so multi-user support remains possible",
     "secretStorage": "Deployment/repository environment secret stores; never Git or client bundles",
     "sensitiveData": "Personal data is private by default; minimize collection, redact logs, separate raw observations from derived insights, and require explicit authorization for external writes",
-    "boundaries": "UI -> application/domain services -> memory/data + policy/reasoning + integrations. Supabase is durable memory/source of truth. Model providers reason over retrieved context but do not own canonical state. External connectors and device ingestion pass through typed adapters and auditable writes. Domain policies constrain reasoning and actions."
+    "boundaries": "apps/web and apps/mobile are thin clients over shared packages. Shared domain logic and contracts live outside platform-specific UI. Supabase is durable memory/source of truth. Model providers reason over retrieved context but do not own canonical state. External connectors and device ingestion pass through typed adapters and auditable writes. Domain policies constrain reasoning and actions. Platform-native capabilities stay behind adapters so they cannot leak into shared domain code."
   },
   "commands": {
-    "install": "TBD during application scaffold",
-    "dev": "TBD during application scaffold",
-    "test": "TBD during application scaffold",
-    "build": "TBD during application scaffold",
-    "lint": "TBD during application scaffold",
-    "e2e": "TBD during application scaffold",
+    "install": "TBD during monorepo scaffold",
+    "dev": "TBD during monorepo scaffold",
+    "test": "TBD during monorepo scaffold",
+    "build": "TBD during monorepo scaffold",
+    "lint": "TBD during monorepo scaffold",
+    "e2e": "TBD during monorepo scaffold",
     "performance": "TBD after UI scaffold"
   },
   "paths": {
-    "app": "apps/web/",
+    "app": "apps/web/ and apps/mobile/",
     "tests": "tests/",
     "database": "supabase/migrations/",
-    "assets": "apps/web/public/",
+    "assets": "apps/web/public/ and apps/mobile/assets/",
     "infrastructure": "supabase/ and deployment configuration"
   },
   "capabilities": {
@@ -61,7 +61,7 @@
     "browser": {
       "status": "Required",
       "provider": "Playwright / browser tooling",
-      "purpose": "Rendered UI, accessibility and end-to-end verification"
+      "purpose": "Rendered web UI, accessibility and end-to-end verification"
     },
     "codeRelationships": {
       "status": "Optional",
@@ -71,7 +71,7 @@
     "observability": {
       "status": "Required",
       "provider": "TBD",
-      "purpose": "Privacy-aware errors, runtime health and integration failure diagnostics"
+      "purpose": "Privacy-aware errors, runtime health and integration failure diagnostics across web, mobile and backend"
     },
     "analytics": {
       "status": "Optional",

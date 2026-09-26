@@ -13,9 +13,13 @@ Me+ is a personal intelligence and control platform that turns durable user-owne
 - Use `docs/PROJECT-MEMORY.md` for durable architecture, commands, and boundaries.
 - Use `docs/CURRENT-HANDOFF.md` for unfinished task state.
 - Use `docs/REQUIREMENTS.md` for accepted requirements.
+- Use `docs/ARCHITECTURE.md` for monorepo ownership boundaries.
 
 ## Architecture
-- UI stays thin and delegates to application/domain services.
+- `apps/web` and `apps/mobile` are first-class clients of the same Me+ system.
+- Client UIs stay thin and delegate to shared application/domain services.
+- Platform-neutral domain logic and contracts live under `packages/`.
+- Browser- or native-only capabilities stay behind typed adapters and do not leak into shared domain code.
 - Supabase is the durable application-data source of truth.
 - Model providers are replaceable reasoning dependencies, not canonical storage.
 - Integrations and device ingestion use typed adapters and auditable writes.
