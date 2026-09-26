@@ -1,109 +1,67 @@
 # Project Memory
 
-> Complete this file when creating a project from the starter. Keep it compact and durable. Do not paste chat transcripts here.
+> Generated from `bootstrap.me-plus.json`. Keep this compact and durable; update it when architecture or operating contracts materially change.
 
 ## Identity
 
-- **Project name:** TODO
-- **Purpose:** TODO
-- **Primary users:** TODO
-- **Repository:** TODO
-- **Owner/team:** TODO
+- **Project name:** Me+
+- **Purpose:** A personal intelligence and control platform that turns durable user-owned records, goals, context, policies, connected services, and device signals into transparent, user-controlled insights and actions.
+- **Primary users:** The owner of the Me+ system; keep the architecture extensible without assuming a multi-tenant product.
+- **Repository:** dn-lx/me-plus-app
+- **Owner/team:** dn-lx
 
 ## Architecture
 
-- **Frontend/runtime:** TODO
-- **Backend/runtime:** TODO
-- **Database/storage:** TODO
-- **Hosting/deployment:** TODO
-- **Authentication:** TODO
-- **Key architectural boundaries:** TODO
+- **Frontend/runtime:** TypeScript web application; responsive control surface for dashboard, domains, memory, insights, integrations, and settings.
+- **Backend/runtime:** TypeScript server/API layer plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record.
+- **Database/storage:** Supabase Postgres as the durable source of truth; repository-managed migrations; Storage only where needed.
+- **Hosting/deployment:** To be selected after application scaffold; keep deployment provider replaceable.
+- **Authentication:** Supabase Auth with explicit authorization boundaries.
+- **Key boundaries:** UI → application/domain services → data/memory + policy/reasoning + integrations. Model providers reason over retrieved context but do not own canonical state. Integrations and device ingestion pass through typed adapters and auditable writes. Domain policies constrain reasoning and actions.
 
 ## Important paths
 
-| Area | Path | Notes |
-| --- | --- | --- |
-| Main app | TODO | TODO |
-| Tests | TODO | TODO |
-| Database/migrations | TODO | TODO |
-| Public/static assets | TODO | TODO |
-| Infrastructure | TODO | TODO |
+| Area | Path |
+| --- | --- |
+| Main app | `apps/web/` |
+| Tests | `tests/` |
+| Database/migrations | `supabase/migrations/` |
+| Public/static assets | `apps/web/public/` |
+| Infrastructure | `supabase/` and deployment configuration |
 
 ## Commands
 
 | Purpose | Command |
 | --- | --- |
-| Install | TODO |
-| Development | TODO |
-| Test | TODO |
-| Build | TODO |
-| Lint/typecheck | TODO |
-| Browser/E2E | TODO |
-| Performance | TODO / Not used |
+| Install | TBD during application scaffold |
+| Development | TBD during application scaffold |
+| Test | TBD during application scaffold |
+| Build | TBD during application scaffold |
+| Lint/typecheck | TBD during application scaffold |
+| Browser/E2E | TBD during application scaffold |
+| Performance | TBD after UI scaffold |
 
 ## Runtime environments
 
-Branches are code-promotion lanes, not proof of runtime/data isolation.
-
-| Runtime | Code source | Non-secret target identifiers | Data/auth isolation |
-| --- | --- | --- | --- |
-| Local | working branch | TODO | TODO |
-| Preview/staging | TODO / Not used | TODO | TODO |
-| Production | `prod` / adapted production branch | TODO | TODO |
-
-- **Code promotion path:** `dev → prod` unless adapted in `.agents/project-policy.json`.
-- **Feature-flag/config environments:** TODO / Not used.
-
-## Verification contracts
-
-- **Frontend runtime matrix:** TODO / Not applicable — record critical browsers/viewports/devices and any print/platform-specific checks.
-- **Visual sanity contract:** TODO / Not applicable — record theme variants, semantic color/spacing token paths and the project visual-QA command/spec.
-- **Performance budgets:** TODO / Not used — record measurable user-critical thresholds/config and where they are enforced.
-- **Analytics contract/taxonomy:** TODO / Not used — record the durable event-contract document/config, not provider credentials.
-- **Verification evidence location:** PR / CI artifacts / TODO.
-- **Localization/i18n:** TODO / Not used — source locale, supported locales, fallback, timezone/date/number/currency policy, RTL if applicable.
-- **Operations runbook:** TODO / Not used — deployed revision verification, health/smoke checks, observability, rollback and backup/restore where applicable. See `docs/OPERATIONS-RECOVERY.md`.
-
-## Product / domain invariants
-
-
-Record rules that agents must not accidentally change without an explicit product decision.
-
-- TODO
-- TODO
+- **Code promotion path:** `dev → prod`.
+- Branches are code-promotion lanes, not proof of runtime/data isolation.
+- Record concrete local, preview/staging, and production targets before external writes.
 
 ## Security boundaries
 
-- Where authorization is actually enforced: TODO
-- Where secrets live: TODO
-- Tenant/user isolation model: TODO
-- Sensitive data/logging restrictions: TODO
-- Data classification/retention/deletion/export requirements: TODO / Not applicable
-- Public ingress/webhooks/uploads and abuse/replay/rate-limit boundaries: TODO / Not applicable
+- Authorization is enforced through user ownership and row-level database policies; privileged operations stay server-side.
+- Deployment and repository environment stores hold credentials; never commit them to Git or client bundles.
+- Single-owner first, while preserving explicit ownership in schema and policies so future multi-user support remains possible.
+- Private records are private by default; minimize collection, redact logs, separate raw observations from derived insights, and require explicit authorization for external writes.
 
 ## External systems
 
-List only capabilities and non-secret identifiers. Do not store credentials.
-
-| Capability | Provider/system | Environment/account | Notes |
-| --- | --- | --- | --- |
-| Source control | GitHub | TODO | TODO |
-| Current docs | Context7 / official docs | Agent-host dependent | Optional/required? |
-| Database | TODO | TODO | TODO |
-| Hosting | TODO | TODO | TODO |
-
-See `docs/MCP-SETUP.md`.
+See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside Git.
 
 ## Durable decisions
 
-Link accepted ADRs rather than duplicating them.
-
 - `docs/adr/0001-agent-independent-engineering.md`
-
-## Known gotchas
-
-- TODO
 
 ## Context freshness
 
-Update this file when architecture, commands, core product invariants, runtime targets, localization contracts, operations/recovery expectations, security boundaries or external-system topology materially changes. Source/tests/accepted ADRs override stale memory.
+Source, tests, and accepted ADRs override stale memory.
