@@ -1,0 +1,98 @@
+{
+  "projectName": "Me+",
+  "slug": "me-plus",
+  "purpose": "A personal intelligence and control platform that turns durable personal data, goals, context, policies, connected services, and device signals into transparent, user-controlled insights and actions.",
+  "primaryUsers": "The owner of the Me+ system; architecture should remain extensible without assuming a multi-tenant product.",
+  "repository": "dn-lx/me-plus-app",
+  "ownerTeam": "dn-lx",
+  "branches": {
+    "integration": "dev",
+    "production": "prod"
+  },
+  "architecture": {
+    "frontend": "TypeScript web application; responsive control surface for dashboard, domains, memory, insights, integrations, and settings",
+    "backend": "TypeScript server/API layer plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record",
+    "database": "Supabase Postgres as durable source of truth; migrations in repository; Storage only where needed",
+    "hosting": "TBD after application framework bootstrap; keep deployment provider replaceable",
+    "authentication": "Supabase Auth with least-privilege access and explicit authorization boundaries",
+    "authorization": "User-owned data with row-level security; privileged operations stay server-side",
+    "isolation": "Single-owner first, but schema and policies must preserve explicit user ownership so multi-user support remains possible",
+    "secretStorage": "Deployment/repository environment secret stores; never Git or client bundles",
+    "sensitiveData": "Personal data is private by default; minimize collection, redact logs, separate raw observations from derived insights, and require explicit authorization for external writes",
+    "boundaries": "UI -> application/domain services -> memory/data + policy/reasoning + integrations. Supabase is durable memory/source of truth. Model providers reason over retrieved context but do not own canonical state. External connectors and device ingestion pass through typed adapters and auditable writes. Domain policies constrain reasoning and actions."
+  },
+  "commands": {
+    "install": "TBD during application scaffold",
+    "dev": "TBD during application scaffold",
+    "test": "TBD during application scaffold",
+    "build": "TBD during application scaffold",
+    "lint": "TBD during application scaffold",
+    "e2e": "TBD during application scaffold",
+    "performance": "TBD after UI scaffold"
+  },
+  "paths": {
+    "app": "apps/web/",
+    "tests": "tests/",
+    "database": "supabase/migrations/",
+    "assets": "apps/web/public/",
+    "infrastructure": "supabase/ and deployment configuration"
+  },
+  "capabilities": {
+    "sourceControl": {
+      "status": "Required",
+      "provider": "GitHub",
+      "purpose": "Branches, diffs, pull requests, CI, releases and durable engineering evidence"
+    },
+    "currentDocs": {
+      "status": "Required",
+      "provider": "Context7 / official docs",
+      "purpose": "Verify current framework, SDK, AI provider and integration behavior before implementation"
+    },
+    "database": {
+      "status": "Required",
+      "provider": "Supabase",
+      "purpose": "Durable memory, application data, authentication, row-level security, migrations and optional storage"
+    },
+    "hosting": {
+      "status": "Required",
+      "provider": "TBD",
+      "purpose": "Preview/staging and production deployment with environment isolation"
+    },
+    "browser": {
+      "status": "Required",
+      "provider": "Playwright / browser tooling",
+      "purpose": "Rendered UI, accessibility and end-to-end verification"
+    },
+    "codeRelationships": {
+      "status": "Optional",
+      "provider": "Graphify",
+      "purpose": "Understand architecture and change impact as the application grows"
+    },
+    "observability": {
+      "status": "Required",
+      "provider": "TBD",
+      "purpose": "Privacy-aware errors, runtime health and integration failure diagnostics"
+    },
+    "analytics": {
+      "status": "Optional",
+      "provider": "TBD",
+      "purpose": "Owner-visible product telemetry only when useful; avoid unnecessary personal-data collection"
+    },
+    "payments": { "status": "Not used" },
+    "email": {
+      "status": "Optional",
+      "provider": "TBD",
+      "purpose": "Notifications or reports only when a concrete Me+ workflow requires email"
+    },
+    "documents": {
+      "status": "Optional",
+      "provider": "Google Drive",
+      "purpose": "Supporting documents and exports; canonical structured state remains in Supabase"
+    },
+    "issues": {
+      "status": "Required",
+      "provider": "GitHub",
+      "purpose": "Track implementation work, decisions, defects and release readiness"
+    }
+  }
+}
