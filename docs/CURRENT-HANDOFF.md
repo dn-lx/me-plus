@@ -10,10 +10,10 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "dev",
-  "pr": 9,
-  "status": "dependency_fix_merged",
-  "last_verified_sha": "24756b4a1426c46e7d95205b67677ae0323ac7bb",
-  "next_step": "Rerun the Netlify dev build. The Corepack bootstrap failure was fixed in PR #8 and the pnpm catalog protocol failure was fixed in PR #9. If dependency installation passes, fix the next actual build/typecheck error if one appears.",
+  "pr": 10,
+  "status": "typescript_fix_merged",
+  "last_verified_sha": "eef64a2bdc02dff5a1ef6431318f21fcb0b1c8b3",
+  "next_step": "Rerun the Netlify dev build. Dependency installation and Next.js compilation pass; PR #10 fixed the two reported TypeScript errors. Fix any further errors on dev before promoting to prod.",
   "updated_at": "2026-09-27T09:01:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
