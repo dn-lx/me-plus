@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
+
+### Fixed
+- N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added

@@ -35,6 +35,7 @@ export default function HomePage() {
       </section>
 
       <footer className="siteFooter">
+        <a href="/finance/connect">Connect N26</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
       </footer>
