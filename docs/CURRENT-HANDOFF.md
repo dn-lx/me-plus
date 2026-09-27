@@ -10,9 +10,9 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "repository": "dn-lx/me-plus",
   "base": "feature/runtime-scaffold",
   "branch": "feature/n26-open-banking",
-  "pr": null,
+  "pr": 5,
   "status": "active_unverified",
-  "last_verified_sha": "b8e25f64e375cecc669042509ab30e301160921f",
+  "last_verified_sha": "4317574d9f8794302c3bd273cbe4285359aa354a",
   "next_step": "Create Enable Banking restricted-production app credentials, run typecheck/build, then perform explicit N26 consent and verify the first read-only sync.",
   "updated_at": "2026-09-27T07:30:00Z"
 }
