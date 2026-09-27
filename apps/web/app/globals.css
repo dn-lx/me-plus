@@ -102,3 +102,56 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+
+.legalHero {
+  margin-bottom: 40px;
+}
+
+.legalContent {
+  max-width: 820px;
+}
+
+.legalContent section {
+  margin-bottom: 28px;
+}
+
+.legalContent h2 {
+  margin-bottom: 10px;
+  font-size: 1.35rem;
+}
+
+.legalContent p {
+  color: #c5ced9;
+  line-height: 1.7;
+}
+
+.legalContent a {
+  color: #d9e8f8;
+  text-underline-offset: 3px;
+}
+
+.legalUpdated {
+  margin-top: 40px;
+  color: #7f8c9d;
+  font-size: 0.92rem;
+}
+
+
+.siteFooter {
+  display: flex;
+  gap: 18px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #273343;
+}
+
+.siteFooter a {
+  color: #9db7d5;
+  text-decoration: none;
+}
+
+.siteFooter a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
