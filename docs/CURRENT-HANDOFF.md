@@ -2,176 +2,46 @@
 
 **Last updated:** 2026-09-27
 
-This file is the compact recovery record for unfinished work. GitHub/source/tests remain authoritative when they disagree with this handoff.
+This is the compact resume point. GitHub source, checks, Netlify deploys, and Supabase runtime evidence take precedence over stale notes.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "n26-dev-callback-origin",
+  "task_id": "n26-dev-browser-test",
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "fix/n26-callback-stable-origin",
   "pr": 15,
-  "status": "pr_open_ci_runner_blocked",
-  "last_verified_sha": "82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860",
-  "next_step": "Review PR #15; GitHub Actions currently fails before job steps (runner/account issue), so obtain a real validation signal before merge. After a Git-based Netlify dev branch deploy, verify the N26 callback Location stays on the stable dev alias. Production deployment remains untouched. Only after this should the owner complete N26 authorization and inspect read-only sync rows.",
-  "updated_at": "2026-09-27T10:17:00Z"
+  "status": "draft_pr_unvalidated",
+  "last_verified_dev_sha": "82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860",
+  "next_step": "Review PR #15 and obtain a real build/typecheck/security signal. GitHub Actions jobs have failed before any runner steps, so CI red is not a code result. Once validated, merge to dev and wait for its Git-based Netlify branch deployment. Verify /finance/connect and callback Location on the stable dev alias, then the owner signs in with the existing Me+ account and completes N26 consent. Check sync and user ownership in Supabase. Do not deploy or merge prod for this dev test.",
+  "updated_at": "2026-09-27T11:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Live dev validation — 2026-09-27 10:17 UTC
+## Observed dev deployment
 
-- Netlify branch-deploy alias: `https://dev--me-plus-personal-intelligence.netlify.app`. Ready deploy `6ab8ec3f4e08cca2a478eab6` from `dev` commit `82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860`, with one Next.js server handler.
-- Harmless smoke checks: `/`, `/privacy`, and `/terms` return 200; unauthenticated POST to N26 connect/sync returns 401; callback without code/state returns 307 with `invalid_callback`.
-- The callback's 307 Location currently uses the immutable deploy permalink, not the stable dev alias. PR #15 fixes the origin using server configuration. Verify after merge before live bank consent.
-- PR #15 GitHub Actions runs failed with null steps/logs before a runner executed. No code test result is available yet; no deploy preview was produced.
-- Netlify `ENABLE_BANKING_REDIRECT_URL` has a branch-deploy override of `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`; production retains its own callback. The owner was given the exact dev callback URL for Enable Banking's allowed redirects; its saved registration has not been independently verified.
-- Server keys and callback state secret are present for branch deploys and marked secret. Values are not in Git. Local Netlify CLI secret contexts are empty.
-- Production still points to old Netlify deploy `6ab8d3e80c341219b5881e92` without server functions. Do not deploy `prod` for this dev test. Dev and production Netlify contexts currently use the same Supabase project, so a real dev sync writes live finance data.
+- Site: `me-plus-personal-intelligence`, Netlify site ID `74bc65d4-edd9-47bc-82e5-fa82759ed7e2`.
+- Stable dev alias: `https://dev--me-plus-personal-intelligence.netlify.app`.
+- Last verified ready dev deploy: `6ab8ec3f4e08cca2a478eab6`, commit `82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860`. This predates PR #15.
+- On that deploy, `/`, `/privacy`, `/terms` returned 200. Anonymous POST to `/api/finance/n26/connect` and `/api/finance/n26/sync` returned 401. Callback with missing code/state returned 307, but its Location was an immutable deploy permalink. PR #15 changes the redirect origin to the configured branch alias and adds a browser sign-in/connection entrypoint.
+- PR #15 is draft. It uses Supabase password sign-in for the existing email account, passes the access token to the protected connection endpoint, and sends the browser to the Enable Banking authorization URL. No email template, Auth redirect allowlist, or database schema change is required for this path. The page and callback are not deployed or tested yet.
+- GitHub Actions jobs for this repository have failed before runner steps (null steps/logs). Do not interpret the red checks as a TypeScript or application test result. Obtain a real build signal and inspect the final diff before merging. No PR deploy preview was available at last check.
 
-## Current state
+## External configuration and data boundary
 
-The runtime scaffold remains open as draft PR #4 (`feature/runtime-scaffold` → `dev`). GitHub Actions jobs on that work have been failing before a runner/steps are assigned, so CI has not validated the workspace.
+- Enable Banking application is active in restricted production for N26. Its application ID, private key, and the Supabase secret key/state secret are configured in Netlify branch-deploy context. Never copy their values to Git or browser code.
+- Netlify `ENABLE_BANKING_REDIRECT_URL` for branch deploy points to `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`. Production retains `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`. Confirm both URLs are individually allowed in Enable Banking; saved registration has not been independently inspected.
+- Both Netlify contexts currently use Supabase project `wbqnctrvxohxwiaignhg`. A real dev bank consent/sync writes live finance data. No live N26 authorization or sync has been performed in this task.
+- Supabase already has the finance tables required for this slice; no schema migration was applied here. One existing email identity has password sign-in available. The owner must enter credentials in the app themselves.
+- Production Netlify still reports old deploy `6ab8d3e80c341219b5881e92`, without current server functions. No production deployment or promotion is part of this dev test.
 
-The focused N26 integration is being built on `feature/n26-open-banking`, based on the runtime scaffold rather than `prod` or `dev`.
+## Verification after deployment
 
-Implemented on the N26 branch:
-- Enable Banking server client with RS256 application JWT authentication
-- signed short-lived callback state
-- authenticated N26 connection-start endpoint
-- authorization callback that exchanges the code for a provider session
-- read-only normalization of N26 accounts, balances and recent transactions into the existing finance tables
-- source/consent/sync/raw provenance recording
-- authenticated resync endpoint
-- server-only configuration placeholders
-- setup/security documentation
+1. Check `/finance/connect` loads from the stable dev alias and sign-in succeeds with the existing account.
+2. Check an invalid N26 callback redirects to `https://dev--me-plus-personal-intelligence.netlify.app/finance/connect?n26=error&reason=invalid_callback`, without an immutable deploy host.
+3. Owner selects **Continue to N26**, completes provider consent in their browser, and returns to dev. Do not collect bank credentials or the Me+ password in chat.
+4. Confirm the read-only sync result and inspect `data_sources`, `consents`, `source_sync_runs`, `financial_accounts`, `financial_transactions`, and RLS/user ownership. Compare balances/transactions with N26 in the owner's session before claiming completion.
 
-No live N26 authorization has been performed yet. No N26 credentials, PIN, TAN or provider private key are stored in the repository. The integration remains read-only.
+## Release boundary
 
-## Supabase status
-
-The live Me+ schema was inspected before implementation. Existing tables already support this first N26 slice:
-- `data_sources`
-- `consents`
-- `source_sync_runs`
-- `raw_events`
-- `financial_accounts`
-- `financial_transactions`
-- `financial_snapshots`
-- `recurring_financial_commitments`
-
-No live Supabase DDL/schema changes were made for the N26 integration.
-
-## Validation boundary
-
-Do not claim the N26 connection is complete until all of the following are verified:
-1. Enable Banking application created and restricted production activated for the owner's N26 account.
-2. Server secrets configured outside the repository.
-3. Workspace install/typecheck/web build pass.
-4. Explicit N26 consent completes through the redirect flow.
-5. Initial account/balance/transaction sync is checked against N26.
-6. RLS/user ownership is verified for the resulting finance rows.
-
-## Recovery rule
-
-Resume `feature/n26-open-banking`. Do not recreate the integration or mutate the live finance schema unless source inspection proves it is required. Keep the integration read-only until a separate, explicit payment-initiation decision is made.
-
-## Production path
-
-The dependency chain is currently:
-
-`feature/n26-open-banking` → `feature/runtime-scaffold` → `dev` → `prod`
-
-Production promotion remains explicit human approval only.
-
-
-## Netlify callback
-
-A Netlify project was created for Me+ on 2026-09-27. The requested name `me-plus` was unavailable, so Netlify assigned `me-plus-personal-intelligence`.
-
-Use this permanent callback URL for Enable Banking:
-
-`https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
-
-The Netlify project exists but the Me+ runtime has not yet been deployed/validated there. Do not treat the callback as live until deployment and server-secret configuration are complete.
-
-The Netlify project was renamed to `me-plus-personal-intelligence` for a stable, descriptive project/site name.
-
-
-## Deployment preparation — 2026-09-27
-
-Implemented and committed on `feature/n26-open-banking`:
-- public `/privacy` page for the current read-only banking integration
-- public `/terms` page for the current personal-use scope
-- homepage links to Privacy and Terms
-- root `netlify.toml` for the pnpm/Next.js web build
-
-Netlify project `me-plus-personal-intelligence`:
-- public visitor access is enabled so Open Banking redirects and legal pages are not blocked by Netlify team SSO
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ENABLE_BANKING_REDIRECT_URL`, and `ME_PLUS_ALLOW_FIXTURE_INGEST=false` are configured
-- GitHub repository is not yet linked; deployment is waiting for that explicit user action
-- `SUPABASE_SECRET_KEY`, `ENABLE_BANKING_APPLICATION_ID`, `ENABLE_BANKING_PRIVATE_KEY`, and `ENABLE_BANKING_STATE_SECRET` are still intentionally unset
-
-Permanent URLs after deployment:
-- `https://me-plus-personal-intelligence.netlify.app/privacy`
-- `https://me-plus-personal-intelligence.netlify.app/terms`
-- `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
-
-
-## Netlify repository link correction — 2026-09-27
-
-Netlify is now connected to GitHub repository `dn-lx/me-plus`, but the first production deploy used GitHub branch `prod` at commit `be476f54b375df963003fb391d91236546feaa70`. That branch predates the runtime scaffold and produced a ready deploy with no Next.js functions, so the primary site returns Netlify's 404 page.
-
-Required user-side Netlify setting:
-- change the Netlify production branch from `prod` to `feature/n26-open-banking`
-- trigger a new deploy
-
-Do not merge or modify the GitHub `prod` branch for this fix.
-
-
-## Dev CI repair — 2026-09-27
-
-A focused fix branch `fix/dev-ci-validation` and PR #7 were created from `dev`.
-
-Repository-side CI corrections:
-- stable `actions/checkout@v4`, `actions/setup-node@v4`, and `actions/setup-python@v5`
-- corrected pnpm action to `pnpm/action-setup@v4`
-- dependency audit now understands the pnpm workspace instead of requiring an npm lockfile
-- runtime validation no longer tries to commit/push a generated lockfile from CI
-- runtime validation uses read-only permissions and validates PRs/pushes for `dev`
-
-Verification after these fixes still shows every GitHub Actions job failing before a runner is assigned: job steps are null/empty and no logs are produced. This persists across security, runtime, version, and agent-stack workflows. Therefore the remaining red status is an external GitHub-hosted-runner/account/repository Actions availability issue, not a demonstrated workflow-step or application-test failure.
-
-Do not weaken or remove the validation jobs merely to make checks green. Merge the repository-side repair to `dev`, keep `prod` unchanged, and rerun when GitHub runner availability is restored.
-
-
-## Netlify dependency fixes — 2026-09-27
-
-Two dev-only fixes were merged after real Netlify build logs exposed dependency bootstrap issues:
-
-- PR #8 moved Netlify to Node 24, retained pnpm 12.6.0, and removed redundant Corepack/manual install commands from the Netlify build command.
-- PR #9 replaced invalid `workspace:catalog` dependency specifiers with pnpm's `catalog:` protocol in web/mobile/reasoning/ui package manifests.
-
-Current `dev` SHA: `24756b4a1426c46e7d95205b67677ae0323ac7bb`.
-
-Next validation: rerun the Netlify build from `dev`. Do not promote new fixes to `prod` until the dev build reaches the actual application compilation step and succeeds.
-
-
-## Production promotion — 2026-09-27
-
-Me+ release `0.2.0` was prepared on `dev` and promoted through PR #13 (`dev` → `prod`) with the required `production-approved` label. The resulting `prod` commit is `1bacb8cd826d6aa83fc879292a8588d126234e8e`.
-
-Enable Banking creation prerequisites in source are present:
-- production callback route at `/api/finance/n26/callback`
-- public Privacy page at `/privacy`
-- public Terms page at `/terms`
-- permanent callback configured as `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
-
-Current Netlify configuration already includes the public Supabase URL/key, the permanent Enable Banking redirect URL, and fixture ingestion disabled. Server-only credentials are intentionally not present yet.
-
-Still required after Enable Banking application registration:
-- `ENABLE_BANKING_APPLICATION_ID`
-- `ENABLE_BANKING_PRIVATE_KEY`
-- `ENABLE_BANKING_STATE_SECRET`
-- `SUPABASE_SECRET_KEY`
-
-At the time of this checkpoint, the Netlify project API still reports the old production deployment, so do not claim the primary production site has updated until a new prod deploy is observed.
+`dev` is the integration branch. Production promotion is only through the approved `dev → prod` release workflow. No direct `prod` push or ad-hoc production deploy.
