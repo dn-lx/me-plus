@@ -143,23 +143,22 @@ async function grantFinanceConsent(
 
   throwIfError(existing.error, "Unable to look up finance consent");
 
-  const values = {
-    status: "granted",
-    granted_at: new Date().toISOString(),
-    revoked_at: null,
-    metadata: {
-      provider: "enable-banking",
-      institution: "n26",
-      validUntil: validUntil ?? null,
-      access: "accounts_balances_transactions",
-      readOnly: true,
-    },
+  const metadata = {
+    provider: "enable-banking",
+    institution: "n26",
+    validUntil: validUntil ?? null,
+    access: "accounts_balances_transactions",
+    readOnly: true,
   };
 
   if (existing.data?.id) {
     const updated = await client
       .from("consents")
-      .update(values)
+      .update({
+        status: "granted",
+        revoked_at: null,
+        metadata,
+      })
       .eq("id", existing.data.id);
     throwIfError(updated.error, "Unable to update finance consent");
     return;
@@ -170,7 +169,10 @@ async function grantFinanceConsent(
     data_source_id: dataSourceId,
     domain: "finance",
     purpose: "read_only_account_information",
-    ...values,
+    status: "granted",
+    granted_at: new Date().toISOString(),
+    revoked_at: null,
+    metadata,
   });
 
   throwIfError(inserted.error, "Unable to record finance consent");
