@@ -97,3 +97,23 @@ export interface HealthIngestResult {
   recordsUpdated: number;
   observationIds: readonly string[];
 }
+
+export type BankConnectionProvider = "enable-banking";
+export type BankInstitution = "n26";
+
+export interface BankConnectionStartResult {
+  provider: BankConnectionProvider;
+  institution: BankInstitution;
+  authorizationUrl: string;
+}
+
+export interface FinanceSyncResult {
+  provider: BankConnectionProvider;
+  institution: BankInstitution;
+  dataSourceId: string;
+  syncRunId: string;
+  accountsSeen: number;
+  transactionsSeen: number;
+  recordsCreated: number;
+  recordsUpdated: number;
+}
