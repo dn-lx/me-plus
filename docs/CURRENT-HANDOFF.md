@@ -1,33 +1,74 @@
 # Current Handoff
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-09-27
 
 This file is the compact recovery record for unfinished work. GitHub/source/tests remain authoritative when they disagree with this handoff.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": "dn-lx/me-plus-app",
-  "base": "dev",
-  "branch": null,
+  "task_id": "n26-open-banking",
+  "repository": "dn-lx/me-plus",
+  "base": "feature/runtime-scaffold",
+  "branch": "feature/n26-open-banking",
   "pr": null,
-  "status": "idle",
-  "last_verified_sha": "b466ea9271dd0acf81a7eb5690f24ea0f5940169",
-  "next_step": null,
-  "updated_at": "2026-09-26T21:35:00Z"
+  "status": "active_unverified",
+  "last_verified_sha": "b8e25f64e375cecc669042509ab30e301160921f",
+  "next_step": "Create Enable Banking restricted-production app credentials, run typecheck/build, then perform explicit N26 consent and verify the first read-only sync.",
+  "updated_at": "2026-09-27T07:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## Current state
 
-PR #2 (`feature/app-foundation` → `dev`) was merged successfully. Me+ now has the web/mobile monorepo foundation on `dev`: first-class `apps/web` and `apps/mobile` boundaries, shared platform-neutral packages, a Supabase backend boundary, and durable architecture documentation.
+The runtime scaffold remains open as draft PR #4 (`feature/runtime-scaffold` → `dev`). GitHub Actions jobs on that work have been failing before a runner/steps are assigned, so CI has not validated the workspace.
 
-No implementation task is currently active. The next independent task is to verify the current web/mobile/workspace ecosystem, choose the concrete frameworks and package manager, then scaffold the runnable applications and development Supabase environment from a fresh temporary branch based on current `dev`.
+The focused N26 integration is being built on `feature/n26-open-banking`, based on the runtime scaffold rather than `prod` or `dev`.
+
+Implemented on the N26 branch:
+- Enable Banking server client with RS256 application JWT authentication
+- signed short-lived callback state
+- authenticated N26 connection-start endpoint
+- authorization callback that exchanges the code for a provider session
+- read-only normalization of N26 accounts, balances and recent transactions into the existing finance tables
+- source/consent/sync/raw provenance recording
+- authenticated resync endpoint
+- server-only configuration placeholders
+- setup/security documentation
+
+No live N26 authorization has been performed yet. No N26 credentials, PIN, TAN or provider private key are stored in the repository. The integration remains read-only.
+
+## Supabase status
+
+The live Me+ schema was inspected before implementation. Existing tables already support this first N26 slice:
+- `data_sources`
+- `consents`
+- `source_sync_runs`
+- `raw_events`
+- `financial_accounts`
+- `financial_transactions`
+- `financial_snapshots`
+- `recurring_financial_commitments`
+
+No live Supabase DDL/schema changes were made for the N26 integration.
+
+## Validation boundary
+
+Do not claim the N26 connection is complete until all of the following are verified:
+1. Enable Banking application created and restricted production activated for the owner's N26 account.
+2. Server secrets configured outside the repository.
+3. Workspace install/typecheck/web build pass.
+4. Explicit N26 consent completes through the redirect flow.
+5. Initial account/balance/transaction sync is checked against N26.
+6. RLS/user ownership is verified for the resulting finance rows.
 
 ## Recovery rule
 
-There is no active task branch to resume. Start new work from current `dev`, create a focused temporary feature/fix/chore branch, and open a draft PR for non-trivial work. Apply `.agents/skills/task-continuity/SKILL.md` only when reconciling an interrupted task.
+Resume `feature/n26-open-banking`. Do not recreate the integration or mutate the live finance schema unless source inspection proves it is required. Keep the integration read-only until a separate, explicit payment-initiation decision is made.
 
 ## Production path
 
-Production promotion is `dev → prod` with explicit human production approval.
+The dependency chain is currently:
+
+`feature/n26-open-banking` → `feature/runtime-scaffold` → `dev` → `prod`
+
+Production promotion remains explicit human approval only.
