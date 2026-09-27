@@ -13,7 +13,7 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "pr": 5,
   "status": "active_unverified",
   "last_verified_sha": "8d1c4f5bdeece401250ab936442cd319ae9eb148",
-  "next_step": "Link Netlify project me-plus-personal-intelligence to GitHub repo dn-lx/me-plus using branch feature/n26-open-banking, deploy the site, verify /privacy, /terms and the callback route, then register the Enable Banking production app and configure its server-only credentials.",
+  "next_step": "In Netlify, change the production branch from prod to feature/n26-open-banking and redeploy. Then verify /, /privacy, /terms and /api/finance/n26/callback before finishing Enable Banking registration.",
   "updated_at": "2026-09-27T07:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -105,3 +105,14 @@ Permanent URLs after deployment:
 - `https://me-plus-personal-intelligence.netlify.app/privacy`
 - `https://me-plus-personal-intelligence.netlify.app/terms`
 - `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
+
+
+## Netlify repository link correction — 2026-09-27
+
+Netlify is now connected to GitHub repository `dn-lx/me-plus`, but the first production deploy used GitHub branch `prod` at commit `be476f54b375df963003fb391d91236546feaa70`. That branch predates the runtime scaffold and produced a ready deploy with no Next.js functions, so the primary site returns Netlify's 404 page.
+
+Required user-side Netlify setting:
+- change the Netlify production branch from `prod` to `feature/n26-open-banking`
+- trigger a new deploy
+
+Do not merge or modify the GitHub `prod` branch for this fix.
