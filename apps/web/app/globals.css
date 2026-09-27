@@ -136,3 +136,22 @@ h1 {
   color: #7f8c9d;
   font-size: 0.92rem;
 }
+
+
+.siteFooter {
+  display: flex;
+  gap: 18px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #273343;
+}
+
+.siteFooter a {
+  color: #9db7d5;
+  text-decoration: none;
+}
+
+.siteFooter a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
