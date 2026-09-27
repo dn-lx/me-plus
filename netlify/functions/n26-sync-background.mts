@@ -20,7 +20,7 @@ export default async function handler(request: Request) {
     .select("id,user_id,external_account_ref,metadata")
     .eq("provider", "enable-banking")
     .eq("display_name", "N26")
-    .eq("status", "active");
+    .in("status", ["active", "error"]);
 
   if (error) {
     throw new Error(`Unable to load active N26 sources: ${error.message}`);
