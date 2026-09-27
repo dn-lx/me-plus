@@ -10,11 +10,11 @@ This is the compact resume point. GitHub source, checks, Netlify deploys, and Su
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "dev",
-  "pr": 15,
-  "status": "merged_waiting_dev_deploy_validation",
-  "last_verified_dev_sha": "1a27016bc4a1677e3e9cfb4bb76a8afd01f43b63",
-  "next_step": "Wait for the Git-based Netlify dev branch deploy of merged PR #15. Then verify /finance/connect loads on the stable dev alias and an invalid callback redirects to the stable dev /finance/connect URL. After that the owner can sign in and complete N26 consent; inspect resulting finance rows and ownership before any production promotion.",
-  "updated_at": "2026-09-27T10:36:00Z"
+  "pr": 16,
+  "status": "auth_start_fix_merged_waiting_retry",
+  "last_verified_dev_sha": "16915bd59cdb1d35ad331b07b313865fcc895e86",
+  "next_step": "Wait for the Netlify dev branch deploy of PR #16, then retry Continue to N26. Supabase logs already proved password sign-in and server-side auth.getUser succeed; the remaining failure was after user validation. PR #16 adds robust Enable Banking private-key parsing and safe provider error diagnostics. If the provider still rejects the request, use the displayed HTTP/error code to correct application/redirect/activation configuration.",
+  "updated_at": "2026-09-27T17:45:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -60,3 +60,23 @@ Before merge:
 - GitHub Actions remained unavailable before runner assignment (null steps/logs), so their red state was not treated as application-test evidence.
 
 No production merge is part of PR #15. Validate the resulting Netlify `dev` deployment before considering release.
+
+
+## N26 authorization-start failure — 2026-09-27
+
+The owner successfully signed into Me+ on the stable dev alias, but **Continue to N26** returned the generic start failure.
+
+Runtime evidence:
+- Supabase password login returned 200 for the existing Me+ user.
+- The subsequent server-side Supabase `GET /auth/v1/user` also returned 200, proving the bearer token reached the server and was accepted.
+- No N26 `data_sources`, accounts, transactions, or sync runs existed afterward, so the failure occurred before provider consent/session creation.
+
+PR #16 was merged to `dev` at `16915bd59cdb1d35ad331b07b313865fcc895e86`.
+It:
+- accepts Enable Banking RSA private keys as PEM, escaped PEM, base64 PKCS#8/PKCS#1 DER, or base64-encoded PEM;
+- validates that the parsed key is RSA before RS256 signing;
+- surfaces only safe provider HTTP/error codes to the connection page if Enable Banking rejects the request.
+
+Current Enable Banking docs still require RS256 JWT with application ID as `kid`, issuer `enablebanking.com`, audience `api.enablebanking.com`, and POST `/auth`; the existing request shape remains aligned with that API.
+
+Next step: retry from the newly deployed dev build. Do not change bank credentials or paste the private key into chat.
