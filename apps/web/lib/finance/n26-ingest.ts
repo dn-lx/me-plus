@@ -613,7 +613,7 @@ export async function syncN26Session(
           {
             dateFrom: utcDateDaysAgo(90),
             dateTo: new Date().toISOString().slice(0, 10),
-            continuationKey,
+            ...(continuationKey ? { continuationKey } : {}),
           },
         );
 

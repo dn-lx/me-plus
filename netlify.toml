@@ -1,12 +1,15 @@
 [build]
-  command = "corepack enable && pnpm install --no-frozen-lockfile && pnpm build:web"
+  command = "pnpm build:web"
   publish = "apps/web/.next"
 
 [build.environment]
-  NODE_VERSION = "22.13.0"
+  NODE_VERSION = "24"
   PNPM_VERSION = "12.6.0"
 
 [dev]
   command = "pnpm dev:web"
   targetPort = 3000
   port = 8888
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

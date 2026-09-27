@@ -44,7 +44,9 @@ function parseSensorReading(value: unknown): SensorReading {
     throw new Error(`Health reading ${value.externalId} must contain a finite numeric value`);
   }
 
-  if (value.unit !== metricUnits[metric]) {
+  const unit = metricUnits[metric];
+
+  if (value.unit !== unit) {
     throw new Error(`Health reading ${value.externalId} has an invalid unit for ${metric}`);
   }
 
@@ -78,7 +80,7 @@ function parseSensorReading(value: unknown): SensorReading {
     externalId: value.externalId,
     metric,
     value: value.value,
-    unit: value.unit,
+    unit,
     observedAt: value.observedAt,
     lastModifiedAt: value.lastModifiedAt,
     provenance: {

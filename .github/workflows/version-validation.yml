@@ -17,13 +17,13 @@ jobs:
     name: policy / version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
       - name: Validate version and release notes
         env:
           VERSION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
