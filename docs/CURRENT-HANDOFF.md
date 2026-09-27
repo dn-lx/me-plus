@@ -6,17 +6,26 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "netlify-dev-build",
+  "task_id": "n26-dev-callback-origin",
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": "dev",
-  "pr": 13,
-  "status": "prod_merged_waiting_netlify",
-  "last_verified_sha": "1bacb8cd826d6aa83fc879292a8588d126234e8e",
-  "next_step": "Netlify still reports the old production deploy after prod merge. Wait for or trigger the prod Netlify build, then verify the production homepage, privacy, terms and N26 callback. After that register the Enable Banking production application, then configure ENABLE_BANKING_APPLICATION_ID, ENABLE_BANKING_PRIVATE_KEY, ENABLE_BANKING_STATE_SECRET and SUPABASE_SECRET_KEY server-side.",
-  "updated_at": "2026-09-27T09:01:00Z"
+  "branch": "fix/n26-callback-stable-origin",
+  "pr": 15,
+  "status": "draft_pr_pending_runtime_verification",
+  "last_verified_sha": "82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860",
+  "next_step": "Review PR #15 and its checks, merge to dev when safe, wait for the Git-based Netlify dev branch deploy, then verify the N26 callback Location stays on the stable dev alias. Production deployment remains untouched. Only after this should the owner complete N26 authorization and inspect read-only sync rows.",
+  "updated_at": "2026-09-27T10:17:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
+
+## Live dev validation — 2026-09-27 10:17 UTC
+
+- Netlify branch-deploy alias: `https://dev--me-plus-personal-intelligence.netlify.app`. Ready deploy `6ab8ec3f4e08cca2a478eab6` from `dev` commit `82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860`, with one Next.js server handler.
+- Harmless smoke checks: `/`, `/privacy`, and `/terms` return 200; unauthenticated POST to N26 connect/sync returns 401; callback without code/state returns 307 with `invalid_callback`.
+- The callback's 307 Location currently uses the immutable deploy permalink, not the stable dev alias. PR #15 fixes the origin using server configuration. Verify after merge before live bank consent.
+- Netlify `ENABLE_BANKING_REDIRECT_URL` has a branch-deploy override of `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`; production retains its own callback. The owner added the dev URL to Enable Banking's allowed redirects.
+- Server keys and callback state secret are present for branch deploys and marked secret. Values are not in Git. Local Netlify CLI secret contexts are empty.
+- Production still points to old Netlify deploy `6ab8d3e80c341219b5881e92` without server functions. Do not deploy `prod` for this dev test. Dev and production Netlify contexts currently use the same Supabase project, so a real dev sync writes live finance data.
 
 ## Current state
 
