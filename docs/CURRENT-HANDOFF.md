@@ -6,15 +6,15 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "dev-ci-validation",
+  "task_id": "netlify-dev-build",
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": "fix/dev-ci-validation",
-  "pr": 7,
-  "status": "runner_blocked",
-  "last_verified_sha": "03de7e539ad0d6edd0e8544135ac7abcf6772b76",
-  "next_step": "Merge PR #7 to dev. GitHub Actions still fails before runner assignment with no steps/logs; resolve GitHub-hosted runner/account availability separately, then rerun validation before any future prod promotion.",
-  "updated_at": "2026-09-27T08:44:00Z"
+  "branch": "dev",
+  "pr": 9,
+  "status": "dependency_fix_merged",
+  "last_verified_sha": "24756b4a1426c46e7d95205b67677ae0323ac7bb",
+  "next_step": "Rerun the Netlify dev build. The Corepack bootstrap failure was fixed in PR #8 and the pnpm catalog protocol failure was fixed in PR #9. If dependency installation passes, fix the next actual build/typecheck error if one appears.",
+  "updated_at": "2026-09-27T09:01:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -132,3 +132,15 @@ Repository-side CI corrections:
 Verification after these fixes still shows every GitHub Actions job failing before a runner is assigned: job steps are null/empty and no logs are produced. This persists across security, runtime, version, and agent-stack workflows. Therefore the remaining red status is an external GitHub-hosted-runner/account/repository Actions availability issue, not a demonstrated workflow-step or application-test failure.
 
 Do not weaken or remove the validation jobs merely to make checks green. Merge the repository-side repair to `dev`, keep `prod` unchanged, and rerun when GitHub runner availability is restored.
+
+
+## Netlify dependency fixes — 2026-09-27
+
+Two dev-only fixes were merged after real Netlify build logs exposed dependency bootstrap issues:
+
+- PR #8 moved Netlify to Node 24, retained pnpm 12.6.0, and removed redundant Corepack/manual install commands from the Netlify build command.
+- PR #9 replaced invalid `workspace:catalog` dependency specifiers with pnpm's `catalog:` protocol in web/mobile/reasoning/ui package manifests.
+
+Current `dev` SHA: `24756b4a1426c46e7d95205b67677ae0323ac7bb`.
+
+Next validation: rerun the Netlify build from `dev`. Do not promote new fixes to `prod` until the dev build reaches the actual application compilation step and succeeds.
