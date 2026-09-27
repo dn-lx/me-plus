@@ -5,7 +5,7 @@ import { syncN26Session } from "../../../../../lib/finance/n26-ingest";
 import { verifyBankConnectionState } from "../../../../../lib/finance/state";
 
 function homeRedirect(request: Request, status: string, params: Record<string, string> = {}) {
-  const url = new URL("/", request.url);
+  const url = new URL("/", process.env.ENABLE_BANKING_REDIRECT_URL || request.url);
   url.searchParams.set("n26", status);
 
   for (const [key, value] of Object.entries(params)) {
