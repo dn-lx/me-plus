@@ -9,6 +9,7 @@ export default function ConnectN26Page() {
   const [supabase] = useState(() => createClient());
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -37,22 +38,19 @@ export default function ConnectN26Page() {
     };
   }, [supabase]);
 
-  async function sendSignInLink(event: FormEvent<HTMLFormElement>) {
+  async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          shouldCreateUser: false,
-        },
+        password,
       });
       if (error) throw error;
-      setMessage("Check your email for the Me+ sign-in link.");
+      setPassword("");
     } catch {
-      setMessage("Could not send the sign-in link. Check the email and try again.");
+      setMessage("Could not sign in. Check your email and password.");
     } finally {
       setBusy(false);
     }
@@ -97,8 +95,9 @@ export default function ConnectN26Page() {
 
   async function signOut() {
     setBusy(true);
-    await supabase.auth.signOut();
-    setSession(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) setMessage("Could not sign out. Please try again.");
+    else setSession(null);
     setBusy(false);
   }
 
@@ -129,8 +128,8 @@ export default function ConnectN26Page() {
         ) : (
           <>
             <h2>Sign in to Me+</h2>
-            <p>Use the email already registered with your Me+ account.</p>
-            <form onSubmit={sendSignInLink} className="connectionForm">
+            <p>Use your existing Me+ account to connect N26.</p>
+            <form onSubmit={signIn} className="connectionForm">
               <label htmlFor="email">Email address</label>
               <input
                 id="email"
@@ -140,8 +139,17 @@ export default function ConnectN26Page() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
               <button type="submit" disabled={busy}>
-                {busy ? "Sending…" : "Email me a sign-in link"}
+                {busy ? "Signing in…" : "Sign in"}
               </button>
             </form>
           </>
