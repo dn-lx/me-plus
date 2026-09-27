@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-27
+
+### Added
+- Initial runnable Me+ web and mobile runtime scaffold with shared contracts and Supabase client/server boundaries.
+- Read-only N26 Open Banking integration through Enable Banking, including connection, callback, synchronization, provenance, consent, account and transaction ingestion.
+- Public Me+ privacy and terms pages for the personal read-only banking integration.
+- Netlify deployment configuration with explicit Next.js runtime support.
+
+### Fixed
+- Netlify pnpm bootstrap compatibility by moving builds to Node 24 and using Netlify-managed dependency installation.
+- pnpm workspace catalog dependency specifiers so monorepo dependencies resolve correctly.
+- TypeScript build errors in N26 pagination options and health-ingestion unit narrowing.
+- Netlify branch deployments returning 404 by enabling the Next.js runtime adapter.
+
 ## [0.1.2] - 2026-09-26
 
 ### Fixed
