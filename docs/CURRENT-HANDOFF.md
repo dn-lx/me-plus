@@ -10,10 +10,10 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "dev",
-  "pr": 10,
-  "status": "typescript_fix_merged",
-  "last_verified_sha": "eef64a2bdc02dff5a1ef6431318f21fcb0b1c8b3",
-  "next_step": "Rerun the Netlify dev build. Dependency installation and Next.js compilation pass; PR #10 fixed the two reported TypeScript errors. Fix any further errors on dev before promoting to prod.",
+  "pr": 11,
+  "status": "netlify_runtime_fix_merged",
+  "last_verified_sha": "f7fd33e1f6a11ca8573fe0790178bb63bc7af148",
+  "next_step": "Wait for the Netlify dev branch deploy from PR #11, then verify /, /privacy, /terms, and the N26 callback. The Next.js runtime adapter is now explicitly installed because Netlify had detected 0 frameworks and was serving raw .next output as static files.",
   "updated_at": "2026-09-27T09:01:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
