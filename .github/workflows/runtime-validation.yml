@@ -1,0 +1,63 @@
+name: Runtime validation
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [feature/runtime-scaffold]
+
+permissions:
+  contents: write
+
+jobs:
+  validate-runtime:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      EXPO_NO_TELEMETRY: 1
+      NEXT_TELEMETRY_DISABLED: 1
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Set up pnpm and Node
+        uses: pnpm/setup@v1
+        with:
+          version: 12.6.0
+          runtime: node@22
+
+      - name: Resolve lockfile
+        run: pnpm install --lockfile-only
+
+      - name: Commit generated lockfile
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if git diff --quiet -- pnpm-lock.yaml; then
+            echo "pnpm-lock.yaml is already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          git commit -m "chore: refresh pnpm lockfile"
+          git push
+
+      - name: Install dependencies from lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check workspace
+        run: pnpm typecheck
+
+      - name: Build web app
+        run: pnpm build:web
+
+      - name: Bundle mobile app
+        run: pnpm --filter @me-plus/mobile exec expo export --platform web --output-dir dist-ci

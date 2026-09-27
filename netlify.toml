@@ -1,0 +1,12 @@
+[build]
+  command = "corepack enable && pnpm install --no-frozen-lockfile && pnpm build:web"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22.13.0"
+  PNPM_VERSION = "12.6.0"
+
+[dev]
+  command = "pnpm dev:web"
+  targetPort = 3000
+  port = 8888
