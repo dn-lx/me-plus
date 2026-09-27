@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createPrivateKey, createSign, type KeyObject } from "node:crypto";
 
 const ENABLE_BANKING_API_URL = "https://api.enablebanking.com";
 
@@ -88,12 +88,57 @@ interface EnableBankingTransactionsResponse {
   continuation_key?: string;
 }
 
+export class EnableBankingApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly providerError: string | null,
+    readonly requestId: string | null,
+  ) {
+    super(
+      `Enable Banking request failed (${status})${providerError ? ` ${providerError}` : ""}${requestId ? ` [${requestId}]` : ""}`,
+    );
+    this.name = "EnableBankingApiError";
+  }
+}
+
 function base64Url(value: string | Buffer): string {
   return Buffer.from(value)
     .toString("base64")
     .replace(/=/g, "")
     .replace(/\+/g, "-")
     .replace(/\//g, "_");
+}
+
+function parsePrivateKey(rawPrivateKey: string): KeyObject {
+  const normalized = rawPrivateKey.replace(/\\n/g, "\n").trim();
+
+  const candidates: Array<() => KeyObject> = [
+    () => createPrivateKey(normalized),
+  ];
+
+  const compactBase64 = normalized.replace(/\s+/g, "");
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(compactBase64)) {
+    const decoded = Buffer.from(compactBase64, "base64");
+    candidates.push(
+      () => createPrivateKey({ key: decoded, format: "der", type: "pkcs8" }),
+      () => createPrivateKey({ key: decoded, format: "der", type: "pkcs1" }),
+      () => createPrivateKey(decoded.toString("utf8")),
+    );
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const key = candidate();
+      if (key.asymmetricKeyType !== "rsa") {
+        continue;
+      }
+      return key;
+    } catch {
+      // Try the next supported representation.
+    }
+  }
+
+  throw new Error("ENABLE_BANKING_PRIVATE_KEY is not a valid RSA private key");
 }
 
 function getConfig() {
@@ -109,7 +154,7 @@ function getConfig() {
 
   return {
     applicationId,
-    privateKey: rawPrivateKey.replace(/\\n/g, "\n"),
+    privateKey: parsePrivateKey(rawPrivateKey),
     redirectUrl,
   };
 }
@@ -162,9 +207,23 @@ async function enableBankingRequest<T>(
 
   if (!response.ok) {
     const requestId = response.headers.get("x-request-id");
-    throw new Error(
-      `Enable Banking request failed (${response.status})${requestId ? ` [${requestId}]` : ""}`,
-    );
+    let providerError: string | null = null;
+
+    try {
+      const body: unknown = await response.json();
+      if (
+        body &&
+        typeof body === "object" &&
+        "error" in body &&
+        typeof body.error === "string"
+      ) {
+        providerError = body.error;
+      }
+    } catch {
+      // Keep the response diagnostic intentionally minimal.
+    }
+
+    throw new EnableBankingApiError(response.status, providerError, requestId);
   }
 
   return (await response.json()) as T;
