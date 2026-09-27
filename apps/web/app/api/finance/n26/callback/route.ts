@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { authorizeEnableBankingSession } from "../../../../../lib/finance/enable-banking";
 import { syncN26Session } from "../../../../../lib/finance/n26-ingest";
@@ -33,12 +33,16 @@ export async function GET(request: Request) {
   try {
     const connectionState = verifyBankConnectionState(state);
     const session = await authorizeEnableBankingSession(code);
-    const result = await syncN26Session(connectionState.userId, session);
 
-    return homeRedirect(request, "connected", {
-      accounts: String(result.accountsSeen),
-      transactions: String(result.transactionsSeen),
+    after(async () => {
+      try {
+        await syncN26Session(connectionState.userId, session);
+      } catch (error) {
+        console.error("N26 initial background sync failed", error);
+      }
     });
+
+    return homeRedirect(request, "connected", { sync: "started" });
   } catch (error) {
     console.error("N26 connection callback failed", error);
     return homeRedirect(request, "error", { reason: "connection_failed" });
