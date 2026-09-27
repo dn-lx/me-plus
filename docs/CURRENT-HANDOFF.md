@@ -6,15 +6,15 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "n26-open-banking",
+  "task_id": "dev-ci-validation",
   "repository": "dn-lx/me-plus",
-  "base": "feature/runtime-scaffold",
-  "branch": "feature/n26-open-banking",
-  "pr": 5,
-  "status": "active_unverified",
-  "last_verified_sha": "8d1c4f5bdeece401250ab936442cd319ae9eb148",
-  "next_step": "In Netlify, change the production branch from prod to feature/n26-open-banking and redeploy. Then verify /, /privacy, /terms and /api/finance/n26/callback before finishing Enable Banking registration.",
-  "updated_at": "2026-09-27T07:30:00Z"
+  "base": "dev",
+  "branch": "fix/dev-ci-validation",
+  "pr": 7,
+  "status": "runner_blocked",
+  "last_verified_sha": "03de7e539ad0d6edd0e8544135ac7abcf6772b76",
+  "next_step": "Merge PR #7 to dev. GitHub Actions still fails before runner assignment with no steps/logs; resolve GitHub-hosted runner/account availability separately, then rerun validation before any future prod promotion.",
+  "updated_at": "2026-09-27T08:44:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -116,3 +116,19 @@ Required user-side Netlify setting:
 - trigger a new deploy
 
 Do not merge or modify the GitHub `prod` branch for this fix.
+
+
+## Dev CI repair — 2026-09-27
+
+A focused fix branch `fix/dev-ci-validation` and PR #7 were created from `dev`.
+
+Repository-side CI corrections:
+- stable `actions/checkout@v4`, `actions/setup-node@v4`, and `actions/setup-python@v5`
+- corrected pnpm action to `pnpm/action-setup@v4`
+- dependency audit now understands the pnpm workspace instead of requiring an npm lockfile
+- runtime validation no longer tries to commit/push a generated lockfile from CI
+- runtime validation uses read-only permissions and validates PRs/pushes for `dev`
+
+Verification after these fixes still shows every GitHub Actions job failing before a runner is assigned: job steps are null/empty and no logs are produced. This persists across security, runtime, version, and agent-stack workflows. Therefore the remaining red status is an external GitHub-hosted-runner/account/repository Actions availability issue, not a demonstrated workflow-step or application-test failure.
+
+Do not weaken or remove the validation jobs merely to make checks green. Merge the repository-side repair to `dev`, keep `prod` unchanged, and rerun when GitHub runner availability is restored.
