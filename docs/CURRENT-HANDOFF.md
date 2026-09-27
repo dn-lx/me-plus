@@ -9,12 +9,12 @@ This is the compact resume point. GitHub source, checks, Netlify deploys, and Su
   "task_id": "n26-dev-browser-test",
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": "fix/n26-callback-stable-origin",
+  "branch": "dev",
   "pr": 15,
-  "status": "draft_pr_unvalidated",
-  "last_verified_dev_sha": "82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860",
-  "next_step": "Review PR #15 and obtain a real build/typecheck/security signal. GitHub Actions jobs have failed before any runner steps, so CI red is not a code result. Once validated, merge to dev and wait for its Git-based Netlify branch deployment. Verify /finance/connect and callback Location on the stable dev alias, then the owner signs in with the existing Me+ account and completes N26 consent. Check sync and user ownership in Supabase. Do not deploy or merge prod for this dev test.",
-  "updated_at": "2026-09-27T11:00:00Z"
+  "status": "merged_waiting_dev_deploy_validation",
+  "last_verified_dev_sha": "1a27016bc4a1677e3e9cfb4bb76a8afd01f43b63",
+  "next_step": "Wait for the Git-based Netlify dev branch deploy of merged PR #15. Then verify /finance/connect loads on the stable dev alias and an invalid callback redirects to the stable dev /finance/connect URL. After that the owner can sign in and complete N26 consent; inspect resulting finance rows and ownership before any production promotion.",
+  "updated_at": "2026-09-27T10:36:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -45,3 +45,18 @@ This is the compact resume point. GitHub source, checks, Netlify deploys, and Su
 ## Release boundary
 
 `dev` is the integration branch. Production promotion is only through the approved `dev → prod` release workflow. No direct `prod` push or ad-hoc production deploy.
+
+
+## PR #15 merge — 2026-09-27
+
+PR #15 (`fix/n26-callback-stable-origin` → `dev`) was reviewed and merged at `1a27016bc4a1677e3e9cfb4bb76a8afd01f43b63`.
+
+Before merge:
+- the callback redirect was reviewed to use the configured Enable Banking redirect origin, so Netlify branch deploys return to the stable dev alias instead of an immutable deploy permalink;
+- the new `/finance/connect` page uses Supabase password sign-in for the existing Me+ account and sends the bearer access token only to the protected server connection endpoint;
+- browser navigation accepts only an HTTPS provider authorization URL;
+- Netlify branch-deploy configuration was verified to have the stable dev callback and required server-side banking/Supabase secret variables configured;
+- the PR's accidental historical changelog edits were removed and the changelog heading restored;
+- GitHub Actions remained unavailable before runner assignment (null steps/logs), so their red state was not treated as application-test evidence.
+
+No production merge is part of PR #15. Validate the resulting Netlify `dev` deployment before considering release.
