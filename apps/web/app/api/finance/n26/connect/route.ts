@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { startN26Authorization } from "../../../../../lib/finance/enable-banking";
+import { EnableBankingApiError, startN26Authorization } from "../../../../../lib/finance/enable-banking";
 import { createBankConnectionState } from "../../../../../lib/finance/state";
 import { createAdminClient } from "../../../../../lib/supabase/admin";
 
@@ -41,8 +41,37 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("N26 connection start failed", error);
+
+    if (error instanceof EnableBankingApiError) {
+      return NextResponse.json(
+        {
+          error: "n26_connection_start_failed",
+          reason: "provider_rejected_request",
+          providerStatus: error.status,
+          providerError: error.providerError,
+        },
+        { status: 502 },
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      error.message.includes("ENABLE_BANKING_PRIVATE_KEY")
+    ) {
+      return NextResponse.json(
+        {
+          error: "n26_connection_start_failed",
+          reason: "invalid_private_key",
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
-      { error: "n26_connection_start_failed" },
+      {
+        error: "n26_connection_start_failed",
+        reason: "server_error",
+      },
       { status: 500 },
     );
   }
