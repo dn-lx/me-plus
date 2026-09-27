@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added
