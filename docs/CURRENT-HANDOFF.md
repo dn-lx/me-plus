@@ -10,10 +10,10 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "dev",
-  "pr": 11,
-  "status": "netlify_runtime_fix_merged",
-  "last_verified_sha": "f7fd33e1f6a11ca8573fe0790178bb63bc7af148",
-  "next_step": "Wait for the Netlify dev branch deploy from PR #11, then verify /, /privacy, /terms, and the N26 callback. The Next.js runtime adapter is now explicitly installed because Netlify had detected 0 frameworks and was serving raw .next output as static files.",
+  "pr": 13,
+  "status": "prod_merged_waiting_netlify",
+  "last_verified_sha": "1bacb8cd826d6aa83fc879292a8588d126234e8e",
+  "next_step": "Netlify still reports the old production deploy after prod merge. Wait for or trigger the prod Netlify build, then verify the production homepage, privacy, terms and N26 callback. After that register the Enable Banking production application, then configure ENABLE_BANKING_APPLICATION_ID, ENABLE_BANKING_PRIVATE_KEY, ENABLE_BANKING_STATE_SECRET and SUPABASE_SECRET_KEY server-side.",
   "updated_at": "2026-09-27T09:01:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -144,3 +144,24 @@ Two dev-only fixes were merged after real Netlify build logs exposed dependency 
 Current `dev` SHA: `24756b4a1426c46e7d95205b67677ae0323ac7bb`.
 
 Next validation: rerun the Netlify build from `dev`. Do not promote new fixes to `prod` until the dev build reaches the actual application compilation step and succeeds.
+
+
+## Production promotion — 2026-09-27
+
+Me+ release `0.2.0` was prepared on `dev` and promoted through PR #13 (`dev` → `prod`) with the required `production-approved` label. The resulting `prod` commit is `1bacb8cd826d6aa83fc879292a8588d126234e8e`.
+
+Enable Banking creation prerequisites in source are present:
+- production callback route at `/api/finance/n26/callback`
+- public Privacy page at `/privacy`
+- public Terms page at `/terms`
+- permanent callback configured as `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
+
+Current Netlify configuration already includes the public Supabase URL/key, the permanent Enable Banking redirect URL, and fixture ingestion disabled. Server-only credentials are intentionally not present yet.
+
+Still required after Enable Banking application registration:
+- `ENABLE_BANKING_APPLICATION_ID`
+- `ENABLE_BANKING_PRIVATE_KEY`
+- `ENABLE_BANKING_STATE_SECRET`
+- `SUPABASE_SECRET_KEY`
+
+At the time of this checkpoint, the Netlify project API still reports the old production deployment, so do not claim the primary production site has updated until a new prod deploy is observed.
