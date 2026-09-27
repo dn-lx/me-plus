@@ -32,8 +32,12 @@ Never commit the private key.
 2. Me+ creates a signed, short-lived callback state and starts N26 authorization through Enable Banking.
 3. The client redirects the user to the returned `authorizationUrl`.
 4. N26/Enable Banking redirects to `/api/finance/n26/callback`.
-5. Me+ verifies the signed state, exchanges the code for an authorized session, and performs the initial read-only sync.
-6. Later syncs call `POST /api/finance/n26/sync`.
+5. Me+ verifies the signed state and exchanges the code for an authorized Enable Banking session.
+6. The callback schedules the initial read-only sync with Next.js `after()` and redirects the browser immediately with `n26=connected&sync=started`. The long-running transaction import must not block the OAuth callback response.
+7. The background sync writes account, balance, transaction, consent and provenance state into Supabase. Failures are logged server-side and sync-run state remains the operational source of truth.
+8. Later manual syncs call `POST /api/finance/n26/sync`.
+
+Netlify supports Next.js asynchronous work with `next/after`. The work remains subject to the hosting function execution limit, so if initial history grows beyond that boundary the ingestion should move to a dedicated Netlify Background Function or other durable async worker.
 
 ## Stored data
 
@@ -50,9 +54,10 @@ The first sync requests the most recent 90 days and is idempotent by provider ac
 
 ## Current validation boundary
 
-This branch provides the server integration scaffold. A live N26 connection still requires:
+A live N26 connection requires:
 - Enable Banking application credentials in the server secret store
 - explicit user authorization at N26
 - runtime/typecheck/build verification
+- deployed callback verification that the browser returns immediately while the initial sync completes independently
 
-Do not treat the connection as live until those steps pass.
+Do not treat a new callback implementation as validated until those steps pass.
