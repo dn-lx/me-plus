@@ -155,3 +155,79 @@ h1 {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.connectionCard {
+  max-width: 680px;
+  min-height: 0;
+}
+
+.connectionCard h2 {
+  margin-bottom: 12px;
+}
+
+.connectionCard p {
+  color: #c5ced9;
+  line-height: 1.6;
+}
+
+.connectionForm {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  margin-top: 24px;
+}
+
+.connectionForm label {
+  font-weight: 600;
+}
+
+.connectionForm input {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #60738a;
+  border-radius: 10px;
+  background: #0b0f14;
+  color: #f5f7fa;
+  font: inherit;
+}
+
+.connectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.connectionCard button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid #9db7d5;
+  border-radius: 10px;
+  background: #d9e8f8;
+  color: #0b0f14;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.connectionCard button.secondaryButton {
+  background: transparent;
+  color: #d9e8f8;
+}
+
+.connectionCard button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.connectionCard button:focus-visible,
+.connectionForm input:focus-visible,
+.siteFooter a:focus-visible {
+  outline: 3px solid #9db7d5;
+  outline-offset: 3px;
+}
+
+.connectionCard .connectionMessage {
+  margin-top: 24px;
+  margin-bottom: 0;
+}
