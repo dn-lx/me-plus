@@ -13,7 +13,7 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "pr": 5,
   "status": "active_unverified",
   "last_verified_sha": "4317574d9f8794302c3bd273cbe4285359aa354a",
-  "next_step": "Create Enable Banking restricted-production app credentials, run typecheck/build, then perform explicit N26 consent and verify the first read-only sync.",
+  "next_step": "Register Enable Banking production app with redirect https://me-plus-4dm5.netlify.app/api/finance/n26/callback, configure server secrets, deploy/validate the Me+ web runtime, then perform explicit N26 consent and verify the first read-only sync.",
   "updated_at": "2026-09-27T07:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -72,3 +72,14 @@ The dependency chain is currently:
 `feature/n26-open-banking` → `feature/runtime-scaffold` → `dev` → `prod`
 
 Production promotion remains explicit human approval only.
+
+
+## Netlify callback
+
+A Netlify project was created for Me+ on 2026-09-27. The requested name `me-plus` was unavailable, so Netlify assigned `me-plus-4dm5`.
+
+Use this permanent callback URL for Enable Banking:
+
+`https://me-plus-4dm5.netlify.app/api/finance/n26/callback`
+
+The Netlify project exists but the Me+ runtime has not yet been deployed/validated there. Do not treat the callback as live until deployment and server-secret configuration are complete.
