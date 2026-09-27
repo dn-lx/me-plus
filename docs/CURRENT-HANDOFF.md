@@ -2,81 +2,77 @@
 
 **Last updated:** 2026-09-27
 
-This is the compact resume point. GitHub source, checks, Netlify deploys, and Supabase runtime evidence take precedence over stale notes.
+This file is the compact implementation resume point. Canonical product/system behavior lives in the Me+ Google Drive specifications; Supabase is the source of truth for live user/integration state. Git history preserves older implementation detail.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "n26-dev-browser-test",
+  "task_id": "source-sync-framework",
   "repository": "dn-lx/me-plus",
-  "base": "dev",
   "branch": "dev",
-  "pr": 16,
-  "status": "auth_start_fix_merged_waiting_retry",
-  "last_verified_dev_sha": "16915bd59cdb1d35ad331b07b313865fcc895e86",
-  "next_step": "Wait for the Netlify dev branch deploy of PR #16, then retry Continue to N26. Supabase logs already proved password sign-in and server-side auth.getUser succeed; the remaining failure was after user validation. PR #16 adds robust Enable Banking private-key parsing and safe provider error diagnostics. If the provider still rejects the request, use the displayed HTTP/error code to correct application/redirect/activation configuration.",
-  "updated_at": "2026-09-27T17:45:00Z"
+  "status": "n26_live_sync_automation_on_dev_pending_release_validation",
+  "last_verified_dev_sha": "bad09d3c9a80cb3afadb18cd82eeb5b1c86cf3b2",
+  "next_step": "Validate the non-blocking N26 callback on the dev deployment. When ready, promote dev through the approved dev-to-prod release flow; Netlify Scheduled Functions run only on published production deploys. After the first production scheduled run, verify source_sync_runs and data_sources.last_sync_at update without user interaction.",
+  "updated_at": "2026-09-27T18:25:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Observed dev deployment
+## Current N26 runtime state
 
-- Site: `me-plus-personal-intelligence`, Netlify site ID `74bc65d4-edd9-47bc-82e5-fa82759ed7e2`.
-- Stable dev alias: `https://dev--me-plus-personal-intelligence.netlify.app`.
-- Last verified ready dev deploy: `6ab8ec3f4e08cca2a478eab6`, commit `82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860`. This predates PR #15.
-- On that deploy, `/`, `/privacy`, `/terms` returned 200. Anonymous POST to `/api/finance/n26/connect` and `/api/finance/n26/sync` returned 401. Callback with missing code/state returned 307, but its Location was an immutable deploy permalink. PR #15 changes the redirect origin to the configured branch alias and adds a browser sign-in/connection entrypoint.
-- PR #15 is draft. It uses Supabase password sign-in for the existing email account, passes the access token to the protected connection endpoint, and sends the browser to the Enable Banking authorization URL. No email template, Auth redirect allowlist, or database schema change is required for this path. The page and callback are not deployed or tested yet.
-- GitHub Actions jobs for this repository have failed before runner steps (null steps/logs). Do not interpret the red checks as a TypeScript or application test result. Obtain a real build signal and inspect the final diff before merging. No PR deploy preview was available at last check.
+- N26 is connected through Enable Banking in read-only AISP mode.
+- Supabase currently reports the N26 data source as active.
+- The latest verified successful N26 sync completed on 2026-09-27 and imported normalized account/transaction data.
+- The stored provider consent/session is reusable; ordinary refreshes do not require the user to authorize N26 again. Reauthorization is needed only when consent/session validity or provider policy requires it.
+- The first live OAuth callback completed its server-side sync but the browser received a Netlify 504 because the callback waited for the full import. The imported data was not lost.
 
-## External configuration and data boundary
+## Current dev implementation
 
-- Enable Banking application is active in restricted production for N26. Its application ID, private key, and the Supabase secret key/state secret are configured in Netlify branch-deploy context. Never copy their values to Git or browser code.
-- Netlify `ENABLE_BANKING_REDIRECT_URL` for branch deploy points to `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`. Production retains `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`. Confirm both URLs are individually allowed in Enable Banking; saved registration has not been independently inspected.
-- Both Netlify contexts currently use Supabase project `wbqnctrvxohxwiaignhg`. A real dev bank consent/sync writes live finance data. No live N26 authorization or sync has been performed in this task.
-- Supabase already has the finance tables required for this slice; no schema migration was applied here. One existing email identity has password sign-in available. The owner must enter credentials in the app themselves.
-- Production Netlify still reports old deploy `6ab8d3e80c341219b5881e92`, without current server functions. No production deployment or promotion is part of this dev test.
+### OAuth callback
+- `/api/finance/n26/callback` verifies signed state and exchanges the authorization code for an Enable Banking session.
+- The callback now schedules the initial sync with Next.js `after()` and redirects the browser immediately with `n26=connected&sync=started`.
+- The connection page explains that the first read-only sync continues in the background.
 
-## Verification after deployment
+### Recurring refresh
+- A lightweight Netlify Scheduled Function is configured for one refresh per day at `05:00 UTC`.
+- The scheduled function invokes a protected Netlify Background Function for the long-running bank sync.
+- The scheduler-to-worker call uses a server-only `N26_SYNC_SCHEDULER_SECRET`.
+- Recoverable failures remain eligible for later daily retries; a successful sync restores normal source state.
+- On-demand authenticated sync remains available through `POST /api/finance/n26/sync`.
 
-1. Check `/finance/connect` loads from the stable dev alias and sign-in succeeds with the existing account.
-2. Check an invalid N26 callback redirects to `https://dev--me-plus-personal-intelligence.netlify.app/finance/connect?n26=error&reason=invalid_callback`, without an immutable deploy host.
-3. Owner selects **Continue to N26**, completes provider consent in their browser, and returns to dev. Do not collect bank credentials or the Me+ password in chat.
-4. Confirm the read-only sync result and inspect `data_sources`, `consents`, `source_sync_runs`, `financial_accounts`, `financial_transactions`, and RLS/user ownership. Compare balances/transactions with N26 in the owner's session before claiming completion.
+### Source-health behavior
+- Supabase `data_sources` is the current source-state record.
+- `source_sync_runs` preserves each sync attempt and its outcome.
+- Healthy connections should stay quiet.
+- User attention is required only for conditions such as lost/expired authorization, persistent sync failure, or data becoming stale beyond the source-specific freshness policy.
+
+## General source-sync architecture
+
+N26 is the first working example of a reusable Me+ integration pattern:
+
+1. Connect/authorize a source.
+2. Store current connection/sync state in Supabase.
+3. Refresh automatically using the source-specific cadence or event model.
+4. Preserve raw/normalized provenance and historical sync attempts.
+5. Retry recoverable failures automatically where safe.
+6. Detect staleness using a source-specific freshness threshold.
+7. Notify the user only when action is actually required.
+
+Do not impose one refresh interval on every provider. Calendar/tasks, health/wearables, banking and future sources should each define their own cadence, retry, reauthorization and notification rules while reusing the same lifecycle.
+
+## Validation still required
+
+1. Verify the new dev callback returns promptly after N26 authorization and does not reproduce the 504.
+2. Confirm the background initial sync completes and `source_sync_runs` records the outcome.
+3. Before production release, obtain a trustworthy build/typecheck signal; previous GitHub Actions runs have sometimes failed before runner steps and should not be treated as application-test evidence by themselves.
+4. Promote through the approved `dev → prod` release flow only.
+5. After production promotion, verify the daily scheduled trigger invokes the background worker and updates `last_sync_at` without user interaction.
+6. Confirm connection-health notification remains silent while the source is healthy and alerts only when attention is required.
 
 ## Release boundary
 
-`dev` is the integration branch. Production promotion is only through the approved `dev → prod` release workflow. No direct `prod` push or ad-hoc production deploy.
+`dev` is the integration branch. Production changes are promoted only through the approved `dev → prod` release workflow. Do not push directly to `prod` or perform ad-hoc production deployment.
 
+## Security reminders
 
-## PR #15 merge — 2026-09-27
-
-PR #15 (`fix/n26-callback-stable-origin` → `dev`) was reviewed and merged at `1a27016bc4a1677e3e9cfb4bb76a8afd01f43b63`.
-
-Before merge:
-- the callback redirect was reviewed to use the configured Enable Banking redirect origin, so Netlify branch deploys return to the stable dev alias instead of an immutable deploy permalink;
-- the new `/finance/connect` page uses Supabase password sign-in for the existing Me+ account and sends the bearer access token only to the protected server connection endpoint;
-- browser navigation accepts only an HTTPS provider authorization URL;
-- Netlify branch-deploy configuration was verified to have the stable dev callback and required server-side banking/Supabase secret variables configured;
-- the PR's accidental historical changelog edits were removed and the changelog heading restored;
-- GitHub Actions remained unavailable before runner assignment (null steps/logs), so their red state was not treated as application-test evidence.
-
-No production merge is part of PR #15. Validate the resulting Netlify `dev` deployment before considering release.
-
-
-## N26 authorization-start failure — 2026-09-27
-
-The owner successfully signed into Me+ on the stable dev alias, but **Continue to N26** returned the generic start failure.
-
-Runtime evidence:
-- Supabase password login returned 200 for the existing Me+ user.
-- The subsequent server-side Supabase `GET /auth/v1/user` also returned 200, proving the bearer token reached the server and was accepted.
-- No N26 `data_sources`, accounts, transactions, or sync runs existed afterward, so the failure occurred before provider consent/session creation.
-
-PR #16 was merged to `dev` at `16915bd59cdb1d35ad331b07b313865fcc895e86`.
-It:
-- accepts Enable Banking RSA private keys as PEM, escaped PEM, base64 PKCS#8/PKCS#1 DER, or base64-encoded PEM;
-- validates that the parsed key is RSA before RS256 signing;
-- surfaces only safe provider HTTP/error codes to the connection page if Enable Banking rejects the request.
-
-Current Enable Banking docs still require RS256 JWT with application ID as `kid`, issuer `enablebanking.com`, audience `api.enablebanking.com`, and POST `/auth`; the existing request shape remains aligned with that API.
-
-Next step: retry from the newly deployed dev build. Do not change bank credentials or paste the private key into chat.
+- Never put bank credentials, private keys, Supabase secret keys or provider tokens in Git, client-side code, logs, chat or ordinary application tables.
+- N26 authentication happens in the provider flow; Me+ stores only the provider/session identifiers required for authorized read-only access.
+- Sensitive integration operations remain server-side.
