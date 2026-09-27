@@ -33,6 +33,11 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <footer className="siteFooter">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </footer>
     </main>
   );
 }
