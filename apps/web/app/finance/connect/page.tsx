@@ -70,9 +70,37 @@ export default function ConnectN26Page() {
         method: "POST",
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       });
-      if (!response.ok) throw new Error("Connection start failed");
 
       const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        if (payload && typeof payload === "object" && "reason" in payload) {
+          const reason = payload.reason;
+          if (reason === "invalid_private_key") {
+            setMessage("The Enable Banking private key configuration is invalid.");
+            return;
+          }
+
+          if (reason === "provider_rejected_request") {
+            const status =
+              "providerStatus" in payload && typeof payload.providerStatus === "number"
+                ? payload.providerStatus
+                : null;
+            const code =
+              "providerError" in payload && typeof payload.providerError === "string"
+                ? payload.providerError
+                : null;
+            setMessage(
+              `Enable Banking rejected the authorization request${status ? ` (HTTP ${status}` : ""}${code ? `: ${code}` : ""}${status ? ")" : ""}.`,
+            );
+            return;
+          }
+        }
+
+        setMessage("Could not start N26 authorization. Please try again.");
+        return;
+      }
+
       if (
         !payload ||
         typeof payload !== "object" ||
