@@ -13,7 +13,7 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "pr": 5,
   "status": "active_unverified",
   "last_verified_sha": "4317574d9f8794302c3bd273cbe4285359aa354a",
-  "next_step": "Register Enable Banking production app with redirect https://me-plus-4dm5.netlify.app/api/finance/n26/callback, configure server secrets, deploy/validate the Me+ web runtime, then perform explicit N26 consent and verify the first read-only sync.",
+  "next_step": "Register Enable Banking production app with redirect https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback, configure server secrets, deploy/validate the Me+ web runtime, then perform explicit N26 consent and verify the first read-only sync.",
   "updated_at": "2026-09-27T07:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -76,10 +76,12 @@ Production promotion remains explicit human approval only.
 
 ## Netlify callback
 
-A Netlify project was created for Me+ on 2026-09-27. The requested name `me-plus` was unavailable, so Netlify assigned `me-plus-4dm5`.
+A Netlify project was created for Me+ on 2026-09-27. The requested name `me-plus` was unavailable, so Netlify assigned `me-plus-personal-intelligence`.
 
 Use this permanent callback URL for Enable Banking:
 
-`https://me-plus-4dm5.netlify.app/api/finance/n26/callback`
+`https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
 
 The Netlify project exists but the Me+ runtime has not yet been deployed/validated there. Do not treat the callback as live until deployment and server-secret configuration are complete.
+
+The Netlify project was renamed to `me-plus-personal-intelligence` for a stable, descriptive project/site name.
