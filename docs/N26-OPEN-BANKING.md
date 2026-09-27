@@ -35,7 +35,11 @@ Never commit the private key.
 5. Me+ verifies the signed state and exchanges the code for an authorized Enable Banking session.
 6. The callback schedules the initial read-only sync with Next.js `after()` and redirects the browser immediately with `n26=connected&sync=started`. The long-running transaction import must not block the OAuth callback response.
 7. The background sync writes account, balance, transaction, consent and provenance state into Supabase. Failures are logged server-side and sync-run state remains the operational source of truth.
-8. Later manual syncs call `POST /api/finance/n26/sync`.
+8. A Netlify scheduled function starts one N26 refresh per day at `05:00 UTC` (approximately 06:00 CET / 07:00 CEST) and hands the long-running work to a Netlify Background Function.
+9. If a scheduled refresh cannot use the stored Enable Banking session, the source is marked `error`; Me+ connection-health monitoring can then notify the user that reauthorization or attention is required.
+10. Later manual syncs can still call `POST /api/finance/n26/sync` for an on-demand refresh.
+
+The scheduled trigger is deliberately lightweight because Netlify Scheduled Functions have a shorter execution limit; the actual bank ingestion runs in a Background Function. The scheduler-to-worker call is authenticated with `N26_SYNC_SCHEDULER_SECRET` stored only in the server environment.
 
 Netlify supports Next.js asynchronous work with `next/after`. The work remains subject to the hosting function execution limit, so if initial history grows beyond that boundary the ingestion should move to a dedicated Netlify Background Function or other durable async worker.
 
