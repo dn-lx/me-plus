@@ -17,7 +17,7 @@ export default async function handler(request: Request) {
   const admin = createAdminClient();
   const { data: sources, error } = await admin
     .from("data_sources")
-    .select("id,user_id,external_account_ref")
+    .select("id,user_id,external_account_ref,metadata")
     .eq("provider", "enable-banking")
     .eq("display_name", "N26")
     .eq("status", "active");
@@ -41,6 +41,7 @@ export default async function handler(request: Request) {
         .update({
           status: "error",
           metadata: {
+            ...(source.metadata && typeof source.metadata === "object" ? source.metadata : {}),
             dailySyncFailure: {
               occurredAt: new Date().toISOString(),
               errorCode: message.slice(0, 200),
