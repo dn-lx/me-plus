@@ -27,8 +27,15 @@ export default function ConnectN26Page() {
       else setSession(data.session);
     });
 
-    const result = new URLSearchParams(window.location.search).get("n26");
-    if (result === "connected") setMessage("N26 connected. The read-only sync completed.");
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("n26");
+    const syncState = params.get("sync");
+
+    if (result === "connected" && syncState === "started") {
+      setMessage("N26 connected. The initial read-only sync is running in the background and may take about a minute.");
+    } else if (result === "connected") {
+      setMessage("N26 connected.");
+    }
     if (result === "cancelled") setMessage("N26 authorization was cancelled.");
     if (result === "error") setMessage("N26 connection did not complete. Please try again.");
 
