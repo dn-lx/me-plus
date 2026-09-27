@@ -1,0 +1,19 @@
+{
+  "name": "me-plus",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @me-plus/web dev",
+    "dev:mobile": "pnpm --filter @me-plus/mobile start",
+    "build:web": "pnpm --filter @me-plus/web build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "check": "pnpm typecheck"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

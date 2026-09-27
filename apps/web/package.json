@@ -1,0 +1,28 @@
+{
+  "name": "@me-plus/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@me-plus/contracts": "workspace:*",
+    "@me-plus/domain": "workspace:*",
+    "@me-plus/reasoning": "workspace:*",
+    "@me-plus/ui": "workspace:*",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "next": "16.3.6",
+    "react": "workspace:catalog",
+    "react-dom": "workspace:catalog"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
+    "typescript": "workspace:catalog"
+  }
+}

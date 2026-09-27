@@ -27,7 +27,7 @@ Load this file only when the correct specialist path is not already obvious. Do 
 | Dead/unused code | `code-hygiene` |
 | Dependency upgrades/advisories | `dependency-maintenance` |
 | Measured optional compression | `headroom-pilot` |
-| Starter placeholder project knowledge | `project-template` |
+| Project-specific durable guidance | `me-plus` |
 
 ## Fast-path rule
 
