@@ -1,5 +1,3 @@
-import "server-only";
-
 import { createSign } from "node:crypto";
 
 const ENABLE_BANKING_API_URL = "https://api.enablebanking.com";
