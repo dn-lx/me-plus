@@ -10,7 +10,7 @@ This file is the compact implementation resume point. Canonical product/system b
   "repository": "dn-lx/me-plus",
   "branch": "dev",
   "status": "n26_live_sync_automation_on_dev_pending_release_validation",
-  "last_verified_dev_sha": "bad09d3c9a80cb3afadb18cd82eeb5b1c86cf3b2",
+  "last_verified_code_sha": "bad09d3c9a80cb3afadb18cd82eeb5b1c86cf3b2",
   "next_step": "Validate the non-blocking N26 callback on the dev deployment. When ready, promote dev through the approved dev-to-prod release flow; Netlify Scheduled Functions run only on published production deploys. After the first production scheduled run, verify source_sync_runs and data_sources.last_sync_at update without user interaction.",
   "updated_at": "2026-09-27T18:25:00Z"
 }
