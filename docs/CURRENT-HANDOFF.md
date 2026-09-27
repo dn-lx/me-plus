@@ -11,9 +11,9 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "base": "dev",
   "branch": "fix/n26-callback-stable-origin",
   "pr": 15,
-  "status": "draft_pr_pending_runtime_verification",
+  "status": "pr_open_ci_runner_blocked",
   "last_verified_sha": "82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860",
-  "next_step": "Review PR #15 and its checks, merge to dev when safe, wait for the Git-based Netlify dev branch deploy, then verify the N26 callback Location stays on the stable dev alias. Production deployment remains untouched. Only after this should the owner complete N26 authorization and inspect read-only sync rows.",
+  "next_step": "Review PR #15; GitHub Actions currently fails before job steps (runner/account issue), so obtain a real validation signal before merge. After a Git-based Netlify dev branch deploy, verify the N26 callback Location stays on the stable dev alias. Production deployment remains untouched. Only after this should the owner complete N26 authorization and inspect read-only sync rows.",
   "updated_at": "2026-09-27T10:17:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -23,7 +23,8 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
 - Netlify branch-deploy alias: `https://dev--me-plus-personal-intelligence.netlify.app`. Ready deploy `6ab8ec3f4e08cca2a478eab6` from `dev` commit `82fc170ad2d7bf1f8b2cbaa94e0a6151ed47f860`, with one Next.js server handler.
 - Harmless smoke checks: `/`, `/privacy`, and `/terms` return 200; unauthenticated POST to N26 connect/sync returns 401; callback without code/state returns 307 with `invalid_callback`.
 - The callback's 307 Location currently uses the immutable deploy permalink, not the stable dev alias. PR #15 fixes the origin using server configuration. Verify after merge before live bank consent.
-- Netlify `ENABLE_BANKING_REDIRECT_URL` has a branch-deploy override of `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`; production retains its own callback. The owner added the dev URL to Enable Banking's allowed redirects.
+- PR #15 GitHub Actions runs failed with null steps/logs before a runner executed. No code test result is available yet; no deploy preview was produced.
+- Netlify `ENABLE_BANKING_REDIRECT_URL` has a branch-deploy override of `https://dev--me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`; production retains its own callback. The owner was given the exact dev callback URL for Enable Banking's allowed redirects; its saved registration has not been independently verified.
 - Server keys and callback state secret are present for branch deploys and marked secret. Values are not in Git. Local Netlify CLI secret contexts are empty.
 - Production still points to old Netlify deploy `6ab8d3e80c341219b5881e92` without server functions. Do not deploy `prod` for this dev test. Dev and production Netlify contexts currently use the same Supabase project, so a real dev sync writes live finance data.
 
