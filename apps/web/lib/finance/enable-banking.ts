@@ -148,15 +148,18 @@ async function enableBankingRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${createApplicationJwt()}`);
+
+  if (init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(`${ENABLE_BANKING_API_URL}${path}`, {
     ...init,
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${createApplicationJwt()}`,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -175,7 +178,7 @@ export async function startN26Authorization(
   const { redirectUrl } = getConfig();
   const validUntil = new Date(Date.now() + 179 * 24 * 60 * 60 * 1000).toISOString();
 
-  return enableBankingRequest("/auth", {
+  return enableBankingRequest<{ url: string; authorization_id?: string }>("/auth", {
     method: "POST",
     body: JSON.stringify({
       access: {
@@ -196,7 +199,7 @@ export async function startN26Authorization(
 export async function authorizeEnableBankingSession(
   code: string,
 ): Promise<EnableBankingSession> {
-  return enableBankingRequest("/sessions", {
+  return enableBankingRequest<EnableBankingSession>("/sessions", {
     method: "POST",
     body: JSON.stringify({ code }),
   });
@@ -205,13 +208,15 @@ export async function authorizeEnableBankingSession(
 export async function getEnableBankingSession(
   sessionId: string,
 ): Promise<EnableBankingSession> {
-  return enableBankingRequest(`/sessions/${encodeURIComponent(sessionId)}`);
+  return enableBankingRequest<EnableBankingSession>(
+    `/sessions/${encodeURIComponent(sessionId)}`,
+  );
 }
 
 export async function getEnableBankingAccountDetails(
   accountId: string,
 ): Promise<EnableBankingAccount> {
-  return enableBankingRequest(
+  return enableBankingRequest<EnableBankingAccount>(
     `/accounts/${encodeURIComponent(accountId)}/details`,
   );
 }
@@ -247,7 +252,7 @@ export async function getEnableBankingAccountTransactions(
   }
 
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
-  return enableBankingRequest(
+  return enableBankingRequest<EnableBankingTransactionsResponse>(
     `/accounts/${encodeURIComponent(accountId)}/transactions${suffix}`,
   );
 }
