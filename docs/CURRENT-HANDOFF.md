@@ -12,8 +12,8 @@ This file is the compact recovery record for unfinished work. GitHub/source/test
   "branch": "feature/n26-open-banking",
   "pr": 5,
   "status": "active_unverified",
-  "last_verified_sha": "4317574d9f8794302c3bd273cbe4285359aa354a",
-  "next_step": "Register Enable Banking production app with redirect https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback, configure server secrets, deploy/validate the Me+ web runtime, then perform explicit N26 consent and verify the first read-only sync.",
+  "last_verified_sha": "8d1c4f5bdeece401250ab936442cd319ae9eb148",
+  "next_step": "Link Netlify project me-plus-personal-intelligence to GitHub repo dn-lx/me-plus using branch feature/n26-open-banking, deploy the site, verify /privacy, /terms and the callback route, then register the Enable Banking production app and configure its server-only credentials.",
   "updated_at": "2026-09-27T07:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -85,3 +85,23 @@ Use this permanent callback URL for Enable Banking:
 The Netlify project exists but the Me+ runtime has not yet been deployed/validated there. Do not treat the callback as live until deployment and server-secret configuration are complete.
 
 The Netlify project was renamed to `me-plus-personal-intelligence` for a stable, descriptive project/site name.
+
+
+## Deployment preparation — 2026-09-27
+
+Implemented and committed on `feature/n26-open-banking`:
+- public `/privacy` page for the current read-only banking integration
+- public `/terms` page for the current personal-use scope
+- homepage links to Privacy and Terms
+- root `netlify.toml` for the pnpm/Next.js web build
+
+Netlify project `me-plus-personal-intelligence`:
+- public visitor access is enabled so Open Banking redirects and legal pages are not blocked by Netlify team SSO
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ENABLE_BANKING_REDIRECT_URL`, and `ME_PLUS_ALLOW_FIXTURE_INGEST=false` are configured
+- GitHub repository is not yet linked; deployment is waiting for that explicit user action
+- `SUPABASE_SECRET_KEY`, `ENABLE_BANKING_APPLICATION_ID`, `ENABLE_BANKING_PRIVATE_KEY`, and `ENABLE_BANKING_STATE_SECRET` are still intentionally unset
+
+Permanent URLs after deployment:
+- `https://me-plus-personal-intelligence.netlify.app/privacy`
+- `https://me-plus-personal-intelligence.netlify.app/terms`
+- `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
