@@ -4,13 +4,19 @@ on:
   pull_request:
     branches: [dev]
   push:
-    branches: [feature/runtime-scaffold]
+    branches: [dev]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: runtime-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-runtime:
+    name: runtime / workspace
     runs-on: ubuntu-latest
     env:
       CI: true
@@ -23,35 +29,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
+        uses: actions/checkout@v4
 
-      - name: Set up pnpm and Node
-        uses: pnpm/setup@v1
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 12.6.0
-          runtime: node@22
+          run_install: false
 
-      - name: Resolve lockfile
-        run: pnpm install --lockfile-only
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-      - name: Commit generated lockfile
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if git diff --quiet -- pnpm-lock.yaml; then
-            echo "pnpm-lock.yaml is already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
-          git commit -m "chore: refresh pnpm lockfile"
-          git push
-
-      - name: Install dependencies from lockfile
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Type-check workspace
         run: pnpm typecheck
@@ -59,5 +51,5 @@ jobs:
       - name: Build web app
         run: pnpm build:web
 
-      - name: Bundle mobile app
+      - name: Bundle mobile web app
         run: pnpm --filter @me-plus/mobile exec expo export --platform web --output-dir dist-ci
