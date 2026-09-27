@@ -19,12 +19,22 @@ export default function HomeScreen() {
         Mobile is the quick-capture and device-facing client. Shared business rules stay outside native code.
       </Text>
 
+      <Link href="/health-connect" asChild>
+        <Pressable accessibilityRole="button" style={styles.healthCard}>
+          <Text style={styles.healthEyebrow}>LIVE HEALTH CONNECT</Text>
+          <Text style={styles.healthTitle}>Inventory watch data</Text>
+          <Text style={styles.healthBody}>
+            Grant read access and inspect exactly which Health Connect record types and source origins are available from your phone.
+          </Text>
+        </Pressable>
+      </Link>
+
       <Link href="/sensor-diagnostics" asChild>
         <Pressable accessibilityRole="button" style={styles.diagnosticsCard}>
-          <Text style={styles.diagnosticsEyebrow}>HEALTH PIPELINE</Text>
-          <Text style={styles.diagnosticsTitle}>Run sensor diagnostics</Text>
+          <Text style={styles.diagnosticsEyebrow}>PIPELINE TEST HARNESS</Text>
+          <Text style={styles.diagnosticsTitle}>Run fixture diagnostics</Text>
           <Text style={styles.diagnosticsBody}>
-            Exercise exact, missing, changed-value and duplicate fixtures before connecting real Health Connect data.
+            Exercise exact, missing, changed-value and duplicate fixtures without touching real health data.
           </Text>
         </Pressable>
       </Link>
@@ -68,6 +78,32 @@ const styles = StyleSheet.create({
     color: "#b8c2cf",
     fontSize: typography.body,
     lineHeight: 25,
+  },
+  healthCard: {
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "#2d8058",
+    borderRadius: radius.lg,
+    backgroundColor: "#10281d",
+  },
+  healthEyebrow: {
+    marginBottom: spacing.sm,
+    color: "#9de5bb",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+  },
+  healthTitle: {
+    marginBottom: spacing.sm,
+    color: "#f5f7fa",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  healthBody: {
+    color: "#c8ddd1",
+    fontSize: typography.label,
+    lineHeight: 21,
   },
   diagnosticsCard: {
     marginBottom: spacing.xl,
