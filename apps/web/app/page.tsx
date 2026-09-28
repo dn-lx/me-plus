@@ -8,11 +8,11 @@ const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
 };
 
 const androidBuild = {
-  version: "0.3.0",
-  displayVersion: "0.3",
-  filename: "me-plus-0.3.apk",
-  href: "/downloads/me-plus-0.3.apk",
-  checksumHref: "/downloads/me-plus-0.3.apk.sha256",
+  version: "0.4.0",
+  displayVersion: "0.4",
+  filename: "me-plus-0.4.apk",
+  href: "/downloads/me-plus-0.4.apk",
+  checksumHref: "/downloads/me-plus-0.4.apk.sha256",
 };
 
 export default function HomePage() {
