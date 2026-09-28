@@ -1,4 +1,5 @@
 import type {
+  HealthConnectRecord,
   HealthIngestRequest,
   HealthMetric,
   HealthUnit,
@@ -117,6 +118,40 @@ function parseSensorReading(value: unknown): SensorReading {
   };
 }
 
+function parseHealthConnectRecord(value: unknown): HealthConnectRecord {
+  if (!isRecord(value)) throw new Error("Each Health Connect record must be an object");
+  if (!isNonEmptyString(value.externalId)) throw new Error("Health Connect record externalId is required");
+  if (!isNonEmptyString(value.recordType)) throw new Error("Health Connect record recordType is required");
+  if (!isIsoTimestamp(value.observedAt) || !isIsoTimestamp(value.lastModifiedAt)) {
+    throw new Error(`Health Connect record ${value.externalId} must contain valid timestamps`);
+  }
+  if (!isRecord(value.provenance) || !isNonEmptyString(value.provenance.sourcePackage)) {
+    throw new Error(`Health Connect record ${value.externalId} is missing provenance`);
+  }
+  if (value.provenance.provider !== "health-connect") {
+    throw new Error(`Health Connect record ${value.externalId} must use health-connect provider`);
+  }
+  if (!isRecord(value.payload)) {
+    throw new Error(`Health Connect record ${value.externalId} payload must be an object`);
+  }
+
+  return {
+    externalId: value.externalId,
+    recordType: value.recordType,
+    observedAt: value.observedAt,
+    lastModifiedAt: value.lastModifiedAt,
+    provenance: {
+      provider: "health-connect",
+      sourcePackage: value.provenance.sourcePackage,
+      ...(isNonEmptyString(value.provenance.device) ? { device: value.provenance.device } : {}),
+      ...(isNonEmptyString(value.provenance.recordingMethod)
+        ? { recordingMethod: value.provenance.recordingMethod }
+        : {}),
+    },
+    payload: value.payload,
+  };
+}
+
 export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
   if (!isRecord(value) || !isRecord(value.source)) {
     throw new Error("Health ingestion payload must contain a source object");
@@ -143,28 +178,35 @@ export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
     throw new Error("Health ingestion source metadata must be an object");
   }
 
-  if (!Array.isArray(value.readings) || value.readings.length === 0) {
-    throw new Error("Health ingestion requires at least one reading");
+  const hasReadings = Array.isArray(value.readings) && value.readings.length > 0;
+  const hasRecords = Array.isArray(value.records) && value.records.length > 0;
+  if (hasReadings === hasRecords) {
+    throw new Error("Health ingestion requires exactly one of readings or records");
   }
 
-  if (value.readings.length > 500) {
-    throw new Error("Health ingestion is limited to 500 readings per request");
+  const itemCount = hasReadings ? (value.readings as unknown[]).length : (value.records as unknown[]).length;
+  if (itemCount > 500) {
+    throw new Error("Health ingestion is limited to 500 records per request");
   }
 
   if (value.cursorAfter !== undefined && !isNonEmptyString(value.cursorAfter)) {
     throw new Error("Health ingestion cursorAfter is invalid");
   }
 
-  const readings = value.readings.map(parseSensorReading);
+  const readings = hasReadings ? (value.readings as unknown[]).map(parseSensorReading) : undefined;
+  const records = hasRecords ? (value.records as unknown[]).map(parseHealthConnectRecord) : undefined;
   const provider = source.provider as SensorProvenance["provider"];
 
-  if (readings.some((reading) => reading.provenance.provider !== provider)) {
+  if (readings?.some((reading) => reading.provenance.provider !== provider)) {
     throw new Error("Every health reading provider must match the source provider");
+  }
+  if (records && provider !== "health-connect") {
+    throw new Error("Raw Health Connect records require the health-connect provider");
   }
 
   if (
     source.externalAccountRef &&
-    readings.some((reading) => reading.provenance.sourcePackage !== source.externalAccountRef)
+    readings?.some((reading) => reading.provenance.sourcePackage !== source.externalAccountRef)
   ) {
     throw new Error("Every health reading sourcePackage must match the source externalAccountRef");
   }
@@ -176,7 +218,8 @@ export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
       ...(source.externalAccountRef ? { externalAccountRef: source.externalAccountRef } : {}),
       ...(source.metadata ? { metadata: source.metadata } : {}),
     },
-    readings,
+    ...(readings ? { readings } : {}),
+    ...(records ? { records } : {}),
     ...(value.cursorAfter ? { cursorAfter: value.cursorAfter } : {}),
   };
 }
