@@ -4,9 +4,11 @@
 
 ### Added
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
+- Versioned Android APK distribution on the dev Netlify site, including a homepage download link and published checksum metadata.
 
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
+- Android app metadata now matches the planned Me+ 0.2.0 release version.
 
 ## [0.2.0] - 2026-09-27
 
