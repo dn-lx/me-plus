@@ -19,7 +19,11 @@ const schedulerFiles = [
   'supabase/migrations/20260928203207_meplus_backend_scheduler_runtime.sql',
   'supabase/migrations/20260928214941_meplus_ai_reasoning_worker_runtime.sql',
   'supabase/migrations/20260928233355_scheduler_todoist_dispatcher_runtime_v1.sql',
-  'supabase/migrations/20260928233425_scheduler_todoist_dispatcher_recovery_guard_v1.sql'
+  'supabase/migrations/20260928233425_scheduler_todoist_dispatcher_recovery_guard_v1.sql',
+  'supabase/migrations/20260928233430_scheduler_todoist_dispatcher_policy_activation_v1.sql',
+  'supabase/migrations/20260928233455_restore_scheduler_policy_checksum_compatible_state_v1.sql',
+  'supabase/migrations/20260928233501_scheduler_todoist_dispatcher_claim_no_token_replay_v1.sql',
+  'supabase/migrations/20260928233507_scheduler_todoist_dispatcher_priority_contract_v1.sql'
 ];
 
 const corpus = schedulerFiles.map(read).join('\n');
@@ -71,7 +75,9 @@ test('unsurfaced actions are not recreated and linkage clears only after confirm
 test('Todoist worker authenticates wakes and keeps the API token server-side', () => {
   assert.match(todoistWorker, /x-meplus-wake-secret/i);
   assert.match(todoistWorker, /todoist_dispatcher_wake_authorized/i);
-  assert.doesNotMatch(todoistWorker, /TODOIST_API_TOKEN\s*=/i);
+  assert.match(todoistWorker, /toLowerCase\(\) === "todoist_api_token"/i);
+  assert.match(todoistWorker, /const token = envToken \|\| vaultToken/i);
+  assert.doesNotMatch(todoistWorker, /TODOIST_API_TOKEN\s*=\s*["']/i);
   assert.match(corpus, /meplus_todoist_api_token/i);
 });
 
