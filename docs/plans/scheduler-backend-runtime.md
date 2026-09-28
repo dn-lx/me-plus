@@ -46,3 +46,18 @@
 - The new dispatch table uses RLS; cron/private functions are not granted to anon/authenticated roles.
 - External Todoist mutation is not attempted without an explicit backend credential.
 - Rollback: unschedule the two Me+ cron jobs and retire policy 1.14-draft; existing canonical actions/history remain intact.
+
+
+## Acceptance evidence — 2026-09-28
+
+- Live migrations: `20260928203207` and `20260928203500`.
+- Active cron jobs:
+  - `meplus-hourly-task-scheduler-backend` → `0 * * * *`
+  - `meplus-scheduler-watchdog-backend` → `15 * * * *`
+- Live acceptance run: completed under `1.14-draft`, materialized 6 due canonical routine actions.
+- Same logical hour retry: idempotent/no duplicate run.
+- Active Hourly leases after finish: 0.
+- Scheduler health: Hourly healthy; watchdog healthy.
+- External dispatcher: explicitly blocked because no backend Todoist credential/path exists; one durable dispatch preserves the outstanding execution work.
+- Supabase advisor follow-up: the migration-introduced unindexed foreign key was fixed; remaining advisor findings predate this task.
+- Migration files on this branch exactly match the live Supabase migration ledger.
