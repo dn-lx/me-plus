@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm build:web"
+  command = "bash scripts/netlify-build-with-android-apk.sh"
   publish = "apps/web/.next"
 
 [build.environment]
