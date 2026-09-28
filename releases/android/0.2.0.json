@@ -1,0 +1,13 @@
+{
+  "app": "me-plus",
+  "platform": "android",
+  "version": "0.2.0",
+  "displayVersion": "0.2",
+  "filename": "me-plus-0.2.apk",
+  "sha256": "562ba3090150dd3b0a554603e3fbfc26c8479a5a90d1037c6e697aadf4e3e77b",
+  "packageName": "app.meplus.mobile",
+  "versionCode": 2,
+  "architecture": "arm64-v8a",
+  "buildPath": "desktop-commander",
+  "publishTarget": "github-release"
+}

@@ -1,0 +1,99 @@
+name: Publish Android APK
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "releases/android/**"
+      - ".github/workflows/publish-android-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish Android APK
+    runs-on:
+      - self-hosted
+      - Windows
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Publish verified APK to GitHub Release
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $version = (Get-Content VERSION -Raw).Trim()
+          $parts = $version.Split(".")
+          if ($parts.Length -lt 2) {
+            throw "VERSION must contain at least major.minor"
+          }
+
+          $displayVersion = "$($parts[0]).$($parts[1])"
+          $tag = "v$version"
+          $apkName = "me-plus-$displayVersion.apk"
+          $artifactRoot = "D:\actions-runner\artifacts"
+          $apkPath = Join-Path $artifactRoot $apkName
+          $checksumPath = "$apkPath.sha256"
+
+          if (!(Test-Path $apkPath)) {
+            throw "Verified APK is missing: $apkPath"
+          }
+          if (!(Test-Path $checksumPath)) {
+            throw "APK checksum is missing: $checksumPath"
+          }
+
+          $expectedHash = ((Get-Content $checksumPath -Raw).Trim().Split()[0]).ToLowerInvariant()
+          $actualHash = (Get-FileHash $apkPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expectedHash -ne $actualHash) {
+            throw "APK checksum mismatch. Expected $expectedHash, got $actualHash"
+          }
+
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $repoApi = "https://api.github.com/repos/$env:GITHUB_REPOSITORY"
+
+          try {
+            $release = Invoke-RestMethod -Method Get -Uri "$repoApi/releases/tags/$tag" -Headers $headers
+          } catch {
+            if ($_.Exception.Response.StatusCode.value__ -ne 404) {
+              throw
+            }
+
+            $body = @{
+              tag_name = $tag
+              target_commitish = "dev"
+              name = "Me+ $version"
+              body = "Android development build for Me+ $version."
+              draft = $false
+              prerelease = $true
+            } | ConvertTo-Json
+
+            $release = Invoke-RestMethod -Method Post -Uri "$repoApi/releases" -Headers $headers -ContentType "application/json" -Body $body
+          }
+
+          $assets = Invoke-RestMethod -Method Get -Uri "$repoApi/releases/$($release.id)/assets" -Headers $headers
+          foreach ($name in @($apkName, "$apkName.sha256")) {
+            $existing = $assets | Where-Object { $_.name -eq $name }
+            foreach ($asset in $existing) {
+              Invoke-RestMethod -Method Delete -Uri "$repoApi/releases/assets/$($asset.id)" -Headers $headers
+            }
+          }
+
+          $uploadBase = "https://uploads.github.com/repos/$env:GITHUB_REPOSITORY/releases/$($release.id)/assets"
+          Invoke-RestMethod -Method Post -Uri "$uploadBase?name=$([uri]::EscapeDataString($apkName))" -Headers $headers -ContentType "application/vnd.android.package-archive" -InFile $apkPath
+          Invoke-RestMethod -Method Post -Uri "$uploadBase?name=$([uri]::EscapeDataString("$apkName.sha256"))" -Headers $headers -ContentType "text/plain" -InFile $checksumPath
+
+          Write-Host "Published $apkName"
+          Write-Host "SHA256 $actualHash"
