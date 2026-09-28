@@ -107,6 +107,26 @@ export default function HealthConnectScreen() {
     }
   }
 
+  async function upload() {
+    if (!inventory?.records.length) {
+      setStatus("Scan Health Connect before uploading.");
+      return;
+    }
+
+    setBusy(true);
+    setStatus(`Uploading ${inventory.records.length} Health Connect records to Me+…`);
+    try {
+      const result = await syncHealthConnectRecords(inventory.records, inventory.windowEnd);
+      setStatus(
+        `Me+ sync complete: ${result.recordsSeen} seen · ${result.recordsCreated} created · ${result.recordsUpdated} reconciled.`,
+      );
+    } catch (error) {
+      setStatus(toErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function scan() {
     setBusy(true);
     setSyncSummary(null);
