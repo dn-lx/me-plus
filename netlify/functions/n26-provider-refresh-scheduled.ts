@@ -2,18 +2,20 @@ declare const Netlify: {
   env: { get(name: string): string | undefined };
 };
 
-function berlinHour(date: Date): string {
+function berlinTime(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     hour: "2-digit",
+    minute: "2-digit",
     hourCycle: "h23",
   }).format(date);
 }
 
 export default async (req: Request) => {
   // Netlify cron is UTC. Running at both candidate UTC hours and gating by
-  // Europe/Berlin preserves 08:00 local across DST transitions.
-  if (berlinHour(new Date()) !== "08") {
+  // Europe/Berlin preserves 07:30 local across DST transitions so the
+  // provider refresh can finish before the 08:00 daily bank briefing.
+  if (berlinTime(new Date()) !== "07:30") {
     return;
   }
 
@@ -47,5 +49,5 @@ export default async (req: Request) => {
 };
 
 export const config = {
-  schedule: "0 6,7 * * *",
+  schedule: "30 5,6 * * *",
 };
