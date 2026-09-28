@@ -4,7 +4,7 @@
 
 ### Added
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
-- Versioned Android APK distribution: Android is built and verified on the designated Windows build host, published through GitHub Releases, and linked from the Netlify dev site. Netlify remains web-only and never compiles Android.
+- Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
