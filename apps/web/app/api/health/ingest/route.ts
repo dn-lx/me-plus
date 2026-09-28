@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     if (
       message.startsWith("Health ingestion") ||
       message.startsWith("Health reading") ||
+      message.startsWith("Health Connect record") ||
       message.startsWith("Each health reading") ||
       message.startsWith("Unsupported health metric")
     ) {
