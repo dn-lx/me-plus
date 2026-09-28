@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "health-ingestion-consistency",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-28T15:46:00Z"
+  "branch": "fix/health-sync-timeout",
+  "pr": 26,
+  "status": "testing",
+  "last_verified_sha": "2ea874e98049fca257bdba4c8be50dcf90a2cca8",
+  "next_step": "Verify the Health Connect raw-to-normalized consistency fix and current live orphan repair, then reset this task state before merge into dev.",
+  "updated_at": "2026-09-28T15:55:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
