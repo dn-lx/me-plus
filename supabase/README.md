@@ -16,3 +16,7 @@ Supabase is the canonical structured-data backend for Me+.
 - External writes must be auditable and constrained by Me+ domain policies.
 
 The concrete development project/environment is selected and verified before any live schema or data write.
+
+## Migration provenance
+
+Historical Me+ migrations reconstructed from the live migration ledger are committed under `migrations/`. See `MIGRATION-PROVENANCE.md` for reconstruction rules and the handling of one-off production-state repairs.
