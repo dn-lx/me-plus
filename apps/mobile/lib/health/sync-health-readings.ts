@@ -5,7 +5,7 @@ import type {
   SensorReading,
 } from "@me-plus/contracts";
 
-import { createClient } from "../supabase/client";
+import { supabase } from "../supabase/client";
 
 function getApiBaseUrl(): string {
   const value = process.env.EXPO_PUBLIC_ME_PLUS_API_URL;
@@ -22,7 +22,6 @@ export async function syncHealthReadings(
   source: HealthIngestSource,
   cursorAfter?: string,
 ): Promise<HealthIngestResult> {
-  const supabase = createClient();
   const { data, error } = await supabase.auth.getSession();
 
   if (error) {

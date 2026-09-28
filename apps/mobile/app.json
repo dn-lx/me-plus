@@ -6,12 +6,37 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router", "expo-sqlite"],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "android": {
-      "package": "app.meplus.mobile"
+      "package": "app.meplus.mobile",
+      "permissions": [
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_OXYGEN_SATURATION",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.health.READ_WEIGHT"
+      ]
     },
     "ios": {
       "bundleIdentifier": "app.meplus.mobile"

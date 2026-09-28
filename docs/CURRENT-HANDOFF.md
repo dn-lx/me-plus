@@ -6,43 +6,67 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "source-sync-framework",
+  "task_id": "health-connect-collector",
   "repository": "dn-lx/me-plus",
-  "branch": "dev",
-  "status": "n26_live_sync_automation_on_dev_pending_release_validation",
-  "last_verified_code_sha": "bad09d3c9a80cb3afadb18cd82eeb5b1c86cf3b2",
-  "next_step": "Validate the non-blocking N26 callback on the dev deployment. When ready, promote dev through the approved dev-to-prod release flow; Netlify Scheduled Functions run only on published production deploys. After the first production scheduled run, verify source_sync_runs and data_sources.last_sync_at update without user interaction.",
-  "updated_at": "2026-09-27T18:25:00Z"
+  "branch": "feature/health-connect-collector",
+  "status": "local_android_validation_pending",
+  "last_verified_code_sha": "bc2f12327c4d6f3de421911001516ef15540b404",
+  "next_step": "On the user's local machine, check out feature/health-connect-collector, install dependencies, prebuild/run the Android app, install it on the user's phone, grant Health Connect read access, and run the 7-day live inventory. Record populated record types and data origins before implementing Supabase upload/normalization.",
+  "updated_at": "2026-09-27T21:15:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
+## Current Health Connect implementation
+
+- PR #17 (`feature/health-connect-collector` → `dev`) is the active Health Connect collector slice.
+- The existing Me+ mobile app is used; no separate collector repository is being created.
+- `react-native-health-connect` 4.1.3 is configured with Expo SDK 57 and Android read permissions.
+- The mobile app includes a live Health Connect screen that requests read access and inventories the last 7 days of supported record types.
+- Inventory currently covers heart rate, resting heart rate, oxygen saturation, sleep sessions, steps, exercise sessions, active calories, total calories, and weight.
+- The screen reports record count, source/data origin, latest observed timestamp, and per-type errors.
+- Existing fixture sensor diagnostics remain available as a deterministic test harness.
+- The user has already confirmed Zepp data is present in Health Connect and relevant permissions are enabled.
+- No health records are uploaded to Supabase yet. This is intentional: the canonical sequence requires observing the real Health Connect inventory and source origins first, then designing raw/normalized mappings.
+
+## Local-machine validation decision
+
+The user chose local Android compilation/testing instead of setting up a cloud build pipeline at this stage. The next validation path is:
+
+1. Check out `feature/health-connect-collector` locally.
+2. Install dependencies with the repository's pnpm toolchain.
+3. Generate/run the native Android development build.
+4. Install on the user's Android phone over the normal local Android development path.
+5. Open the Me+ Health Connect screen, grant read access, and scan the last 7 days.
+6. Capture populated record types and source/data-origin values from Zepp.
+7. Use that observed inventory to implement authenticated Supabase raw-event ingestion and normalized health mappings while preserving provenance.
+
+## Verification state
+
+- GitHub Actions runs for the Health Connect branch failed before any workflow steps executed, so they are not trustworthy application-test evidence.
+- A trustworthy local typecheck/native build/runtime signal is still required.
+- PR #17 must not be treated as validated or ready to merge until local/native verification succeeds.
+
+## Canonical Health Connect architecture already documented
+
+The Google Drive Me+ specifications already define the health ingestion architecture and implementation order:
+
+- Amazfit Active 3 Premium / future Helio Strap → Zepp → Health Connect → Me+ Android collector → backend normalized store.
+- Health Connect is an exchange layer, not the permanent database.
+- Preserve provider/device/source metadata and separate raw ingestion from normalized records.
+- Inventory the record types Zepp actually exposes before finalizing database mappings and upload behavior.
+- Zepp-specific data that Health Connect does not expose should use official Zepp export/data-portability or approved API paths, not scraping/reverse engineering.
+
+The local-machine testing choice is implementation state, not a canonical architecture change, so it belongs in this handoff and Supabase interaction history rather than being duplicated into the Drive specifications.
+
 ## Current N26 runtime state
 
+The previous dev handoff for N26 remains valid historical implementation context and is preserved here so it is not lost while the active task is Health Connect.
+
 - N26 is connected through Enable Banking in read-only AISP mode.
-- Supabase currently reports the N26 data source as active.
+- Supabase reports the N26 data source as active.
 - The latest verified successful N26 sync completed on 2026-09-27 and imported normalized account/transaction data.
 - The stored provider consent/session is reusable; ordinary refreshes do not require the user to authorize N26 again. Reauthorization is needed only when consent/session validity or provider policy requires it.
 - The first live OAuth callback completed its server-side sync but the browser received a Netlify 504 because the callback waited for the full import. The imported data was not lost.
-
-## Current dev implementation
-
-### OAuth callback
-- `/api/finance/n26/callback` verifies signed state and exchanges the authorization code for an Enable Banking session.
-- The callback now schedules the initial sync with Next.js `after()` and redirects the browser immediately with `n26=connected&sync=started`.
-- The connection page explains that the first read-only sync continues in the background.
-
-### Recurring refresh
-- A lightweight Netlify Scheduled Function is configured for one refresh per day at `05:00 UTC`.
-- The scheduled function invokes a protected Netlify Background Function for the long-running bank sync.
-- The scheduler-to-worker call uses a server-only `N26_SYNC_SCHEDULER_SECRET`.
-- Recoverable failures remain eligible for later daily retries; a successful sync restores normal source state.
-- On-demand authenticated sync remains available through `POST /api/finance/n26/sync`.
-
-### Source-health behavior
-- Supabase `data_sources` is the current source-state record.
-- `source_sync_runs` preserves each sync attempt and its outcome.
-- Healthy connections should stay quiet.
-- User attention is required only for conditions such as lost/expired authorization, persistent sync failure, or data becoming stale beyond the source-specific freshness policy.
 
 ## General source-sync architecture
 
@@ -58,21 +82,13 @@ N26 is the first working example of a reusable Me+ integration pattern:
 
 Do not impose one refresh interval on every provider. Calendar/tasks, health/wearables, banking and future sources should each define their own cadence, retry, reauthorization and notification rules while reusing the same lifecycle.
 
-## Validation still required
-
-1. Verify the new dev callback returns promptly after N26 authorization and does not reproduce the 504.
-2. Confirm the background initial sync completes and `source_sync_runs` records the outcome.
-3. Before production release, obtain a trustworthy build/typecheck signal; previous GitHub Actions runs have sometimes failed before runner steps and should not be treated as application-test evidence by themselves.
-4. Promote through the approved `dev → prod` release flow only.
-5. After production promotion, verify the daily scheduled trigger invokes the background worker and updates `last_sync_at` without user interaction.
-6. Confirm connection-health notification remains silent while the source is healthy and alerts only when attention is required.
-
 ## Release boundary
 
-`dev` is the integration branch. Production changes are promoted only through the approved `dev → prod` release workflow. Do not push directly to `prod` or perform ad-hoc production deployment.
+`dev` is the integration branch. Feature/fix/chore branches merge into `dev`; production changes are promoted only through the approved `dev → prod` release workflow. Do not push directly to `prod` or perform ad-hoc production deployment.
 
 ## Security reminders
 
-- Never put bank credentials, private keys, Supabase secret keys or provider tokens in Git, client-side code, logs, chat or ordinary application tables.
-- N26 authentication happens in the provider flow; Me+ stores only the provider/session identifiers required for authorized read-only access.
+- Never put bank credentials, private keys, Supabase secret keys, provider tokens, or sensitive health data in Git, client logs, prompts, or public application telemetry.
+- Mobile Health Connect permission grants do not imply permission to persist every available record; ingest only data required by an explicit Me+ workflow.
+- Preserve user ownership, RLS, provenance, and raw/normalized separation for health ingestion.
 - Sensitive integration operations remain server-side.
