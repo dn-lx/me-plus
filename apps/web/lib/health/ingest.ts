@@ -108,7 +108,6 @@ async function bulkSyncRawEvents(
       .filter((value): value is string => Boolean(value)),
   );
 
-  const processedAt = new Date().toISOString();
   const rows = readings.map((reading) => ({
     user_id: userId,
     data_source_id: dataSourceId,
@@ -117,8 +116,8 @@ async function bulkSyncRawEvents(
     observed_at: reading.observedAt,
     payload: reading,
     payload_schema_version: "1",
-    processing_status: "processed",
-    processed_at: processedAt,
+    processing_status: "pending",
+    processed_at: null,
     error_code: null,
   }));
 
@@ -198,12 +197,57 @@ async function bulkSyncObservations(
   return (result.data ?? []).map((row) => row.id);
 }
 
+async function markRawEventsProcessed(
+  client: AdminClient,
+  userId: string,
+  dataSourceId: string,
+  rawEventIds: readonly string[],
+): Promise<void> {
+  if (rawEventIds.length === 0) return;
+
+  const result = await client
+    .from("raw_events")
+    .update({
+      processing_status: "processed",
+      processed_at: new Date().toISOString(),
+      error_code: null,
+    })
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .in("id", [...rawEventIds]);
+
+  throwIfError(result.error, "Unable to mark raw health events processed");
+}
+
+async function markRawEventsFailed(
+  client: AdminClient,
+  userId: string,
+  dataSourceId: string,
+  rawEventIds: readonly string[],
+  message: string,
+): Promise<void> {
+  if (rawEventIds.length === 0) return;
+
+  const result = await client
+    .from("raw_events")
+    .update({
+      processing_status: "failed",
+      processed_at: new Date().toISOString(),
+      error_code: message.slice(0, 200),
+    })
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .in("id", [...rawEventIds]);
+
+  throwIfError(result.error, "Unable to mark raw health events failed");
+}
+
 async function markSyncRunFailed(
   client: AdminClient,
   syncRunId: string,
   message: string,
 ): Promise<void> {
-  await client
+  const result = await client
     .from("source_sync_runs")
     .update({
       status: "failed",
@@ -211,6 +255,8 @@ async function markSyncRunFailed(
       error_code: message.slice(0, 200),
     })
     .eq("id", syncRunId);
+
+  throwIfError(result.error, "Unable to mark health sync run failed");
 }
 
 export async function ingestHealthReadings(
@@ -221,9 +267,13 @@ export async function ingestHealthReadings(
   const readings = dedupeReadings(input.readings);
   const dataSourceId = await upsertDataSource(client, userId, input);
   const syncRunId = await startSyncRun(client, userId, dataSourceId, readings.length);
+  let rawEventIds: string[] = [];
+  let observationsWritten = false;
 
   try {
     const rawEvents = await bulkSyncRawEvents(client, userId, dataSourceId, readings);
+    rawEventIds = [...rawEvents.rowsByExternalId.values()].map((row) => row.id);
+
     const observationIds = await bulkSyncObservations(
       client,
       userId,
@@ -231,6 +281,9 @@ export async function ingestHealthReadings(
       readings,
       rawEvents.rowsByExternalId,
     );
+    observationsWritten = true;
+
+    await markRawEventsProcessed(client, userId, dataSourceId, rawEventIds);
 
     const finishedAt = new Date().toISOString();
     const completed = await client
@@ -270,7 +323,21 @@ export async function ingestHealthReadings(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_health_ingestion_error";
-    await markSyncRunFailed(client, syncRunId, message);
+
+    if (rawEventIds.length > 0 && !observationsWritten) {
+      try {
+        await markRawEventsFailed(client, userId, dataSourceId, rawEventIds, message);
+      } catch (rawEventError) {
+        console.error("Unable to record raw health event failure state", rawEventError);
+      }
+    }
+
+    try {
+      await markSyncRunFailed(client, syncRunId, message);
+    } catch (syncRunError) {
+      console.error("Unable to record failed health sync run", syncRunError);
+    }
+
     throw error;
   }
 }
