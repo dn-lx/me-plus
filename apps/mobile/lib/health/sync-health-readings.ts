@@ -1,4 +1,5 @@
 import type {
+  HealthConnectRecord,
   HealthIngestRequest,
   HealthIngestResult,
   HealthIngestSource,
@@ -7,22 +8,7 @@ import type {
 
 import { supabase } from "../supabase/client";
 
-const MAX_READINGS_PER_REQUEST = 500;
-
-export type HealthSyncSummary = {
-  sourceCount: number;
-  batchCount: number;
-  recordsSeen: number;
-  recordsCreated: number;
-  recordsUpdated: number;
-  dataSourceIds: string[];
-  syncRunIds: string[];
-};
-
-type HealthConnectSyncMetadata = {
-  windowStart?: string;
-  windowEnd?: string;
-};
+const BATCH_SIZE = 250;
 
 function getApiBaseUrl(): string {
   const value = process.env.EXPO_PUBLIC_ME_PLUS_API_URL;
@@ -34,32 +20,26 @@ function getApiBaseUrl(): string {
   return value.replace(/\/$/, "");
 }
 
-export async function syncHealthReadings(
-  readings: readonly SensorReading[],
-  source: HealthIngestSource,
-  cursorAfter?: string,
-): Promise<HealthIngestResult> {
+async function accessToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
 
   if (error) {
     throw new Error(`Unable to read Supabase session: ${error.message}`);
   }
 
-  const accessToken = data.session?.access_token;
-  if (!accessToken) {
+  const token = data.session?.access_token;
+  if (!token) {
     throw new Error("Health sync requires an authenticated Supabase session");
   }
+  return token;
+}
 
-  const payload: HealthIngestRequest = {
-    source,
-    readings,
-    ...(cursorAfter ? { cursorAfter } : {}),
-  };
-
+async function postHealthBatch(payload: HealthIngestRequest): Promise<HealthIngestResult> {
+  const token = await accessToken();
   const response = await fetch(`${getApiBaseUrl()}/api/health/ingest`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -78,80 +58,50 @@ export async function syncHealthReadings(
   return body as HealthIngestResult;
 }
 
-export async function syncHealthConnectReadings(
+export async function syncHealthReadings(
   readings: readonly SensorReading[],
-  metadata: HealthConnectSyncMetadata = {},
-): Promise<HealthSyncSummary> {
-  if (readings.length === 0) {
-    return {
-      sourceCount: 0,
-      batchCount: 0,
-      recordsSeen: 0,
-      recordsCreated: 0,
-      recordsUpdated: 0,
-      dataSourceIds: [],
-      syncRunIds: [],
-    };
+  source: HealthIngestSource,
+  cursorAfter?: string,
+): Promise<HealthIngestResult> {
+  return postHealthBatch({
+    source,
+    readings,
+    ...(cursorAfter ? { cursorAfter } : {}),
+  });
+}
+
+export async function syncHealthConnectRecords(
+  records: readonly HealthConnectRecord[],
+  windowEnd: string,
+): Promise<HealthIngestResult> {
+  if (records.length === 0) {
+    throw new Error("No Health Connect records are available to upload.");
   }
 
-  const bySource = new Map<string, SensorReading[]>();
+  const source: HealthIngestSource = {
+    provider: "health-connect",
+    displayName: "Android Health Connect",
+    metadata: { collector: "me-plus-android", ingestionVersion: 2 },
+  };
 
-  for (const reading of readings) {
-    const sourcePackage = reading.provenance.sourcePackage;
-    const sourceReadings = bySource.get(sourcePackage) ?? [];
-    sourceReadings.push(reading);
-    bySource.set(sourcePackage, sourceReadings);
-  }
-
-  let batchCount = 0;
-  let recordsSeen = 0;
-  let recordsCreated = 0;
-  let recordsUpdated = 0;
-  const dataSourceIds = new Set<string>();
-  const syncRunIds: string[] = [];
-
-  for (const [sourcePackage, sourceReadings] of bySource) {
-    const source: HealthIngestSource = {
-      provider: "health-connect",
-      displayName: `Health Connect · ${sourcePackage}`,
-      externalAccountRef: sourcePackage,
-      metadata: {
-        collector: "me-plus-android",
-        healthConnectOrigin: sourcePackage,
-        ...(metadata.windowStart ? { windowStart: metadata.windowStart } : {}),
-        ...(metadata.windowEnd ? { windowEnd: metadata.windowEnd } : {}),
-      },
-    };
-
-    for (let index = 0; index < sourceReadings.length; index += MAX_READINGS_PER_REQUEST) {
-      const batch = sourceReadings.slice(index, index + MAX_READINGS_PER_REQUEST);
-      const cursorAfter = latestTimestamp(batch);
-      const result = await syncHealthReadings(batch, source, cursorAfter);
-
-      batchCount += 1;
-      recordsSeen += result.recordsSeen;
-      recordsCreated += result.recordsCreated;
-      recordsUpdated += result.recordsUpdated;
-      dataSourceIds.add(result.dataSourceId);
-      syncRunIds.push(result.syncRunId);
-    }
+  const results: HealthIngestResult[] = [];
+  for (let offset = 0; offset < records.length; offset += BATCH_SIZE) {
+    const batch = records.slice(offset, offset + BATCH_SIZE);
+    results.push(
+      await postHealthBatch({
+        source,
+        records: batch,
+        cursorAfter: windowEnd,
+      }),
+    );
   }
 
   return {
-    sourceCount: bySource.size,
-    batchCount,
-    recordsSeen,
-    recordsCreated,
-    recordsUpdated,
-    dataSourceIds: [...dataSourceIds],
-    syncRunIds,
+    dataSourceId: results[0]!.dataSourceId,
+    syncRunId: results.at(-1)!.syncRunId,
+    recordsSeen: results.reduce((sum, result) => sum + result.recordsSeen, 0),
+    recordsCreated: results.reduce((sum, result) => sum + result.recordsCreated, 0),
+    recordsUpdated: results.reduce((sum, result) => sum + result.recordsUpdated, 0),
+    observationIds: results.flatMap((result) => result.observationIds),
   };
-}
-
-function latestTimestamp(readings: readonly SensorReading[]): string | undefined {
-  return readings
-    .flatMap((reading) => [reading.lastModifiedAt, reading.observedAt])
-    .filter((value) => Number.isFinite(Date.parse(value)))
-    .sort()
-    .at(-1);
 }
