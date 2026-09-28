@@ -7,6 +7,14 @@ const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
   time: "Tasks, routines, calendar context and attention.",
 };
 
+const androidBuild = {
+  version: "0.2.0",
+  displayVersion: "0.2",
+  filename: "me-plus-0.2.apk",
+  href: "/downloads/me-plus-0.2.apk",
+  checksumHref: "/downloads/me-plus-0.2.apk.sha256",
+};
+
 export default function HomePage() {
   return (
     <main className="shell">
@@ -17,6 +25,32 @@ export default function HomePage() {
           This is the first runnable web shell. Canonical state will live in Supabase; model providers remain replaceable reasoning dependencies.
         </p>
       </header>
+
+      <section aria-labelledby="android-download-title" className="downloadSection">
+        <div className="sectionHeading">
+          <h2 id="android-download-title">Android app</h2>
+          <span>Development build</span>
+        </div>
+        <article className="card downloadCard">
+          <div>
+            <h3>Me+ {androidBuild.displayVersion}</h3>
+            <p>
+              Install the Android build to validate Health Connect directly on your phone.
+            </p>
+            <small>
+              Version {androidBuild.version} · {androidBuild.filename}
+            </small>
+          </div>
+          <div className="downloadActions">
+            <a className="downloadButton" href={androidBuild.href} download>
+              Download APK
+            </a>
+            <a className="checksumLink" href={androidBuild.checksumHref}>
+              SHA-256
+            </a>
+          </div>
+        </article>
+      </section>
 
       <section aria-labelledby="domains-title">
         <div className="sectionHeading">
