@@ -1,0 +1,1 @@
+create or replace view public.current_personal_state_inputs with (security_invoker=true) as select p.id as user_id, (select count(*) from public.goals g where g.user_id=p.id and g.status='active') as active_goal_count, (select count(*) from public.routine_events e where e.user_id=p.id and e.status='due') as due_routine_count from public.profiles p;

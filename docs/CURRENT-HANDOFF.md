@@ -1,18 +1,20 @@
 # Current Handoff
 
-**Last updated:** 2026-09-27
+**Last updated:** 2026-09-28
 
 This file is the compact implementation resume point. Canonical product/system behavior lives in the Me+ Google Drive specifications; Supabase is the source of truth for live user/integration state. Git history preserves older implementation detail.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "health-connect-collector",
-  "repository": "dn-lx/me-plus",
-  "branch": "feature/health-connect-collector",
-  "status": "local_android_validation_pending",
-  "last_verified_code_sha": "bc2f12327c4d6f3de421911001516ef15540b404",
-  "next_step": "On the user's local machine, check out feature/health-connect-collector, install dependencies, prebuild/run the Android app, install it on the user's phone, grant Health Connect read access, and run the 7-day live inventory. Record populated record types and data origins before implementing Supabase upload/normalization.",
-  "updated_at": "2026-09-27T21:15:00Z"
+  "task_id": null,
+  "repository": null,
+  "base": "dev",
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-09-28T15:46:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
