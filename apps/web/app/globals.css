@@ -92,6 +92,59 @@ h1 {
   line-height: 1.55;
 }
 
+.downloadSection {
+  margin-bottom: 48px;
+}
+
+.downloadCard {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.downloadCard h3 {
+  text-transform: none;
+}
+
+.downloadCard p {
+  max-width: 660px;
+  margin-bottom: 12px;
+}
+
+.downloadActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.downloadButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border: 1px solid #9db7d5;
+  border-radius: 10px;
+  background: #d9e8f8;
+  color: #0b0f14;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.checksumLink {
+  color: #9db7d5;
+  text-underline-offset: 3px;
+}
+
+.downloadButton:focus-visible,
+.checksumLink:focus-visible {
+  outline: 3px solid #9db7d5;
+  outline-offset: 3px;
+}
+
 @media (max-width: 720px) {
   .shell {
     width: min(100% - 28px, 1120px);
@@ -101,8 +154,17 @@ h1 {
   .grid {
     grid-template-columns: 1fr;
   }
-}
 
+  .downloadCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .downloadActions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
 
 .legalHero {
   margin-bottom: 40px;
@@ -136,7 +198,6 @@ h1 {
   color: #7f8c9d;
   font-size: 0.92rem;
 }
-
 
 .siteFooter {
   display: flex;
