@@ -1,16 +1,33 @@
 import type {
   HealthIngestRequest,
   HealthMetric,
+  HealthUnit,
   SensorProvenance,
   SensorReading,
 } from "@me-plus/contracts";
 
-const healthMetrics = new Set<HealthMetric>(["steps", "heart-rate", "sleep-duration"]);
+const healthMetrics = new Set<HealthMetric>([
+  "steps",
+  "heart-rate",
+  "resting-heart-rate",
+  "oxygen-saturation",
+  "sleep-duration",
+  "exercise-duration",
+  "active-calories-burned",
+  "total-calories-burned",
+  "weight",
+]);
 const sensorProviders = new Set<SensorProvenance["provider"]>(["health-connect", "fake-health-connect"]);
-const metricUnits: Record<HealthMetric, SensorReading["unit"]> = {
+const metricUnits: Record<HealthMetric, HealthUnit> = {
   steps: "count",
   "heart-rate": "bpm",
+  "resting-heart-rate": "bpm",
+  "oxygen-saturation": "percent",
   "sleep-duration": "minutes",
+  "exercise-duration": "minutes",
+  "active-calories-burned": "kilocalories",
+  "total-calories-burned": "kilocalories",
+  weight: "kilograms",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -60,7 +77,10 @@ function parseSensorReading(value: unknown): SensorReading {
 
   const provenance = value.provenance;
 
-  if (!isNonEmptyString(provenance.provider) || !sensorProviders.has(provenance.provider as SensorProvenance["provider"])) {
+  if (
+    !isNonEmptyString(provenance.provider) ||
+    !sensorProviders.has(provenance.provider as SensorProvenance["provider"])
+  ) {
     throw new Error(`Health reading ${value.externalId} has an invalid provider`);
   }
 
@@ -76,6 +96,10 @@ function parseSensorReading(value: unknown): SensorReading {
     throw new Error(`Health reading ${value.externalId} has an invalid recordingMethod`);
   }
 
+  if (value.sourcePayload !== undefined && !isRecord(value.sourcePayload)) {
+    throw new Error(`Health reading ${value.externalId} has an invalid sourcePayload`);
+  }
+
   return {
     externalId: value.externalId,
     metric,
@@ -89,6 +113,7 @@ function parseSensorReading(value: unknown): SensorReading {
       ...(provenance.device ? { device: provenance.device } : {}),
       ...(provenance.recordingMethod ? { recordingMethod: provenance.recordingMethod } : {}),
     },
+    ...(value.sourcePayload ? { sourcePayload: value.sourcePayload } : {}),
   };
 }
 
@@ -99,7 +124,10 @@ export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
 
   const source = value.source;
 
-  if (!isNonEmptyString(source.provider) || !sensorProviders.has(source.provider as SensorProvenance["provider"])) {
+  if (
+    !isNonEmptyString(source.provider) ||
+    !sensorProviders.has(source.provider as SensorProvenance["provider"])
+  ) {
     throw new Error("Health ingestion source provider is invalid");
   }
 
@@ -132,6 +160,13 @@ export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
 
   if (readings.some((reading) => reading.provenance.provider !== provider)) {
     throw new Error("Every health reading provider must match the source provider");
+  }
+
+  if (
+    source.externalAccountRef &&
+    readings.some((reading) => reading.provenance.sourcePackage !== source.externalAccountRef)
+  ) {
+    throw new Error("Every health reading sourcePackage must match the source externalAccountRef");
   }
 
   return {

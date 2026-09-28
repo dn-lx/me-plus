@@ -8,7 +8,19 @@
 
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
-- Android app metadata now matches the planned Me+ 0.2.0 release version.
+
+## [0.3.0] - 2026-09-28
+
+### Added
+- Persistent Me+ Supabase sign-in on Android so the phone can authenticate health uploads to the canonical user account.
+- Full Health Connect pagination across the seven-day scan window instead of stopping at the first 1,000 records.
+- Health Connect mapping for heart rate, resting heart rate, oxygen saturation, sleep duration, steps, exercise duration, active calories, total calories and weight.
+- Batched authenticated phone-to-Me+ health ingestion grouped by original Health Connect data origin, preserving source package, device metadata and raw source payload in `raw_events`.
+- A third Health Connect action that uploads the scanned readings to Me+ and reports created/updated records and source-origin counts.
+
+### Changed
+- Expanded the shared health ingestion contract and backend validator to accept the record types confirmed by physical-device validation.
+- Android app metadata now targets Me+ 0.3.0 with versionCode 3.
 
 ## [0.2.0] - 2026-09-27
 
