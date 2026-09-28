@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "scheduler-backend-runtime",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
+  "branch": "fix/scheduler-backend-runtime",
   "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-28T16:10:00Z"
+  "status": "implementation_started",
+  "last_verified_sha": "6ca71f27ca5d24b31f78a1d3e1150c68a03966e7",
+  "next_step": "Implement and deploy the Supabase pg_cron Hourly scheduler/watchdog migration, verify live behavior, then synchronize canonical Drive policy/docs.",
+  "updated_at": "2026-09-28T20:24:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
