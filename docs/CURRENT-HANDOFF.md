@@ -10,11 +10,11 @@ This file is the compact implementation resume point. Canonical product/system b
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "fix/scheduler-backend-runtime",
-  "pr": null,
-  "status": "implementation_started",
-  "last_verified_sha": "6ca71f27ca5d24b31f78a1d3e1150c68a03966e7",
-  "next_step": "Implement and deploy the Supabase pg_cron Hourly scheduler/watchdog migration, verify live behavior, then synchronize canonical Drive policy/docs.",
-  "updated_at": "2026-09-28T20:24:00Z"
+  "pr": 29,
+  "status": "live_backend_deployed_core_verified",
+  "last_verified_sha": "2802114202cdb7fda4d96b63a345d3c0c3fb4f76",
+  "next_step": "Merge PR #29 to dev, synchronize the canonical Scheduler spec/issue register, and implement a server-side Todoist execution adapter when a backend Todoist credential path is available.",
+  "updated_at": "2026-09-28T20:36:30Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -94,3 +94,15 @@ Do not impose one refresh interval on every provider. Calendar/tasks, health/wea
 - Mobile Health Connect permission grants do not imply permission to persist every available record; ingest only data required by an explicit Me+ workflow.
 - Preserve user ownership, RLS, provenance, and raw/normalized separation for health ingestion.
 - Sensitive integration operations remain server-side.
+
+
+## Backend scheduler takeover — 2026-09-28
+
+Production Supabase now owns the authoritative Hourly clock and scheduler watchdog.
+
+- Migration `20260928203207_meplus_backend_scheduler_runtime` created `scheduler_dispatches`, private backend scheduler/watchdog functions, scheduler policy `1.14-draft`, and pg_cron jobs at minute 00 / 15.
+- Migration `20260928203500_index_scheduler_dispatch_run_fk` added the foreign-key index identified by the Supabase performance advisor.
+- Live acceptance materialized six due routine actions, completed the canonical scheduler run, left zero scheduler leases, and a same-hour retry returned idempotently.
+- The backend Hourly and watchdog heartbeats are healthy under policy `1.14-draft`.
+- The previous ChatGPT Scheduled Hourly task and watchdog were intentionally disabled after acceptance.
+- External Todoist execution is deliberately not fabricated: no server-side Todoist credential exists in Supabase Vault or the repository. Work requiring Todoist/AI execution is durably recorded in `scheduler_dispatches` with a blocked diagnostic until a backend adapter is configured.
