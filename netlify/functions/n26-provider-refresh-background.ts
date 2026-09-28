@@ -45,14 +45,50 @@ export default async (request: Request) => {
       continue;
     }
 
+    const refreshStartedAt = new Date().toISOString();
+
     try {
       const session = await getEnableBankingSession(source.external_account_ref);
       await syncN26Session(source.user_id, session);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      // syncN26Session records its own failure once a sync run has started.
+      // If the provider session request failed before that point, create a
+      // bounded failed run so the daily bank health check can see the failure
+      // immediately instead of waiting for freshness to exceed 36 hours.
+      const recentRun = await admin
+        .from("source_sync_runs")
+        .select("id")
+        .eq("user_id", source.user_id)
+        .eq("data_source_id", source.id)
+        .gte("started_at", refreshStartedAt)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!recentRun.error && !recentRun.data?.id) {
+        await admin.from("source_sync_runs").insert({
+          user_id: source.user_id,
+          data_source_id: source.id,
+          status: "failed",
+          started_at: refreshStartedAt,
+          finished_at: new Date().toISOString(),
+          error_code: message.slice(0, 200),
+          metadata: {
+            ingestion: "me-plus-finance-v1",
+            provider: "enable-banking",
+            institution: "n26",
+            trigger: "netlify-scheduled-background",
+            failureStage: "provider_session_or_sync_start",
+          },
+        });
+      }
+
       console.error("Scheduled N26 refresh failed", {
         dataSourceId: source.id,
         userId: source.user_id,
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       });
     }
   }
