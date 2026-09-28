@@ -9,6 +9,17 @@
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 
+## [0.4.0] - 2026-09-28
+
+### Fixed
+- Health Connect uploads now use bulk idempotent raw-event and observation upserts instead of per-reading database round-trips, preventing Netlify function timeouts on multi-thousand-reading scans.
+- Android health uploads use smaller bounded batches with retry handling for transient gateway/time-out responses.
+- Mobile health sync now handles non-JSON proxy/error responses explicitly instead of surfacing a JSON parser error.
+- Stale interrupted health sync runs can be identified and reconciled safely by re-uploading the same Health Connect external record IDs.
+
+### Changed
+- Android app metadata now targets Me+ 0.4.0 with versionCode 4.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added
