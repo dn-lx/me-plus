@@ -181,6 +181,21 @@ async function startSyncRun(
   userId: string,
   dataSourceId: string,
 ): Promise<string> {
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const recovered = await client
+    .from("source_sync_runs")
+    .update({
+      status: "failed",
+      finished_at: new Date().toISOString(),
+      error_code: "stale_running_sync_recovered",
+    })
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .eq("status", "running")
+    .lt("started_at", staleBefore);
+
+  throwIfError(recovered.error, "Unable to recover stale N26 sync run");
+
   const { data, error } = await client
     .from("source_sync_runs")
     .insert({
@@ -195,6 +210,10 @@ async function startSyncRun(
     })
     .select("id")
     .single();
+
+  if (error && "code" in error && error.code === "23505") {
+    throw new Error("N26 sync already running for this data source");
+  }
 
   throwIfError(error, "Unable to start N26 sync run");
 
@@ -251,6 +270,7 @@ async function syncFinancialAccount(
     .eq("user_id", userId)
     .eq("data_source_id", dataSourceId)
     .eq("external_account_ref", account.uid)
+    .eq("active", true)
     .maybeSingle();
 
   throwIfError(existing.error, `Unable to look up N26 account ${account.uid}`);
@@ -263,6 +283,53 @@ async function syncFinancialAccount(
 
     throwIfError(updated.error, `Unable to update N26 account ${account.uid}`);
     return { id: existing.data.id, created: false };
+  }
+
+  const candidates = await client
+    .from("financial_accounts")
+    .select("id,external_account_ref,metadata")
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .eq("active", true);
+
+  throwIfError(candidates.error, "Unable to inspect existing N26 account identities");
+
+  const currentMaskedIban = maskedIban(account);
+  const identityMatches = (candidates.data ?? []).filter((candidate) => {
+    const metadata = candidate.metadata as Record<string, unknown> | null;
+    return Boolean(
+      currentMaskedIban &&
+        metadata?.maskedIban === currentMaskedIban &&
+        metadata?.upstreamProvider === "enable-banking",
+    );
+  });
+
+  if (identityMatches.length > 1) {
+    throw new Error(
+      `Ambiguous N26 account identity after reconnect for ${currentMaskedIban}`,
+    );
+  }
+
+  if (identityMatches.length === 1) {
+    const candidate = identityMatches[0];
+    const previousRef = candidate.external_account_ref;
+    const updated = await client
+      .from("financial_accounts")
+      .update({
+        external_account_ref: account.uid,
+        ...values,
+        metadata: {
+          ...values.metadata,
+          previousExternalAccountRefs: previousRef ? [previousRef] : [],
+          accountIdentityReconciliationReason:
+            "enable-banking account UID rotated after reconnect",
+          accountIdentityReconciledAt: new Date().toISOString(),
+        },
+      })
+      .eq("id", candidate.id);
+
+    throwIfError(updated.error, `Unable to rebind N26 account ${account.uid}`);
+    return { id: candidate.id, created: false };
   }
 
   const inserted = await client
@@ -289,11 +356,11 @@ async function syncRawTransaction(
   client: AdminClient,
   userId: string,
   dataSourceId: string,
-  accountUid: string,
+  stableAccountId: string,
   externalTransactionId: string,
   transaction: EnableBankingTransaction,
 ): Promise<{ id: string; created: boolean }> {
-  const providerRecordId = `${accountUid}:${externalTransactionId}`;
+  const providerRecordId = `${stableAccountId}:${externalTransactionId}`;
   const observedAt =
     toTimestamp(transaction.booking_date) ??
     toTimestamp(transaction.transaction_date) ??
@@ -428,7 +495,7 @@ async function syncFinancialTransaction(
     client,
     userId,
     dataSourceId,
-    accountUid,
+    financialAccountId,
     providerTransactionId,
     transaction,
   );
