@@ -95,9 +95,19 @@ export interface HealthIngestSource {
   metadata?: Readonly<Record<string, unknown>>;
 }
 
+export interface HealthConnectRecord {
+  externalId: string;
+  recordType: string;
+  observedAt: IsoTimestamp;
+  lastModifiedAt: IsoTimestamp;
+  provenance: SensorProvenance;
+  payload: Readonly<Record<string, unknown>>;
+}
+
 export interface HealthIngestRequest {
   source: HealthIngestSource;
-  readings: readonly SensorReading[];
+  readings?: readonly SensorReading[];
+  records?: readonly HealthConnectRecord[];
   cursorAfter?: string;
 }
 
