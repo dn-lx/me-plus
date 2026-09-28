@@ -402,6 +402,29 @@ async function syncRawTransaction(
     return { id: existing.data.id, created: false };
   }
 
+  // Older ingestions keyed raw records by the provider account UID. After a
+  // reconnect Enable Banking may rotate that UID even though the bank account
+  // is unchanged. Reuse matching historical raw evidence by payload hash so a
+  // reconnect does not multiply the raw event stream.
+  const historical = await client
+    .from("raw_events")
+    .select("id")
+    .eq("data_source_id", dataSourceId)
+    .eq("event_type", "finance.n26.transaction")
+    .eq("content_hash", payloadHash)
+    .order("received_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  throwIfError(
+    historical.error,
+    `Unable to reconcile historical raw N26 transaction ${externalTransactionId}`,
+  );
+
+  if (historical.data?.id) {
+    return { id: historical.data.id, created: false };
+  }
+
   const inserted = await client
     .from("raw_events")
     .insert({
