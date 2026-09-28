@@ -14,7 +14,7 @@ This file is the compact implementation resume point. Canonical product/system b
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-09-28T16:10:00Z"
+  "updated_at": "2026-09-28T20:37:30Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -94,3 +94,15 @@ Do not impose one refresh interval on every provider. Calendar/tasks, health/wea
 - Mobile Health Connect permission grants do not imply permission to persist every available record; ingest only data required by an explicit Me+ workflow.
 - Preserve user ownership, RLS, provenance, and raw/normalized separation for health ingestion.
 - Sensitive integration operations remain server-side.
+
+
+## Backend scheduler takeover — 2026-09-28
+
+Production Supabase now owns the authoritative Hourly clock and scheduler watchdog.
+
+- Migration `20260928203207_meplus_backend_scheduler_runtime` created `scheduler_dispatches`, private backend scheduler/watchdog functions, scheduler policy `1.14-draft`, and pg_cron jobs at minute 00 / 15.
+- Migration `20260928203500_index_scheduler_dispatch_run_fk` added the foreign-key index identified by the Supabase performance advisor.
+- Live acceptance materialized six due routine actions, completed the canonical scheduler run, left zero scheduler leases, and a same-hour retry returned idempotently.
+- The backend Hourly and watchdog heartbeats are healthy under policy `1.14-draft`.
+- The previous ChatGPT Scheduled Hourly task and watchdog were intentionally disabled after acceptance.
+- External Todoist execution is deliberately not fabricated: no server-side Todoist credential exists in Supabase Vault or the repository. Work requiring Todoist/AI execution is durably recorded in `scheduler_dispatches` with a blocked diagnostic until a backend adapter is configured.
