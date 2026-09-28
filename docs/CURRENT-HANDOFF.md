@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "supabase-migration-provenance",
-  "repository": "dn-lx/me-plus",
+  "task_id": null,
+  "repository": null,
   "base": "dev",
-  "branch": "fix/supabase-migration-provenance",
-  "pr": 25,
-  "status": "testing",
-  "last_verified_sha": "0482ed0275de1840612e32d35207e43495e7d1d3",
-  "next_step": "Verify reconstructed Me+ migration files against the live Supabase migration ledger, commit and push them to PR #25, then reset this task state before merge into dev.",
-  "updated_at": "2026-09-28T15:40:00Z"
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-09-28T15:46:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
