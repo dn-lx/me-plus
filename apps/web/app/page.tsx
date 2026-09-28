@@ -11,8 +11,8 @@ const androidBuild = {
   version: "0.2.0",
   displayVersion: "0.2",
   filename: "me-plus-0.2.apk",
-  href: "https://github.com/dn-lx/me-plus/releases/download/v0.2.0/me-plus-0.2.apk",
-  checksumHref: "https://github.com/dn-lx/me-plus/releases/download/v0.2.0/me-plus-0.2.apk.sha256",
+  href: "/downloads/me-plus-0.2.apk",
+  checksumHref: "/downloads/me-plus-0.2.apk.sha256",
 };
 
 export default function HomePage() {
