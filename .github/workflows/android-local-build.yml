@@ -12,7 +12,7 @@ on:
       - ".github/workflows/android-local-build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-local-builder-${{ github.event.pull_request.number || github.ref }}
@@ -29,12 +29,16 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: "https://wbqnctrvxohxwiaignhg.supabase.co"
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_1IJENqECdJNvRxN-vUup5w_3dV8d4Ws"
       EXPO_PUBLIC_ME_PLUS_API_URL: "https://me-plus-personal-intelligence.netlify.app"
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
     steps:
       - name: Check out committed source
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Verify designated local Android builder
         shell: powershell
@@ -125,7 +129,7 @@ jobs:
             packageName = $appJson.expo.android.package
             versionCode = $appJson.expo.android.versionCode
             buildType = "debug-development"
-            sourceCommit = "${{ github.sha }}"
+            sourceCommit = "$env:SOURCE_SHA"
             githubRunId = "${{ github.run_id }}"
             githubRunAttempt = "${{ github.run_attempt }}"
             buildPath = "github-actions-self-hosted"
@@ -142,17 +146,54 @@ jobs:
       - name: Upload Android build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: me-plus-android-${{ steps.artifact.outputs.version }}-${{ github.sha }}
+          name: me-plus-android-${{ steps.artifact.outputs.version }}-${{ env.SOURCE_SHA }}
           path: artifacts/android/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Stage verified Android download in repository
+        shell: powershell
+        run: |
+          $version = "${{ steps.artifact.outputs.version }}"
+          $filename = "${{ steps.artifact.outputs.filename }}"
+          $artifactDir = "artifacts/android"
+          $downloadDir = "apps/web/public/downloads"
+          $releaseDir = "releases/android"
+
+          New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+          Copy-Item (Join-Path $artifactDir $filename) (Join-Path $downloadDir $filename) -Force
+          Copy-Item (Join-Path $artifactDir "$filename.sha256") (Join-Path $downloadDir "$filename.sha256") -Force
+          Copy-Item (Join-Path $artifactDir "$version.json") (Join-Path $releaseDir "$version.json") -Force
+
+          $displayVersion = $version -replace "\.0$",""
+          $pagePath = "apps/web/app/page.tsx"
+          $page = Get-Content $pagePath -Raw
+          $page = [regex]::Replace($page, 'version: "[^"]+",', ('version: "' + $version + '",'), 1)
+          $page = [regex]::Replace($page, 'displayVersion: "[^"]+",', ('displayVersion: "' + $displayVersion + '",'), 1)
+          $page = [regex]::Replace($page, 'filename: "me-plus-[^"]+\.apk",', ('filename: "' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'href: "/downloads/me-plus-[^"]+\.apk",', ('href: "/downloads/' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'checksumHref: "/downloads/me-plus-[^"]+\.apk\.sha256",', ('checksumHref: "/downloads/' + $filename + '.sha256",'), 1)
+          Set-Content -Path $pagePath -Value $page -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $downloadDir $releaseDir $pagePath
+
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "chore(android): publish verified Me+ $version artifact"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+          } else {
+            Write-Host "Verified Android download is already staged for this version."
+          }
 
       - name: Build summary
         shell: powershell
         run: |
           @"
           ## Me+ Android self-hosted build
-          - Source SHA: `${{ github.sha }}`
+          - Source SHA: `$env:SOURCE_SHA`
           - Runner: `${{ runner.name }}`
           - APK: `${{ steps.artifact.outputs.filename }}`
           - SHA-256: `${{ steps.artifact.outputs.sha256 }}`
