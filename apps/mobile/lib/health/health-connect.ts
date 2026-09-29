@@ -134,11 +134,10 @@ export async function hasHealthConnectBackgroundAccess(): Promise<boolean> {
   const initialized = await healthConnect.initialize();
   if (!initialized) return false;
   const granted = await healthConnect.getGrantedPermissions();
-  return granted.some(
-    (permission) =>
-      permission.accessType === "read" &&
-      permission.recordType === ("BackgroundAccessPermission" as never),
-  );
+  return granted.some((permission) => {
+    const recordType = (permission as { recordType?: unknown }).recordType;
+    return permission.accessType === "read" && String(recordType) === "BackgroundAccessPermission";
+  });
 }
 
 export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInventory> {
