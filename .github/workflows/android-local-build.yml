@@ -160,6 +160,11 @@ jobs:
           $downloadDir = "apps/web/public/downloads"
           $releaseDir = "releases/android"
 
+          # Build from SOURCE_SHA, but publish onto the latest task-branch head so
+          # harmless concurrent documentation/web fixes do not cause a non-fast-forward push.
+          git fetch origin $env:SOURCE_BRANCH
+          git checkout -B artifact-publish "origin/$env:SOURCE_BRANCH"
+
           New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
