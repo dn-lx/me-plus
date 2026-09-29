@@ -69,6 +69,48 @@ export interface SensorReading {
   sourcePayload?: Readonly<Record<string, unknown>>;
 }
 
+export type HealthConnectSensorRecordType =
+  | "ActiveCaloriesBurned"
+  | "BasalBodyTemperature"
+  | "BasalMetabolicRate"
+  | "BloodGlucose"
+  | "BloodPressure"
+  | "BodyFat"
+  | "BodyTemperature"
+  | "BodyWaterMass"
+  | "BoneMass"
+  | "CyclingPedalingCadence"
+  | "Distance"
+  | "ElevationGained"
+  | "ExerciseSession"
+  | "FloorsClimbed"
+  | "HeartRate"
+  | "HeartRateVariabilityRmssd"
+  | "Height"
+  | "LeanBodyMass"
+  | "OxygenSaturation"
+  | "Power"
+  | "RespiratoryRate"
+  | "RestingHeartRate"
+  | "SkinTemperature"
+  | "SleepSession"
+  | "Speed"
+  | "Steps"
+  | "StepsCadence"
+  | "TotalCaloriesBurned"
+  | "Vo2Max"
+  | "Weight"
+  | "WheelchairPushes";
+
+export interface HealthConnectRawRecord {
+  externalId: string;
+  recordType: HealthConnectSensorRecordType;
+  observedAt: IsoTimestamp;
+  lastModifiedAt: IsoTimestamp;
+  provenance: SensorProvenance;
+  payload: Readonly<Record<string, unknown>>;
+}
+
 export interface SensorReconciliationResult {
   sourceCount: number;
   storedCount: number;
@@ -98,6 +140,7 @@ export interface HealthIngestSource {
 export interface HealthIngestRequest {
   source: HealthIngestSource;
   readings: readonly SensorReading[];
+  rawRecords?: readonly HealthConnectRawRecord[];
   cursorAfter?: string;
 }
 
@@ -107,6 +150,9 @@ export interface HealthIngestResult {
   recordsSeen: number;
   recordsCreated: number;
   recordsUpdated: number;
+  rawRecordsSeen: number;
+  rawRecordsCreated: number;
+  rawRecordsUpdated: number;
   observationIds: readonly string[];
 }
 
