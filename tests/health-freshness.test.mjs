@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   compareProviderRevision,
+  decideProviderRevision,
   dedupeReadingsByFreshness,
   providerRevisionKey,
 } from "../apps/web/lib/health/freshness.ts";
@@ -75,5 +76,70 @@ test("deduped output order is deterministic by external ID", () => {
   assert.deepEqual(
     dedupeReadingsByFreshness([b, a]).map((item) => item.externalId),
     ["a", "b"],
+  );
+});
+
+
+test("incomplete equal revisions resume instead of being discarded", () => {
+  const current = reading();
+  const revisionKey = providerRevisionKey(current);
+
+  assert.equal(
+    decideProviderRevision(current, {
+      reading: current,
+      revisionKey,
+      processingStatus: "pending",
+    }),
+    "resume",
+  );
+
+  assert.equal(
+    decideProviderRevision(current, {
+      reading: current,
+      revisionKey,
+      processingStatus: "failed",
+    }),
+    "resume",
+  );
+
+  assert.equal(
+    decideProviderRevision(current, {
+      reading: current,
+      revisionKey,
+      processingStatus: "processed",
+    }),
+    "ignore",
+  );
+});
+
+test("older retries are ignored and newer revisions update", () => {
+  const current = reading({
+    value: 72,
+    lastModifiedAt: "2026-09-29T10:09:00.000Z",
+  });
+  const older = reading({
+    value: 65,
+    lastModifiedAt: "2026-09-29T10:01:00.000Z",
+  });
+  const newer = reading({
+    value: 75,
+    lastModifiedAt: "2026-09-29T10:12:00.000Z",
+  });
+
+  assert.equal(
+    decideProviderRevision(older, {
+      reading: current,
+      revisionKey: providerRevisionKey(current),
+      processingStatus: "processed",
+    }),
+    "ignore",
+  );
+  assert.equal(
+    decideProviderRevision(newer, {
+      reading: current,
+      revisionKey: providerRevisionKey(current),
+      processingStatus: "processed",
+    }),
+    "update",
   );
 });
