@@ -42,9 +42,22 @@ async function getAccessToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(`Unable to read Supabase session: ${error.message}`);
 
-  const accessToken = data.session?.access_token;
-  if (!accessToken) throw new Error("Health sync requires an authenticated Supabase session");
-  return accessToken;
+  let session = data.session;
+  if (!session) throw new Error("Health sync requires an authenticated Supabase session");
+
+  const expiresAtMs = (session.expires_at ?? 0) * 1000;
+  if (expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error) {
+      throw new Error(`Unable to refresh Me+ session: ${refreshed.error.message}`);
+    }
+    session = refreshed.data.session;
+  }
+
+  if (!session?.access_token) {
+    throw new Error("Health sync could not obtain a valid Me+ access token");
+  }
+  return session.access_token;
 }
 
 function parseResponseBody(text: string): unknown {
