@@ -58,4 +58,12 @@
 
 ## Completion evidence
 
-To be filled with migration/version, PR/SHA, CI/check results, SQL acceptance results, and advisor output.
+- Fix branch: `fix/bnk-003-n26-account-reconciliation`; draft PR #32 targets `dev`.
+- Production migration applied successfully as `20260929092808_fix_n26_account_identity_reconciliation`.
+- Live DB acceptance after repair: 1 active N26 account, 60 normalized N26 transactions, 0 duplicate transaction groups, and 0 normalized transaction rows remaining on the superseded account.
+- Provenance retained: all 120 raw N26 transaction events remain present, distinct, and processed; the superseded account row remains as historical/correction evidence.
+- Database negative-path test verified the stable-identity unique index rejects a second account with the same user/source/provider identity and leaves no test residue.
+- Targeted regression suite: 7/7 `n26-account-identity` tests pass under Node type stripping; the helper also passes strict TypeScript compilation.
+- Final PR diff reviewed against `dev`; the branch is 11 commits ahead and 0 behind at code SHA `c9e9d4db3f15868cf43c42af9b102ecd20f538a2`.
+- Supabase security/performance advisors show no new BNK-003-specific blocking finding. Existing unrelated scheduler RLS/auth and routine-bundle index findings remain separate issues.
+- Full workspace CI/build is not valid evidence yet: GitHub Actions jobs for the current code SHA fail before any step starts (no logs/steps), matching the repository's known hosted-runner infrastructure problem. The authorized Desktop Commander device is offline, so a trustworthy full monorepo typecheck/build could not be run in this session. Keep PR #32 draft until that gate can execute.
