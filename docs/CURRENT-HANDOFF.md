@@ -46,9 +46,12 @@ Current validation path:
 
 ## Verification state
 
-- GitHub Actions runs for the Health Connect branch failed before any workflow steps executed, so they are not trustworthy application-test evidence.
-- A trustworthy local typecheck/native build/runtime signal is still required.
-- PR #17 must not be treated as validated or ready to merge until local/native verification succeeds.
+- The mandatory self-hosted Android workflow is active on runner `DESKTOP-RG1HH2I`.
+- Current Health Connect regression tests pass on that runner, workspace type-check passes, and Expo Android prebuild succeeds.
+- The workflow now provisions Temurin JDK 17 explicitly because the runner service did not expose Java in PATH/JAVA_HOME.
+- `pnpm-lock.yaml` is now committed and the workflow enforces a frozen lockfile before the Android build.
+- Native APK assembly, artifact checksum/provenance, dev-website publication, and real-device Health Connect ingestion remain the acceptance gates before this task is closed.
+- Generic GitHub-hosted validation jobs continue to fail before useful step/log evidence is available; do not substitute those infrastructure failures for the self-hosted Android acceptance evidence.
 
 ## Canonical Health Connect architecture already documented
 
