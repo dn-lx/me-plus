@@ -18,7 +18,7 @@ select set_config(
 );
 set local role authenticated;
 
-do $test$
+do $client$
 declare
   v_user uuid := auth.uid();
   v_rows integer;
@@ -35,8 +35,6 @@ declare
   v_manual_observation uuid;
   v_manual_document uuid;
   v_expected boolean;
-  v_correction jsonb;
-  v_original_sub text := current_setting('request.jwt.claim.sub',true);
 begin
   if v_user is null then raise exception 'authenticated test user missing'; end if;
 
@@ -123,6 +121,22 @@ begin
   end;
   if not v_expected then raise exception 'fact correction history accepted direct client insert'; end if;
 
+  if has_function_privilege(
+    'authenticated',
+    'public.server_correct_financial_transaction(uuid,uuid,jsonb,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated unexpectedly has server correction RPC execute privilege';
+  end if;
+
+  if has_function_privilege(
+    'anon',
+    'public.server_correct_financial_transaction(uuid,uuid,jsonb,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'anon unexpectedly has server correction RPC execute privilege';
+  end if;
+
   insert into public.data_sources(user_id,kind,provider,display_name,status,metadata)
   values(v_user,'manual','meplus_manual','DB-003 regression manual source','active','{}'::jsonb)
   returning id into v_manual_source;
@@ -170,11 +184,65 @@ begin
   get diagnostics v_rows=row_count;
   if v_rows <> 1 then raise exception 'manual document update was blocked'; end if;
 
-  v_correction := public.correct_financial_transaction(
+  delete from public.financial_transactions where id=v_manual_transaction;
+  get diagnostics v_rows=row_count;
+  if v_rows <> 1 then raise exception 'manual transaction delete was blocked'; end if;
+
+  delete from public.documents where id=v_manual_document;
+  get diagnostics v_rows=row_count;
+  if v_rows <> 1 then raise exception 'manual document delete was blocked'; end if;
+end
+$client$;
+
+reset role;
+set local role service_role;
+
+do $server$
+declare
+  v_user uuid;
+  v_tx uuid;
+  v_account uuid;
+  v_observation uuid;
+  v_document uuid;
+  v_correction jsonb;
+  v_expected boolean;
+begin
+  select id into v_user from public.profiles order by created_at limit 1;
+
+  if not has_function_privilege(
+    'service_role',
+    'public.server_correct_financial_transaction(uuid,uuid,jsonb,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'service role correction RPC execute privilege missing';
+  end if;
+
+  select id into v_tx
+  from public.financial_transactions
+  where user_id=v_user and data_source_id is not null
+  order by created_at limit 1;
+
+  select id into v_account
+  from public.financial_accounts
+  where user_id=v_user and data_source_id is not null
+  order by created_at limit 1;
+
+  select id into v_observation
+  from public.observations
+  where user_id=v_user and (data_source_id is not null or raw_event_id is not null)
+  order by created_at limit 1;
+
+  select id into v_document
+  from public.documents
+  where user_id=v_user and external_ref='db003-imported-document';
+
+  v_correction := public.server_correct_financial_transaction(
+    v_user,
     v_tx,
     jsonb_build_object('category','db003-regression-corrected','recurring_candidate',true),
     'DB-003 regression transaction correction'
   );
+
   if not exists (
     select 1 from public.financial_transactions
     where id=v_tx
@@ -183,8 +251,9 @@ begin
       and metadata->'userCorrectedFields' ? 'category'
       and metadata->'userCorrectedFields' ? 'recurring_candidate'
   ) then
-    raise exception 'financial transaction correction RPC failed';
+    raise exception 'financial transaction server correction failed';
   end if;
+
   if not exists (
     select 1 from public.fact_corrections
     where id=(v_correction->>'correction_id')::uuid
@@ -195,6 +264,7 @@ begin
   ) then
     raise exception 'financial transaction correction history missing';
   end if;
+
   if not exists (
     select 1 from public.audit_events
     where user_id=v_user
@@ -208,16 +278,21 @@ begin
 
   v_expected := false;
   begin
-    perform public.correct_financial_transaction(
-      v_tx,jsonb_build_object('amount',999),'DB-003 illegal protected field correction'
+    perform public.server_correct_financial_transaction(
+      v_user,v_tx,jsonb_build_object('amount',999),
+      'DB-003 illegal protected field correction'
     );
   exception when others then
-    if sqlerrm='unsupported financial transaction correction field' then v_expected := true; else raise; end if;
+    if sqlerrm='unsupported financial transaction correction field' then
+      v_expected := true;
+    else
+      raise;
+    end if;
   end;
   if not v_expected then raise exception 'protected transaction amount was correctable'; end if;
 
-  perform public.correct_financial_account(
-    v_account,jsonb_build_object('display_name','DB-003 corrected account label'),
+  perform public.server_correct_financial_account(
+    v_user,v_account,jsonb_build_object('display_name','DB-003 corrected account label'),
     'DB-003 regression account correction'
   );
   if not exists (
@@ -225,10 +300,10 @@ begin
     where id=v_account
       and display_name='DB-003 corrected account label'
       and metadata->'userCorrectedFields' ? 'display_name'
-  ) then raise exception 'financial account correction RPC failed'; end if;
+  ) then raise exception 'financial account server correction failed'; end if;
 
-  perform public.correct_observation(
-    v_observation,jsonb_build_object('value_number',123.456,'quality','user_corrected'),
+  perform public.server_correct_observation(
+    v_user,v_observation,jsonb_build_object('value_number',123.456,'quality','user_corrected'),
     'DB-003 regression observation correction'
   );
   if not exists (
@@ -238,10 +313,10 @@ begin
       and quality='user_corrected'
       and provenance->'userCorrectedFields' ? 'value_number'
       and provenance->'userCorrectedFields' ? 'quality'
-  ) then raise exception 'observation correction RPC failed'; end if;
+  ) then raise exception 'observation server correction failed'; end if;
 
-  perform public.correct_document(
-    v_document,jsonb_build_object('title','DB-003 corrected imported document'),
+  perform public.server_correct_document(
+    v_user,v_document,jsonb_build_object('title','DB-003 corrected imported document'),
     'DB-003 regression document correction'
   );
   if not exists (
@@ -249,42 +324,31 @@ begin
     where id=v_document
       and title='DB-003 corrected imported document'
       and metadata->'userCorrectedFields' ? 'title'
-  ) then raise exception 'document correction RPC failed'; end if;
+  ) then raise exception 'document server correction failed'; end if;
 
-  perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
   v_expected := false;
   begin
-    perform public.correct_financial_transaction(
-      v_tx,jsonb_build_object('category','cross-user-illegal'),'cross-user test'
+    perform public.server_correct_financial_transaction(
+      gen_random_uuid(),v_tx,jsonb_build_object('category','cross-user-illegal'),
+      'cross-user test'
     );
   exception when others then
-    if sqlerrm='financial transaction not found' then v_expected := true; else raise; end if;
+    if sqlerrm='financial transaction not found' then
+      v_expected := true;
+    else
+      raise;
+    end if;
   end;
-  perform set_config('request.jwt.claim.sub',v_original_sub,true);
-  if not v_expected then raise exception 'cross-user correction was not denied'; end if;
-
-  if has_function_privilege('anon','public.correct_financial_transaction(uuid,jsonb,text)','EXECUTE') then
-    raise exception 'anon unexpectedly has correction RPC execute privilege';
-  end if;
-  if not has_function_privilege('authenticated','public.correct_financial_transaction(uuid,jsonb,text)','EXECUTE') then
-    raise exception 'authenticated correction RPC execute privilege missing';
-  end if;
-
-  delete from public.financial_transactions where id=v_manual_transaction;
-  get diagnostics v_rows=row_count;
-  if v_rows <> 1 then raise exception 'manual transaction delete was blocked'; end if;
-
-  delete from public.documents where id=v_manual_document;
-  get diagnostics v_rows=row_count;
-  if v_rows <> 1 then raise exception 'manual document delete was blocked'; end if;
+  if not v_expected then raise exception 'server correction accepted mismatched user ownership'; end if;
 end
-$test$;
+$server$;
 
+reset role;
 rollback;
 
 select jsonb_build_object(
   'status','passed',
-  'test_residue_actions',(
+  'test_residue_documents',(
     select count(*) from public.documents
     where title like 'DB-003 regression%'
        or external_ref='db003-imported-document'
