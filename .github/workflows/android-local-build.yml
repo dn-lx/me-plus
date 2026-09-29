@@ -6,10 +6,14 @@ on:
     branches: [dev]
     paths:
       - "apps/mobile/**"
-      - "packages/contracts/**"
+      - "packages/**"
       - "VERSION"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - "tsconfig.json"
+      - "tsconfig.base.json"
       - ".github/workflows/android-local-build.yml"
 
 permissions:
@@ -28,6 +32,7 @@ jobs:
     env:
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
+      CMAKE_VERSION: "3.22.1"
       EXPO_PUBLIC_SUPABASE_URL: "https://wbqnctrvxohxwiaignhg.supabase.co"
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_1IJENqECdJNvRxN-vUup5w_3dV8d4Ws"
       EXPO_PUBLIC_ME_PLUS_API_URL: "https://dev--me-plus-personal-intelligence.netlify.app"
@@ -155,6 +160,33 @@ jobs:
 
           Write-Host "Android SDK toolchain ready at $sdk"
 
+      - name: Ensure pinned Ninja with Windows long-path support
+        shell: powershell
+        run: |
+          # Gradle invokes this SDK executable directly; changing PATH alone
+          # would leave the older Ninja shipped with CMake 3.22.1 in use.
+          $ninja = Join-Path $env:ANDROID_HOME "cmake\3.22.1\bin\ninja.exe"
+          $currentVersion = (& $ninja --version).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "SDK Ninja version inspection failed." }
+          Write-Host "SDK Ninja before verification: $currentVersion"
+          if ($currentVersion -ne "1.13.2") {
+            $archive = Join-Path $env:RUNNER_TEMP "me-plus-ninja-1.13.2.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "me-plus-ninja-1.13.2"
+            curl.exe --fail --location "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip" --output $archive
+            if ($LASTEXITCODE -ne 0) { throw "Pinned Ninja download failed." }
+            $hash = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -ne "07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65") {
+              throw "Pinned Ninja archive differs from the upstream release digest."
+            }
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+            $backup = "$ninja.me-plus-original"
+            if (!(Test-Path $backup)) { Copy-Item $ninja $backup }
+            Copy-Item (Join-Path $extract "ninja.exe") $ninja -Force
+          }
+          $actualVersion = (& $ninja --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne "1.13.2") { throw "Pinned SDK Ninja verification failed." }
+          Write-Host "SDK Ninja ready: $actualVersion"
+
       - name: Ensure dependency lockfile matches committed manifests
         id: lockfile
         shell: powershell
@@ -185,12 +217,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Short-path source checkout failed." }
           $actualSha = (git -C $root rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:SOURCE_SHA) { throw "Build source does not match SOURCE_SHA." }
-          "node-linker=hoisted" | Set-Content -Path (Join-Path $root ".npmrc") -Encoding ascii
           Write-Host "Prepared fresh short-path build checkout at $root"
 
       - name: Install workspace dependencies
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}
-        run: pnpm install --frozen-lockfile
+        shell: powershell
+        run: |
+          $linker = (pnpm config get nodeLinker).Trim()
+          if ($LASTEXITCODE -ne 0 -or $linker -ne "hoisted") { throw "Android build requires pnpm nodeLinker=hoisted." }
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "Workspace dependency installation failed." }
+          @'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          for (const name of ['react-native-screens', 'react-native-worklets']) {
+            const file = fs.realpathSync(require.resolve(name + '/package.json', {paths: [path.join(process.cwd(), 'apps/mobile')]}));
+            if (file.includes('.pnpm') || file.length > 120) throw new Error('Native dependency path is too long: ' + file);
+            console.log('Native dependency path verified: ' + name);
+          }
+          '@ | node
+          if ($LASTEXITCODE -ne 0) { throw "Native dependency layout verification failed." }
 
       - name: Health ingestion regression tests
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}
@@ -199,6 +245,10 @@ jobs:
       - name: Type-check workspace
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}
         run: pnpm typecheck
+
+      - name: Verify Expo native dependency compatibility
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        run: pnpm --filter @me-plus/mobile exec expo install --check
 
       - name: Generate native Android project
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}
@@ -295,6 +345,10 @@ jobs:
             packageName = $appJson.expo.android.package
             versionCode = $appJson.expo.android.versionCode
             buildType = "release"
+            pnpmVersion = "12.6.0"
+            ninjaVersion = "1.13.2"
+            cmakeVersion = "3.22.1"
+            ndkVersion = "27.1.12297006"
             sourceCommit = "$env:SOURCE_SHA"
             githubRunId = "${{ github.run_id }}"
             githubRunAttempt = "${{ github.run_attempt }}"
