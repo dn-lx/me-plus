@@ -1,17 +1,43 @@
-import type { SensorReading } from "@me-plus/contracts";
+import type {
+  HealthConnectRawRecord,
+  HealthConnectSensorRecordType,
+  SensorReading,
+} from "@me-plus/contracts";
 import { Platform } from "react-native";
 
 export const HEALTH_CONNECT_RECORD_TYPES = [
-  "HeartRate",
-  "RestingHeartRate",
-  "OxygenSaturation",
-  "SleepSession",
-  "Steps",
-  "ExerciseSession",
   "ActiveCaloriesBurned",
+  "BasalBodyTemperature",
+  "BasalMetabolicRate",
+  "BloodGlucose",
+  "BloodPressure",
+  "BodyFat",
+  "BodyTemperature",
+  "BodyWaterMass",
+  "BoneMass",
+  "CyclingPedalingCadence",
+  "Distance",
+  "ElevationGained",
+  "ExerciseSession",
+  "FloorsClimbed",
+  "HeartRate",
+  "HeartRateVariabilityRmssd",
+  "Height",
+  "LeanBodyMass",
+  "OxygenSaturation",
+  "Power",
+  "RespiratoryRate",
+  "RestingHeartRate",
+  "SkinTemperature",
+  "SleepSession",
+  "Speed",
+  "Steps",
+  "StepsCadence",
   "TotalCaloriesBurned",
+  "Vo2Max",
   "Weight",
-] as const;
+  "WheelchairPushes",
+] as const satisfies readonly HealthConnectSensorRecordType[];
 
 export type HealthConnectRecordType = (typeof HEALTH_CONNECT_RECORD_TYPES)[number];
 
@@ -35,6 +61,7 @@ export type HealthConnectInventory = {
 export type HealthConnectScan = {
   inventory: HealthConnectInventory;
   readings: SensorReading[];
+  rawRecords: HealthConnectRawRecord[];
 };
 
 type GenericMetadata = {
@@ -60,12 +87,8 @@ type GenericRecord = Record<string, unknown> & {
   beatsPerMinute?: number;
   percentage?: number;
   samples?: HeartRateSample[];
-  energy?: {
-    inKilocalories?: number;
-  };
-  weight?: {
-    inKilograms?: number;
-  };
+  energy?: { inKilocalories?: number };
+  weight?: { inKilograms?: number };
 };
 
 type ReadRecordsResponse = {
@@ -85,11 +108,36 @@ export async function requestHealthConnectReadPermissions() {
     throw new Error("Health Connect could not be initialized on this device.");
   }
 
-  return healthConnect.requestPermission(
+  const standard = await healthConnect.requestPermission(
     HEALTH_CONNECT_RECORD_TYPES.map((recordType) => ({
       accessType: "read" as const,
       recordType,
     })) as never,
+  );
+
+  // These are separate Android Health Connect capabilities. A device may not
+  // expose both, so failure here must not discard the standard read grants.
+  try {
+    const special = await healthConnect.requestPermission([
+      { accessType: "read", recordType: "BackgroundAccessPermission" },
+      { accessType: "read", recordType: "ReadHealthDataHistory" },
+    ] as never);
+    return [...standard, ...special];
+  } catch {
+    return standard;
+  }
+}
+
+export async function hasHealthConnectBackgroundAccess(): Promise<boolean> {
+  assertAndroid();
+  const healthConnect = await import("react-native-health-connect");
+  const initialized = await healthConnect.initialize();
+  if (!initialized) return false;
+  const granted = await healthConnect.getGrantedPermissions();
+  return granted.some(
+    (permission) =>
+      permission.accessType === "read" &&
+      permission.recordType === ("BackgroundAccessPermission" as never),
   );
 }
 
@@ -142,9 +190,8 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
             latestObservedAt,
             error: null,
           } satisfies HealthConnectInventoryItem,
-          readings: records.flatMap((record, index) =>
-            mapRecordToReadings(recordType, record, index),
-          ),
+          rawRecords: records.map((record) => toRawRecord(recordType, record)),
+          readings: records.flatMap((record) => mapRecordToReadings(recordType, record)),
         };
       } catch (error) {
         return {
@@ -155,6 +202,7 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
             latestObservedAt: null,
             error: toErrorMessage(error),
           } satisfies HealthConnectInventoryItem,
+          rawRecords: [] as HealthConnectRawRecord[],
           readings: [] as SensorReading[],
         };
       }
@@ -171,6 +219,7 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
       items: results.map((result) => result.item),
     },
     readings: results.flatMap((result) => result.readings),
+    rawRecords: results.flatMap((result) => result.rawRecords),
   };
 }
 
@@ -199,10 +248,7 @@ async function readAllRecords(
     pageCount += 1;
 
     const nextPageToken = result.pageToken;
-    if (!nextPageToken || nextPageToken === pageToken) {
-      break;
-    }
-
+    if (!nextPageToken || nextPageToken === pageToken) break;
     pageToken = nextPageToken;
 
     if (pageCount >= MAX_PAGES) {
@@ -215,183 +261,119 @@ async function readAllRecords(
   return records;
 }
 
+function toRawRecord(
+  recordType: HealthConnectRecordType,
+  record: GenericRecord,
+): HealthConnectRawRecord {
+  const observedAt = record.endTime ?? record.time ?? record.startTime;
+  if (!observedAt) {
+    throw new Error(`${recordType} record is missing a timestamp.`);
+  }
+
+  const sourcePackage = record.metadata?.dataOrigin?.trim() || "health-connect.unknown-origin";
+  const lastModifiedAt = record.metadata?.lastModifiedTime ?? observedAt;
+  const externalId =
+    record.metadata?.id?.trim() ||
+    `${recordType}:${sourcePackage}:${observedAt}:${fingerprint(record)}`;
+
+  return {
+    externalId,
+    recordType,
+    observedAt,
+    lastModifiedAt,
+    provenance: provenanceFor(record, sourcePackage),
+    payload: {
+      ...record,
+      recordType,
+    },
+  };
+}
+
 function mapRecordToReadings(
   recordType: HealthConnectRecordType,
   record: GenericRecord,
-  recordIndex: number,
 ): SensorReading[] {
-  const sourcePackage = record.metadata?.dataOrigin?.trim() || "health-connect.unknown-origin";
-  const device = formatDevice(record.metadata?.device);
-  const recordingMethod = formatRecordingMethod(record.metadata?.recordingMethod);
-  const lastModifiedAt =
-    record.metadata?.lastModifiedTime ??
-    record.endTime ??
-    record.time ??
-    record.startTime ??
-    new Date(0).toISOString();
-  const baseId =
-    record.metadata?.id?.trim() ||
-    [
-      recordType,
-      sourcePackage,
-      record.startTime ?? record.time ?? "unknown-time",
-      record.endTime ?? "",
-      String(recordIndex),
-    ].join(":");
-
-  const provenance = {
-    provider: "health-connect" as const,
-    sourcePackage,
-    ...(device ? { device } : {}),
-    ...(recordingMethod ? { recordingMethod } : {}),
-  };
+  const raw = toRawRecord(recordType, record);
+  const sourcePackage = raw.provenance.sourcePackage;
+  const provenance = raw.provenance;
+  const lastModifiedAt = raw.lastModifiedAt;
+  const baseId = raw.externalId;
 
   if (recordType === "HeartRate") {
     return (record.samples ?? []).flatMap((sample, sampleIndex) => {
-      if (!isFiniteNumber(sample.beatsPerMinute)) {
-        return [];
-      }
-
+      if (!isFiniteNumber(sample.beatsPerMinute)) return [];
       const observedAt = sample.time ?? record.endTime ?? record.startTime;
-      if (!observedAt) {
-        return [];
-      }
+      if (!observedAt) return [];
 
-      return [
-        {
-          externalId: `${baseId}:sample:${sample.time ?? sampleIndex}`,
-          metric: "heart-rate" as const,
-          value: sample.beatsPerMinute,
-          unit: "bpm" as const,
-          observedAt,
-          lastModifiedAt,
-          provenance,
-          sourcePayload: sourcePayload(record, {
-            sampleIndex,
-            sample,
-          }),
-        },
-      ];
+      return [{
+        externalId: `${baseId}:sample:${sample.time ?? sampleIndex}`,
+        metric: "heart-rate" as const,
+        value: sample.beatsPerMinute,
+        unit: "bpm" as const,
+        observedAt,
+        lastModifiedAt,
+        provenance,
+        sourcePayload: sourcePayload(record, baseId, { sampleIndex, sample }),
+      }];
     });
   }
 
   if (recordType === "RestingHeartRate" && isFiniteNumber(record.beatsPerMinute)) {
-    return singleReading(
-      baseId,
-      "resting-heart-rate",
-      record.beatsPerMinute,
-      "bpm",
-      record.time,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+    return singleReading(baseId, "resting-heart-rate", record.beatsPerMinute, "bpm", record.time, lastModifiedAt, provenance, record);
   }
 
   if (recordType === "OxygenSaturation" && isFiniteNumber(record.percentage)) {
-    return singleReading(
-      baseId,
-      "oxygen-saturation",
-      record.percentage,
-      "percent",
-      record.time,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+    return singleReading(baseId, "oxygen-saturation", record.percentage, "percent", record.time, lastModifiedAt, provenance, record);
   }
 
   if (recordType === "SleepSession") {
     const durationMinutes = intervalMinutes(record);
     if (durationMinutes !== null) {
-      return singleReading(
-        baseId,
-        "sleep-duration",
-        durationMinutes,
-        "minutes",
-        record.endTime,
-        lastModifiedAt,
-        provenance,
-        record,
-      );
+      return singleReading(baseId, "sleep-duration", durationMinutes, "minutes", record.endTime, lastModifiedAt, provenance, record);
     }
   }
 
   if (recordType === "Steps" && isFiniteNumber(record.count)) {
-    return singleReading(
-      baseId,
-      "steps",
-      record.count,
-      "count",
-      record.endTime,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+    return singleReading(baseId, "steps", record.count, "count", record.endTime, lastModifiedAt, provenance, record);
   }
 
   if (recordType === "ExerciseSession") {
     const durationMinutes = intervalMinutes(record);
     if (durationMinutes !== null) {
-      return singleReading(
-        baseId,
-        "exercise-duration",
-        durationMinutes,
-        "minutes",
-        record.endTime,
-        lastModifiedAt,
-        provenance,
-        record,
-      );
+      return singleReading(baseId, "exercise-duration", durationMinutes, "minutes", record.endTime, lastModifiedAt, provenance, record);
     }
   }
 
-  if (
-    recordType === "ActiveCaloriesBurned" &&
-    isFiniteNumber(record.energy?.inKilocalories)
-  ) {
-    return singleReading(
-      baseId,
-      "active-calories-burned",
-      record.energy.inKilocalories,
-      "kilocalories",
-      record.endTime,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+  if (recordType === "ActiveCaloriesBurned" && isFiniteNumber(record.energy?.inKilocalories)) {
+    return singleReading(baseId, "active-calories-burned", record.energy.inKilocalories, "kilocalories", record.endTime, lastModifiedAt, provenance, record);
   }
 
-  if (
-    recordType === "TotalCaloriesBurned" &&
-    isFiniteNumber(record.energy?.inKilocalories)
-  ) {
-    return singleReading(
-      baseId,
-      "total-calories-burned",
-      record.energy.inKilocalories,
-      "kilocalories",
-      record.endTime,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+  if (recordType === "TotalCaloriesBurned" && isFiniteNumber(record.energy?.inKilocalories)) {
+    return singleReading(baseId, "total-calories-burned", record.energy.inKilocalories, "kilocalories", record.endTime, lastModifiedAt, provenance, record);
   }
 
   if (recordType === "Weight" && isFiniteNumber(record.weight?.inKilograms)) {
-    return singleReading(
-      baseId,
-      "weight",
-      record.weight.inKilograms,
-      "kilograms",
-      record.time,
-      lastModifiedAt,
-      provenance,
-      record,
-    );
+    return singleReading(baseId, "weight", record.weight.inKilograms, "kilograms", record.time, lastModifiedAt, provenance, record);
   }
 
+  // Every requested Health Connect record is still uploaded as a raw record even
+  // when Me+ does not yet have a normalized numeric metric for it.
+  void sourcePackage;
   return [];
+}
+
+function provenanceFor(
+  record: GenericRecord,
+  sourcePackage: string,
+): SensorReading["provenance"] {
+  const device = formatDevice(record.metadata?.device);
+  const recordingMethod = formatRecordingMethod(record.metadata?.recordingMethod);
+  return {
+    provider: "health-connect",
+    sourcePackage,
+    ...(device ? { device } : {}),
+    ...(recordingMethod ? { recordingMethod } : {}),
+  };
 }
 
 function singleReading(
@@ -404,29 +386,27 @@ function singleReading(
   provenance: SensorReading["provenance"],
   record: GenericRecord,
 ): SensorReading[] {
-  if (!observedAt) {
-    return [];
-  }
+  if (!observedAt) return [];
 
-  return [
-    {
-      externalId,
-      metric,
-      value,
-      unit,
-      observedAt,
-      lastModifiedAt,
-      provenance,
-      sourcePayload: sourcePayload(record),
-    },
-  ];
+  return [{
+    externalId,
+    metric,
+    value,
+    unit,
+    observedAt,
+    lastModifiedAt,
+    provenance,
+    sourcePayload: sourcePayload(record, externalId),
+  }];
 }
 
 function sourcePayload(
   record: GenericRecord,
+  rawRecordExternalId: string,
   extra?: Record<string, unknown>,
 ): Readonly<Record<string, unknown>> {
   return {
+    rawRecordExternalId,
     recordType: record.recordType ?? null,
     startTime: record.startTime ?? null,
     endTime: record.endTime ?? null,
@@ -438,61 +418,48 @@ function sourcePayload(
 }
 
 function intervalMinutes(record: GenericRecord): number | null {
-  if (!record.startTime || !record.endTime) {
-    return null;
-  }
-
+  if (!record.startTime || !record.endTime) return null;
   const start = Date.parse(record.startTime);
   const end = Date.parse(record.endTime);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-    return null;
-  }
-
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
   return (end - start) / 60_000;
 }
 
 function recordObservedTimes(record: GenericRecord): string[] {
   const values = [record.endTime, record.startTime, record.time];
-  if (record.samples?.length) {
-    values.push(...record.samples.map((sample) => sample.time));
-  }
-
+  if (record.samples?.length) values.push(...record.samples.map((sample) => sample.time));
   return values.filter((value): value is string => Boolean(value));
 }
 
 function formatDevice(value: unknown): string | undefined {
-  if (typeof value === "string" && value.trim()) {
-    return value;
-  }
-
-  if (typeof value === "number") {
-    return `type:${value}`;
-  }
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number") return `type:${value}`;
 
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const device = value as Record<string, unknown>;
     const parts = [device.manufacturer, device.model]
       .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
       .map((part) => part.trim());
-
-    if (parts.length > 0) {
-      return parts.join(" ");
-    }
-
-    if (device.type !== undefined && device.type !== null) {
-      return `type:${String(device.type)}`;
-    }
+    if (parts.length > 0) return parts.join(" ");
+    if (device.type !== undefined && device.type !== null) return `type:${String(device.type)}`;
   }
 
   return undefined;
 }
 
 function formatRecordingMethod(value: unknown): string | undefined {
-  if (value === undefined || value === null || value === "") {
-    return undefined;
-  }
-
+  if (value === undefined || value === null || value === "") return undefined;
   return String(value);
+}
+
+function fingerprint(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function isFiniteNumber(value: unknown): value is number {
