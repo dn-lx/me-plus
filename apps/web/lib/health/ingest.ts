@@ -13,6 +13,8 @@ type RawEventRow = {
   id: string;
   external_record_id: string | null;
   payload: unknown;
+  content_hash: string | null;
+  processing_status: string;
 };
 
 type ExistingObservationRow = {
@@ -176,12 +178,13 @@ async function bulkSyncRawEvents(
   acceptedReadings: SensorReading[];
   recordsCreated: number;
   recordsUpdated: number;
+  recordsResumed: number;
   recordsIgnoredStale: number;
 }> {
   const externalIds = readings.map((reading) => reading.externalId);
   const existing = await client
     .from("raw_events")
-    .select("id,external_record_id,payload")
+    .select("id,external_record_id,payload,content_hash,processing_status")
     .eq("data_source_id", dataSourceId)
     .in("external_record_id", externalIds);
 
@@ -199,12 +202,48 @@ async function bulkSyncRawEvents(
   const rows: Array<Record<string, unknown>> = [];
   let recordsCreated = 0;
   let recordsUpdated = 0;
+  let recordsResumed = 0;
+  let recordsIgnoredStale = 0;
 
   for (const reading of readings) {
     const current = existingByExternalId.get(reading.externalId);
     const currentReading = current ? storedSensorReading(current.payload) : null;
+    const revisionKey = providerRevisionKey(reading);
+    const comparison = currentReading
+      ? compareProviderRevision(reading, currentReading)
+      : current
+        ? 1
+        : null;
+    const sameRevision =
+      Boolean(current) &&
+      (current?.content_hash === revisionKey || comparison === 0);
 
-    if (currentReading && compareProviderRevision(reading, currentReading) <= 0) {
+    if (sameRevision) {
+      if (current?.processing_status === "processed") {
+        recordsIgnoredStale += 1;
+        continue;
+      }
+
+      acceptedReadings.push(reading);
+      recordsResumed += 1;
+      rows.push({
+        user_id: userId,
+        data_source_id: dataSourceId,
+        external_record_id: reading.externalId,
+        event_type: `health-connect.${reading.metric}`,
+        observed_at: reading.observedAt,
+        payload: reading,
+        payload_schema_version: "1",
+        content_hash: revisionKey,
+        processing_status: "pending",
+        processed_at: null,
+        error_code: null,
+      });
+      continue;
+    }
+
+    if (comparison !== null && comparison < 0) {
+      recordsIgnoredStale += 1;
       continue;
     }
 
@@ -223,6 +262,7 @@ async function bulkSyncRawEvents(
       observed_at: reading.observedAt,
       payload: reading,
       payload_schema_version: "1",
+      content_hash: revisionKey,
       processing_status: "pending",
       processed_at: null,
       error_code: null,
@@ -233,7 +273,7 @@ async function bulkSyncRawEvents(
     const upserted = await client
       .from("raw_events")
       .upsert(rows, { onConflict: "data_source_id,external_record_id" })
-      .select("id,external_record_id,payload");
+      .select("id,external_record_id,payload,content_hash,processing_status");
 
     throwIfError(upserted.error, "Unable to bulk upsert raw health events");
 
@@ -255,7 +295,8 @@ async function bulkSyncRawEvents(
     acceptedReadings,
     recordsCreated,
     recordsUpdated,
-    recordsIgnoredStale: readings.length - acceptedReadings.length,
+    recordsResumed,
+    recordsIgnoredStale,
   };
 }
 
@@ -463,6 +504,7 @@ export async function ingestHealthReadings(
           requestedReadings: input.readings.length,
           dedupedReadings: readings.length,
           acceptedReadings: rawEvents.acceptedReadings.length,
+          resumedReadings: rawEvents.recordsResumed,
           staleReadingsIgnored: rawEvents.recordsIgnoredStale,
         },
       })
