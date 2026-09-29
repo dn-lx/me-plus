@@ -45,6 +45,57 @@ async function upsertDataSource(
   return data.id;
 }
 
+async function ensureHealthConsent(
+  client: AdminClient,
+  userId: string,
+  dataSourceId: string,
+  input: HealthIngestRequest,
+): Promise<void> {
+  const existing = await client
+    .from("consents")
+    .select("id,status")
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .eq("domain", "health")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  throwIfError(existing.error, "Unable to read Health Connect consent");
+
+  const metadata = {
+    provider: input.source.provider,
+    sourcePackage: input.source.externalAccountRef ?? null,
+    collector: "me-plus-android",
+    ingestionVersion: 4,
+    evidence: "android_health_connect_permission_and_authenticated_upload",
+  };
+
+  if (existing.data?.id) {
+    const updated = await client
+      .from("consents")
+      .update({
+        status: "granted",
+        revoked_at: null,
+        metadata,
+      })
+      .eq("id", existing.data.id);
+    throwIfError(updated.error, "Unable to refresh Health Connect consent");
+    return;
+  }
+
+  const inserted = await client.from("consents").insert({
+    user_id: userId,
+    data_source_id: dataSourceId,
+    domain: "health",
+    purpose: "health_connect_sensor_collection_and_analysis",
+    status: "granted",
+    granted_at: new Date().toISOString(),
+    metadata,
+  });
+  throwIfError(inserted.error, "Unable to record Health Connect consent");
+}
+
 async function startSyncRun(
   client: AdminClient,
   userId: string,
@@ -339,6 +390,7 @@ export async function ingestHealthReadings(
   const readings = dedupeReadings(input.readings);
   const rawRecords = dedupeRawRecords(input.rawRecords ?? []);
   const dataSourceId = await upsertDataSource(client, userId, input);
+  await ensureHealthConsent(client, userId, dataSourceId, input);
   const syncRunId = await startSyncRun(
     client,
     userId,
