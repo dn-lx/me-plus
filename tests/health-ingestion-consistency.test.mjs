@@ -60,7 +60,7 @@ test("duplicate external ids choose the newest lastModifiedAt value", () => {
 });
 
 test("all requested physical Health Connect records are preserved as raw provider data", () => {
-  assert.match(collectorSource, /HealthRateVariabilityRmssd|HeartRateVariabilityRmssd/);
+  assert.match(collectorSource, /HeartRateVariabilityRmssd/);
   assert.match(collectorSource, /BloodPressure/);
   assert.match(collectorSource, /BodyFat/);
   assert.match(collectorSource, /SkinTemperature/);
