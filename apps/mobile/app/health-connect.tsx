@@ -1,22 +1,37 @@
+import type { HealthConnectRawRecord, SensorReading } from "@me-plus/contracts";
 import { radius, spacing, typography } from "@me-plus/ui";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+
 import {
+  getHealthBackgroundStatus,
+  isHealthBackgroundSyncRegistered,
+  registerHealthBackgroundSync,
+  type HealthBackgroundStatus,
+  unregisterHealthBackgroundSync,
+} from "../lib/health/background-health-sync";
+import {
+  hasHealthConnectBackgroundAccess,
   requestHealthConnectReadPermissions,
   scanHealthConnect,
   type HealthConnectInventory,
 } from "../lib/health/health-connect";
 import {
-  syncHealthConnectReadings,
+  syncHealthConnectData,
   type HealthSyncSummary,
 } from "../lib/health/sync-health-readings";
 import { supabase } from "../lib/supabase/client";
-import type { SensorReading } from "@me-plus/contracts";
+
+const MANUAL_BACKFILL_DAYS = 30;
 
 export default function HealthConnectScreen() {
   const [inventory, setInventory] = useState<HealthConnectInventory | null>(null);
   const [readings, setReadings] = useState<SensorReading[]>([]);
+  const [rawRecords, setRawRecords] = useState<HealthConnectRawRecord[]>([]);
   const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
+  const [backgroundStatus, setBackgroundStatus] = useState<HealthBackgroundStatus>(
+    getHealthBackgroundStatus(),
+  );
   const [status, setStatus] = useState("Ready to connect Health Connect to Me+.");
   const [busy, setBusy] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -27,22 +42,18 @@ export default function HealthConnectScreen() {
     let active = true;
 
     supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) {
-        return;
-      }
-
+      if (!active) return;
       if (error) {
         setStatus(`Unable to read Me+ session: ${error.message}`);
         return;
       }
-
       setAuthenticated(Boolean(data.session));
     });
 
+    refreshBackgroundStatus().catch(() => undefined);
+
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) {
-        setAuthenticated(Boolean(session));
-      }
+      if (active) setAuthenticated(Boolean(session));
     });
 
     return () => {
@@ -50,6 +61,14 @@ export default function HealthConnectScreen() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  async function refreshBackgroundStatus() {
+    const registered = await isHealthBackgroundSyncRegistered();
+    setBackgroundStatus({
+      ...getHealthBackgroundStatus(),
+      registered,
+    });
+  }
 
   async function signIn() {
     if (!email.trim() || !password) {
@@ -64,13 +83,9 @@ export default function HealthConnectScreen() {
         email: email.trim(),
         password,
       });
-
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       setPassword("");
-      setStatus("Phone connected to Me+. Your session is stored securely on this device.");
+      setStatus("Phone connected to Me+. The session is stored securely on this device.");
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -81,12 +96,11 @@ export default function HealthConnectScreen() {
   async function signOut() {
     setBusy(true);
     try {
+      await unregisterHealthBackgroundSync();
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
-
-      setStatus("This phone is disconnected from Me+.");
+      if (error) throw error;
+      await refreshBackgroundStatus();
+      setStatus("This phone is disconnected from Me+ and periodic health sync is off.");
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -96,10 +110,13 @@ export default function HealthConnectScreen() {
 
   async function requestPermissions() {
     setBusy(true);
-    setStatus("Requesting Health Connect read access…");
+    setStatus("Requesting Health Connect sensor, history and background read access…");
     try {
       const permissions = await requestHealthConnectReadPermissions();
-      setStatus(`Health Connect granted ${permissions.length} read permission entries.`);
+      const background = await hasHealthConnectBackgroundAccess();
+      setStatus(
+        `Health Connect granted ${permissions.length} permission entries. Background reads: ${background ? "granted" : "not granted"}.`,
+      );
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -110,14 +127,15 @@ export default function HealthConnectScreen() {
   async function scan() {
     setBusy(true);
     setSyncSummary(null);
-    setStatus("Scanning and paginating the last 7 days of Health Connect records…");
+    setStatus(`Scanning and paginating the last ${MANUAL_BACKFILL_DAYS} days of Health Connect…`);
     try {
-      const scanResult = await scanHealthConnect(7);
+      const scanResult = await scanHealthConnect(MANUAL_BACKFILL_DAYS);
       setInventory(scanResult.inventory);
       setReadings(scanResult.readings);
+      setRawRecords(scanResult.rawRecords);
       const populated = scanResult.inventory.items.filter((item) => item.count > 0).length;
       setStatus(
-        `Scan complete: ${populated} record types contain data and ${scanResult.readings.length} normalized readings are ready to upload.`,
+        `Scan complete: ${populated} sensor record types contain data · ${scanResult.rawRecords.length} raw records · ${scanResult.readings.length} normalized readings.`,
       );
     } catch (error) {
       setStatus(toErrorMessage(error));
@@ -131,23 +149,61 @@ export default function HealthConnectScreen() {
       setStatus("Connect this phone to your Me+ account before uploading.");
       return;
     }
-
-    if (!inventory || readings.length === 0) {
+    if (!inventory || (readings.length === 0 && rawRecords.length === 0)) {
       setStatus("Scan Health Connect before uploading.");
       return;
     }
 
     setBusy(true);
-    setStatus(`Uploading ${readings.length} readings to Me+…`);
+    setStatus(`Uploading ${rawRecords.length} raw records and ${readings.length} normalized readings to Me+…`);
     try {
-      const result = await syncHealthConnectReadings(readings, {
+      const result = await syncHealthConnectData(readings, rawRecords, {
         windowStart: inventory.windowStart,
         windowEnd: inventory.windowEnd,
+        mode: "manual",
       });
       setSyncSummary(result);
+
+      let periodicText = "Periodic sync is not enabled.";
+      if (await hasHealthConnectBackgroundAccess()) {
+        await registerHealthBackgroundSync();
+        periodicText = "Periodic background sync is enabled.";
+      }
+      await refreshBackgroundStatus();
+
       setStatus(
-        `Me+ sync complete: ${result.recordsCreated} created, ${result.recordsUpdated} updated across ${result.sourceCount} source origins.`,
+        `Me+ sync complete: ${result.rawRecordsSeen} raw sensor records and ${result.recordsSeen} normalized readings processed. ${periodicText}`,
       );
+    } catch (error) {
+      setStatus(toErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function togglePeriodicSync() {
+    if (!authenticated) {
+      setStatus("Connect this phone to Me+ before enabling periodic sync.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (backgroundStatus.registered) {
+        await unregisterHealthBackgroundSync();
+        setStatus("Periodic Health Connect sync is disabled.");
+      } else {
+        if (!(await hasHealthConnectBackgroundAccess())) {
+          throw new Error(
+            "Grant Health Connect background access first, then enable periodic sync.",
+          );
+        }
+        await registerHealthBackgroundSync();
+        setStatus(
+          "Periodic Health Connect sync is enabled. Android will run it approximately every few hours when system conditions allow.",
+        );
+      }
+      await refreshBackgroundStatus();
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -157,10 +213,10 @@ export default function HealthConnectScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.eyebrow}>HEALTH CONNECT · ME+ SYNC</Text>
-      <Text style={styles.title}>Bring your watch data into Me+ without losing where it came from.</Text>
+      <Text style={styles.eyebrow}>HEALTH CONNECT · ME+ COLLECTOR</Text>
+      <Text style={styles.title}>Collect Health Connect sensor data continuously for Me+.</Text>
       <Text style={styles.lede}>
-        Me+ reads Health Connect on this phone, paginates the full seven-day window, preserves source-app and device provenance, and uploads authenticated batches into Me+.
+        The collector preserves the original Health Connect record, source app, device and timestamps. Me+ also normalizes supported metrics for analysis while retaining raw records for future analysis.
       </Text>
 
       <View style={styles.statusCard}>
@@ -179,14 +235,9 @@ export default function HealthConnectScreen() {
         {authenticated ? (
           <>
             <Text style={styles.authBody}>
-              This phone has a persistent Supabase session and can upload health records to your Me+ account.
+              This phone has a persistent Supabase session and can upload health data to your Me+ account.
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={signOut}
-              style={[styles.compactButton, busy && styles.buttonDisabled]}
-            >
+            <Pressable disabled={busy} onPress={signOut} style={[styles.compactButton, busy && styles.buttonDisabled]}>
               <Text style={styles.compactButtonText}>Disconnect phone</Text>
             </Pressable>
           </>
@@ -217,65 +268,72 @@ export default function HealthConnectScreen() {
               style={styles.input}
               value={password}
             />
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={signIn}
-              style={[styles.compactButton, styles.connectButton, busy && styles.buttonDisabled]}
-            >
+            <Pressable disabled={busy} onPress={signIn} style={[styles.compactButton, styles.connectButton, busy && styles.buttonDisabled]}>
               <Text style={styles.compactButtonText}>Connect phone to Me+</Text>
             </Pressable>
           </>
         )}
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy}
-        onPress={requestPermissions}
-        style={[styles.button, busy && styles.buttonDisabled]}
-      >
-        <Text style={styles.buttonText}>1. Grant Me+ read access</Text>
+      <Pressable disabled={busy} onPress={requestPermissions} style={[styles.button, busy && styles.buttonDisabled]}>
+        <Text style={styles.buttonText}>1. Grant Health Connect access</Text>
+      </Pressable>
+
+      <Pressable disabled={busy} onPress={scan} style={[styles.button, styles.secondaryButton, busy && styles.buttonDisabled]}>
+        <Text style={styles.buttonText}>2. Scan last {MANUAL_BACKFILL_DAYS} days</Text>
       </Pressable>
 
       <Pressable
-        accessibilityRole="button"
-        disabled={busy}
-        onPress={scan}
-        style={[styles.button, styles.secondaryButton, busy && styles.buttonDisabled]}
-      >
-        <Text style={styles.buttonText}>2. Scan full last 7 days</Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy || !authenticated || readings.length === 0}
+        disabled={busy || !authenticated || (readings.length === 0 && rawRecords.length === 0)}
         onPress={upload}
         style={[
           styles.button,
           styles.uploadButton,
-          (busy || !authenticated || readings.length === 0) && styles.buttonDisabled,
+          (busy || !authenticated || (readings.length === 0 && rawRecords.length === 0)) && styles.buttonDisabled,
         ]}
       >
         <Text style={styles.buttonText}>
-          3. Upload {readings.length > 0 ? `${readings.length} readings` : "to Me+"}
+          3. Upload {rawRecords.length > 0 ? `${rawRecords.length} raw records` : "to Me+"}
         </Text>
       </Pressable>
+
+      <View style={styles.backgroundCard}>
+        <View style={styles.authHeader}>
+          <Text style={styles.authTitle}>Periodic collection</Text>
+          <Text style={[styles.authBadge, backgroundStatus.registered ? styles.authBadgeOn : styles.authBadgeOff]}>
+            {backgroundStatus.registered ? "ENABLED" : "OFF"}
+          </Text>
+        </View>
+        <Text style={styles.authBody}>
+          When enabled, Android schedules a Health Connect sync roughly every three hours. Execution time is controlled by Android WorkManager and can be delayed by battery or network conditions.
+        </Text>
+        {backgroundStatus.lastSuccessAt ? (
+          <Text style={styles.recordMeta}>Last success: {formatDateTime(backgroundStatus.lastSuccessAt)}</Text>
+        ) : null}
+        {backgroundStatus.lastError ? (
+          <Text style={styles.errorText}>Last background note: {backgroundStatus.lastError}</Text>
+        ) : null}
+        <Pressable disabled={busy} onPress={togglePeriodicSync} style={[styles.compactButton, busy && styles.buttonDisabled]}>
+          <Text style={styles.compactButtonText}>
+            {backgroundStatus.registered ? "Disable periodic sync" : "Enable periodic sync"}
+          </Text>
+        </Pressable>
+      </View>
 
       {syncSummary ? (
         <View style={styles.successCard}>
           <Text style={styles.successTitle}>SYNCED TO ME+</Text>
           <Text style={styles.successText}>
-            {syncSummary.recordsSeen} readings processed · {syncSummary.recordsCreated} created · {syncSummary.recordsUpdated} updated · {syncSummary.sourceCount} source origins · {syncSummary.batchCount} upload batches
+            {syncSummary.rawRecordsSeen} raw records · {syncSummary.recordsSeen} normalized readings · {syncSummary.sourceCount} source origins · {syncSummary.batchCount} upload batches
           </Text>
         </View>
       ) : null}
 
       {inventory ? (
         <>
-          <Text style={styles.sectionTitle}>Inventory</Text>
+          <Text style={styles.sectionTitle}>Health Connect inventory</Text>
           <Text style={styles.inventoryMeta}>
-            Granted permissions: {inventory.permissionCount} · Window: {formatDate(inventory.windowStart)} → {formatDate(inventory.windowEnd)} · Normalized readings: {readings.length}
+            Granted permissions: {inventory.permissionCount} · Window: {formatDate(inventory.windowStart)} → {formatDate(inventory.windowEnd)} · Raw: {rawRecords.length} · Normalized: {readings.length}
           </Text>
           <View style={styles.list}>
             {inventory.items.map((item) => (
@@ -298,9 +356,9 @@ export default function HealthConnectScreen() {
       ) : null}
 
       <View style={styles.noteCard}>
-        <Text style={styles.noteTitle}>What Me+ stores</Text>
+        <Text style={styles.noteTitle}>Collection scope</Text>
         <Text style={styles.noteBody}>
-          Each uploaded reading is kept idempotently as a raw event and normalized observation. Source package, device metadata, original Health Connect payload, timestamps and sync-run provenance are retained so Zepp/Huami, RENPHO and future devices are not merged blindly.
+          Me+ requests physical sensor, activity, sleep, fitness and body-measurement records available through Health Connect. Reproductive/sexual and nutrition categories are deliberately not requested by this collector. Every collected provider record is retained with provenance even when Me+ does not yet normalize that record type.
         </Text>
       </View>
     </ScrollView>
@@ -375,6 +433,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: "#101821",
   },
+  backgroundCard: {
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "#35536d",
+    borderRadius: radius.lg,
+    backgroundColor: "#101b27",
+  },
   authHeader: {
     marginBottom: spacing.sm,
     flexDirection: "row",
@@ -423,6 +489,7 @@ const styles = StyleSheet.create({
   },
   compactButton: {
     alignSelf: "flex-start",
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 11,
     borderWidth: 1,
