@@ -13,7 +13,7 @@ This file is the compact implementation resume point. Canonical product/system b
   "pr": 32,
   "status": "live_data_repaired_code_verification_blocked",
   "last_verified_sha": "c9e9d4db3f15868cf43c42af9b102ecd20f538a2",
-  "next_step": "Run the full pnpm workspace check/build when a real runner/local machine is available. If green, mark PR #32 ready, merge it into dev, then use the normal approved dev-to-prod release path. After deployment, run an N26 refresh/reauthorization regression and verify the canonical account count and transaction count remain stable.",
+  "next_step": "Run the full non-Android workspace validation through GitHub Actions. Desktop Connector is reserved for Android build/install/run validation only. If GitHub validation is green, mark PR #32 ready, merge it into dev, then use the normal approved dev-to-prod release path. After deployment, run an N26 refresh/reauthorization regression and verify the canonical account count and transaction count remain stable.",
   "updated_at": "2026-09-29T09:40:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
@@ -117,4 +117,4 @@ Production Supabase now owns the authoritative Hourly clock and scheduler watchd
 - All 120 raw N26 transaction events and the superseded account record were retained for provenance/history.
 - PR #32 adds provider `identification_hash`/historical-hash reconciliation, conservative bootstrap for the previously reconciled legacy canonical row, stable raw-event idempotency across UID rotation, and targeted regression tests.
 - Targeted tests are green (7/7) and the identity helper passes strict TypeScript compilation.
-- GitHub Actions for the current code SHA fail before any workflow step starts and provide no logs; the authorized local desktop is offline. Therefore the full monorepo typecheck/build remains an infrastructure-blocked verification gate, and PR #32 stays draft.
+- Desktop Connector is a hard Android-only execution boundary: use it only for commands directly required to build, install, or run the Android app. Non-Android repository tests, typechecks, linting, web builds, migrations, and general shell validation must use GitHub Actions or other hosted/project-native tooling. BNK-003 full workspace verification therefore proceeds through GitHub Actions.
