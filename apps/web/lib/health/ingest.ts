@@ -102,6 +102,31 @@ function rawRecordKey(record: HealthConnectRawRecord): string {
   return `hc-record:${record.externalId}`;
 }
 
+async function existingExternalIds(
+  client: AdminClient,
+  dataSourceId: string,
+  externalIds: readonly string[],
+): Promise<Set<string>> {
+  const found = new Set<string>();
+  const lookupChunkSize = 40;
+
+  for (let index = 0; index < externalIds.length; index += lookupChunkSize) {
+    const chunk = externalIds.slice(index, index + lookupChunkSize);
+    const existing = await client
+      .from("raw_events")
+      .select("external_record_id")
+      .eq("data_source_id", dataSourceId)
+      .in("external_record_id", chunk);
+
+    throwIfError(existing.error, "Unable to look up existing health raw events");
+    for (const row of existing.data ?? []) {
+      if (row.external_record_id) found.add(row.external_record_id);
+    }
+  }
+
+  return found;
+}
+
 async function bulkSyncProviderRawRecords(
   client: AdminClient,
   userId: string,
@@ -111,18 +136,7 @@ async function bulkSyncProviderRawRecords(
   if (records.length === 0) return { recordsCreated: 0, recordsUpdated: 0 };
 
   const externalIds = records.map(rawRecordKey);
-  const existing = await client
-    .from("raw_events")
-    .select("external_record_id")
-    .eq("data_source_id", dataSourceId)
-    .in("external_record_id", externalIds);
-
-  throwIfError(existing.error, "Unable to look up existing raw Health Connect records");
-  const existingIds = new Set(
-    (existing.data ?? [])
-      .map((row) => row.external_record_id)
-      .filter((value): value is string => Boolean(value)),
-  );
+  const existingIds = await existingExternalIds(client, dataSourceId, externalIds);
 
   const processedAt = new Date().toISOString();
   const values = records.map((record) => ({
@@ -167,18 +181,7 @@ async function bulkSyncReadingRawEvents(
   }
 
   const externalIds = readings.map((reading) => reading.externalId);
-  const existing = await client
-    .from("raw_events")
-    .select("id,external_record_id")
-    .eq("data_source_id", dataSourceId)
-    .in("external_record_id", externalIds);
-
-  throwIfError(existing.error, "Unable to look up existing normalized-source health events");
-  const existingIds = new Set(
-    (existing.data ?? [])
-      .map((row) => row.external_record_id)
-      .filter((value): value is string => Boolean(value)),
-  );
+  const existingIds = await existingExternalIds(client, dataSourceId, externalIds);
 
   const rows = readings.map((reading) => ({
     user_id: userId,
