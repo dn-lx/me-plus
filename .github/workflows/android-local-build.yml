@@ -82,14 +82,20 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Ensure dependency lockfile matches committed manifests
         id: lockfile
         shell: powershell
         run: |
           pnpm install --lockfile-only --no-frozen-lockfile
 
-          git diff --quiet -- pnpm-lock.yaml
-          if ($LASTEXITCODE -ne 0) {
+          $lockStatus = git status --porcelain -- pnpm-lock.yaml
+          if (-not [string]::IsNullOrWhiteSpace($lockStatus)) {
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add pnpm-lock.yaml
