@@ -28,7 +28,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "invalid_access_token" }, { status: 401 });
     }
 
-    const rawBody: unknown = await request.json();
+    const rawText = await request.text();
+    if (new TextEncoder().encode(rawText).byteLength > 2_000_000) {
+      return NextResponse.json(
+        { error: "health_payload_too_large", detail: "Health ingestion payload exceeds 2 MB." },
+        { status: 413 },
+      );
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = JSON.parse(rawText) as unknown;
+    } catch {
+      return NextResponse.json(
+        { error: "invalid_health_payload", detail: "Health ingestion body must be valid JSON." },
+        { status: 400 },
+      );
+    }
+
     const input = parseHealthIngestRequest(rawBody);
 
     if (
