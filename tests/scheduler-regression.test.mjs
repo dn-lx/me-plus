@@ -23,7 +23,11 @@ const schedulerFiles = [
   'supabase/migrations/20260928233430_scheduler_todoist_dispatcher_policy_activation_v1.sql',
   'supabase/migrations/20260928233455_restore_scheduler_policy_checksum_compatible_state_v1.sql',
   'supabase/migrations/20260928233501_scheduler_todoist_dispatcher_claim_no_token_replay_v1.sql',
-  'supabase/migrations/20260928233507_scheduler_todoist_dispatcher_priority_contract_v1.sql'
+  'supabase/migrations/20260928233507_scheduler_todoist_dispatcher_priority_contract_v1.sql',
+  'supabase/migrations/20260929000457_scheduler_expired_routine_surface_helper_v1.sql',
+  'supabase/migrations/20260929000507_scheduler_todoist_claim_independent_of_ai_v1.sql',
+  'supabase/migrations/20260929000607_scheduler_todoist_expiry_reconciliation_v1.sql',
+  'supabase/migrations/20260929000615_scheduler_requeue_todoist_after_ai_completion_v1.sql'
 ];
 
 const corpus = schedulerFiles.map(read).join('\n');
@@ -52,17 +56,33 @@ test('scheduler overlap is protected by a lease and skipped-overlap semantics', 
   assert.match(corpus, /release_scheduler_lease/i);
 });
 
-test('AI reasoning and Todoist execution use independent claim state', () => {
+test('deterministic Todoist execution can proceed independently of AI completion', () => {
   assert.match(corpus, /external_status text not null default 'pending'/i);
   assert.match(corpus, /claim_todoist_scheduler_dispatch/i);
-  assert.match(corpus, /d\.status='completed'/i);
+  assert.match(corpus, /d\.status in \('pending','claimed','blocked','failed'\)/i);
+  assert.match(corpus, /materialized_routine_actions/i);
   assert.match(corpus, /d\.external_status in \('pending','retry'\)/i);
+});
+
+test('AI-created actions requeue external execution after deterministic work already finished', () => {
+  assert.match(corpus, /scheduler_requeue_external_after_ai_completion/i);
+  assert.match(corpus, /ai_reasoning,action_ids/i);
+  assert.match(corpus, /old\.external_status in \('completed','not_required'\)/i);
+  assert.match(corpus, /new\.external_status := 'pending'/i);
 });
 
 test('stale Todoist claims recover without duplicating canonical work', () => {
   assert.match(corpus, /recover_stale_todoist_dispatches/i);
   assert.match(corpus, /external_claimed_at < now\(\)-interval '10 minutes'/i);
   assert.match(corpus, /external_status='retry'/i);
+});
+
+test('expired routine windows are unsurfaced without completing the canonical action', () => {
+  assert.match(corpus, /scheduler_mark_expired_routine_surfaces_unsurfaced/i);
+  assert.match(corpus, /unsurface_reason','expired_routine_window'/i);
+  assert.match(corpus, /todoist_window_reconciler/i);
+  assert.match(corpus, /expired_todoist_routine_window/i);
+  assert.doesNotMatch(read('supabase/migrations/20260929000457_scheduler_expired_routine_surface_helper_v1.sql'), /set\s+status\s*=\s*'completed'/i);
 });
 
 test('unsurfaced actions are not recreated and linkage clears only after confirmed removal', () => {
