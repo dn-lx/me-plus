@@ -88,58 +88,57 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
+      - name: Resolve pre-provisioned Android SDK
         shell: powershell
         run: |
-          # Prefer the SDK already managed by Android Studio on the designated
-          # Windows builder. That installation owns the accepted licenses and
-          # avoids creating a second, unlicensed SDK tree during CI.
+          # This repository uses a designated self-hosted Android builder.
+          # CI verifies the builder; it must not mutate SDK packages or block
+          # on interactive license prompts during a release.
           $candidates = @(
             (Join-Path $env:LOCALAPPDATA "Android\Sdk"),
             $env:ANDROID_HOME,
             $env:ANDROID_SDK_ROOT,
             (Join-Path $env:USERPROFILE ".android\sdk")
-          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          ) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
 
-          $sdk = $candidates |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
+          $sdk = $null
+          foreach ($candidate in $candidates) {
+            if (-not (Test-Path $candidate)) {
+              continue
+            }
 
-          if ([string]::IsNullOrWhiteSpace($sdk)) {
-            throw "No existing Android SDK found on the designated self-hosted builder. Open Android Studio on the builder and install/accept the required SDK components first."
+            $required = @(
+              (Join-Path $candidate "platform-tools\adb.exe"),
+              (Join-Path $candidate "platforms\android-36\android.jar"),
+              (Join-Path $candidate "build-tools\36.0.0\aapt2.exe"),
+              (Join-Path $candidate "ndk\27.1.12297006\source.properties"),
+              (Join-Path $candidate "cmake\3.22.1\bin\cmake.exe")
+            )
+            $missing = @($required | Where-Object { -not (Test-Path $_) })
+
+            if ($missing.Count -eq 0) {
+              $sdk = $candidate
+              break
+            }
+
+            Write-Host "Android SDK candidate is incomplete: $candidate"
+            foreach ($path in $missing) {
+              Write-Host "  missing: $path"
+            }
           }
 
-          $sdkManager = Get-ChildItem -Path (Join-Path $sdk "cmdline-tools") -Filter "sdkmanager.bat" -Recurse -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1 -ExpandProperty FullName
-
-          if ([string]::IsNullOrWhiteSpace($sdkManager)) {
-            throw "sdkmanager.bat was not found inside the existing Android SDK at $sdk."
+          if ([string]::IsNullOrWhiteSpace($sdk)) {
+            throw "No pre-provisioned Android SDK contains API 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.22.1 and platform-tools."
           }
 
           "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
           "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
           "$sdk\platform-tools" >> $env:GITHUB_PATH
-          (Split-Path $sdkManager) >> $env:GITHUB_PATH
+          "$sdk\build-tools\36.0.0" >> $env:GITHUB_PATH
 
-          & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Android SDK package installation failed. Ensure the required Android SDK licenses are accepted on the designated builder."
-          }
-
-          $required = @(
-            (Join-Path $sdk "platform-tools\adb.exe"),
-            (Join-Path $sdk "platforms\android-36\android.jar"),
-            (Join-Path $sdk "build-tools\36.0.0\aapt2.exe"),
-            (Join-Path $sdk "ndk\27.1.12297006\source.properties"),
-            (Join-Path $sdk "cmake\3.22.1\bin\cmake.exe")
-          )
-          $missing = $required | Where-Object { -not (Test-Path $_) }
-          if ($missing.Count -gt 0) {
-            throw ("Required Android build components are missing: " + ($missing -join ", "))
-          }
-
-          Write-Host "Using existing Android SDK at $sdk"
+          Write-Host "Using verified Android SDK at $sdk"
 
       - name: Ensure dependency lockfile matches committed manifests
         id: lockfile
