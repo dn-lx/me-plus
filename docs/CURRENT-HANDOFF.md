@@ -84,6 +84,17 @@ N26 is the first working example of a reusable Me+ integration pattern:
 
 Do not impose one refresh interval on every provider. Calendar/tasks, health/wearables, banking and future sources should each define their own cadence, retry, reauthorization and notification rules while reusing the same lifecycle.
 
+
+## Mandatory Android build path — 2026-09-29
+
+The user explicitly made the GitHub Actions local Android builder a hard Me+ rule.
+
+- All APK/AAB builds must be triggered/orchestrated by GitHub Actions and execute on the designated self-hosted/local Android runner.
+- Desktop Commander is support-only for inspecting/configuring/repairing the runner host; it is not an Android build path.
+- Netlify is distribution-only and must consume a verified GitHub Actions artifact.
+- No ad-hoc terminal/IDE/cloud build may be substituted when the runner is offline; the build remains blocked unless the user explicitly changes the rule.
+- Build evidence must include the committed source SHA, GitHub Actions run, artifact checksum and website-download verification.
+
 ## Release boundary
 
 `dev` is the integration branch. Feature/fix/chore branches merge into `dev`; production changes are promoted only through the approved `dev → prod` release workflow. Do not push directly to `prod` or perform ad-hoc production deployment.
