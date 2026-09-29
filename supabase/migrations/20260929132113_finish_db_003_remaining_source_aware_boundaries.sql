@@ -1,0 +1,65 @@
+drop policy if exists calendar_events_all on public.calendar_events;
+revoke all on table public.calendar_events from anon,authenticated;
+grant select on table public.calendar_events to authenticated;
+grant insert (user_id,calendar_name,title,starts_at,ends_at,timezone,location_text,event_type,status,busy,metadata) on public.calendar_events to authenticated;
+grant update (calendar_name,title,starts_at,ends_at,timezone,location_text,event_type,status,busy,metadata) on public.calendar_events to authenticated;
+grant delete on table public.calendar_events to authenticated;
+create policy calendar_events_select on public.calendar_events for select to authenticated using ((select auth.uid())=user_id);
+create policy calendar_events_insert_manual on public.calendar_events for insert to authenticated with check ((select auth.uid())=user_id and data_source_id is null and external_event_id is null);
+create policy calendar_events_update_manual on public.calendar_events for update to authenticated using ((select auth.uid())=user_id and data_source_id is null and external_event_id is null) with check ((select auth.uid())=user_id and data_source_id is null and external_event_id is null);
+create policy calendar_events_delete_manual on public.calendar_events for delete to authenticated using ((select auth.uid())=user_id and data_source_id is null and external_event_id is null);
+
+drop policy if exists conversation_captures_all on public.conversation_captures;
+revoke all on table public.conversation_captures from anon,authenticated;
+grant select on table public.conversation_captures to authenticated;
+grant insert (user_id,occurred_at,channel,capture_type,summary,content,extracted_data,consent_basis,sensitivity) on public.conversation_captures to authenticated;
+grant update (occurred_at,channel,capture_type,summary,content,extracted_data,consent_basis,sensitivity) on public.conversation_captures to authenticated;
+grant delete on table public.conversation_captures to authenticated;
+create policy conversation_captures_select on public.conversation_captures for select to authenticated using ((select auth.uid())=user_id);
+create policy conversation_captures_insert_manual on public.conversation_captures for insert to authenticated with check ((select auth.uid())=user_id and data_source_id is null);
+create policy conversation_captures_update_manual on public.conversation_captures for update to authenticated using ((select auth.uid())=user_id and data_source_id is null) with check ((select auth.uid())=user_id and data_source_id is null);
+create policy conversation_captures_delete_manual on public.conversation_captures for delete to authenticated using ((select auth.uid())=user_id and data_source_id is null);
+
+drop policy if exists journal_entries_all on public.journal_entries;
+revoke all on table public.journal_entries from anon,authenticated;
+grant select on table public.journal_entries to authenticated;
+grant insert (user_id,entry_type,occurred_at,title,content,mood,tags,metadata) on public.journal_entries to authenticated;
+grant update (entry_type,occurred_at,title,content,mood,tags,metadata) on public.journal_entries to authenticated;
+grant delete on table public.journal_entries to authenticated;
+create policy journal_entries_select on public.journal_entries for select to authenticated using ((select auth.uid())=user_id);
+create policy journal_entries_insert_manual on public.journal_entries for insert to authenticated with check ((select auth.uid())=user_id and data_source_id is null);
+create policy journal_entries_update_manual on public.journal_entries for update to authenticated using ((select auth.uid())=user_id and data_source_id is null) with check ((select auth.uid())=user_id and data_source_id is null);
+create policy journal_entries_delete_manual on public.journal_entries for delete to authenticated using ((select auth.uid())=user_id and data_source_id is null);
+
+drop policy if exists meals_select on public.meals;
+drop policy if exists meals_insert on public.meals;
+drop policy if exists meals_update on public.meals;
+drop policy if exists meals_delete on public.meals;
+revoke all on table public.meals from anon,authenticated;
+grant select on table public.meals to authenticated;
+grant insert (user_id,eaten_at,meal_type,title,capture_method,photo_ref,note,calories_kcal,protein_g,carbohydrate_g,fat_g,fibre_g,micronutrients,confidence,provenance) on public.meals to authenticated;
+grant update (eaten_at,meal_type,title,capture_method,photo_ref,note,calories_kcal,protein_g,carbohydrate_g,fat_g,fibre_g,micronutrients,confidence,provenance) on public.meals to authenticated;
+grant delete on table public.meals to authenticated;
+create policy meals_select on public.meals for select to authenticated using ((select auth.uid())=user_id);
+create policy meals_insert_manual on public.meals for insert to authenticated with check ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+create policy meals_update_manual on public.meals for update to authenticated using ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null) with check ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+create policy meals_delete_manual on public.meals for delete to authenticated using ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+
+drop policy if exists hydration_events_select on public.hydration_events;
+drop policy if exists hydration_events_insert on public.hydration_events;
+drop policy if exists hydration_events_update on public.hydration_events;
+drop policy if exists hydration_events_delete on public.hydration_events;
+revoke all on table public.hydration_events from anon,authenticated;
+grant select on table public.hydration_events to authenticated;
+grant insert (user_id,observed_at,beverage_type,amount_ml,calories_kcal,caffeine_mg,electrolytes,capture_method,confidence,provenance,action_id) on public.hydration_events to authenticated;
+grant update (observed_at,beverage_type,amount_ml,calories_kcal,caffeine_mg,electrolytes,capture_method,confidence,provenance,action_id) on public.hydration_events to authenticated;
+grant delete on table public.hydration_events to authenticated;
+create policy hydration_events_select on public.hydration_events for select to authenticated using ((select auth.uid())=user_id);
+create policy hydration_events_insert_manual on public.hydration_events for insert to authenticated with check ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+create policy hydration_events_update_manual on public.hydration_events for update to authenticated using ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null) with check ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+create policy hydration_events_delete_manual on public.hydration_events for delete to authenticated using ((select auth.uid())=user_id and data_source_id is null and raw_event_id is null);
+
+drop policy if exists consents_all on public.consents;
+revoke all on table public.consents from anon,authenticated;
+grant select on table public.consents to authenticated;
+create policy consents_select on public.consents for select to authenticated using ((select auth.uid())=user_id);
