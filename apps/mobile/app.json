@@ -3,7 +3,7 @@
     "name": "Me+",
     "slug": "me-plus",
     "scheme": "meplus",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "plugins": [
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "app.meplus.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_RESTING_HEART_RATE",
