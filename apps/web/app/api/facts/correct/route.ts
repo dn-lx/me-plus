@@ -92,9 +92,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "invalid_access_token" }, { status: 401 });
     }
 
-    let result:
-      | Awaited<ReturnType<typeof admin.rpc>>
-      | undefined;
+    let result: {
+      data: unknown;
+      error: { message: string } | null;
+    };
 
     switch (input.entityType) {
       case "financial_account":
