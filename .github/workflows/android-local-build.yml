@@ -26,6 +26,9 @@ jobs:
     env:
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
+      EXPO_PUBLIC_SUPABASE_URL: "https://wbqnctrvxohxwiaignhg.supabase.co"
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_1IJENqECdJNvRxN-vUup5w_3dV8d4Ws"
+      EXPO_PUBLIC_ME_PLUS_API_URL: "https://me-plus-personal-intelligence.netlify.app"
 
     steps:
       - name: Check out committed source
