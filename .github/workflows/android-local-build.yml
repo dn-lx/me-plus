@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
 
       - name: Verify designated local Android builder
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Runner: ${{ runner.name }}"
           Write-Host "OS: ${{ runner.os }}"
@@ -44,7 +44,7 @@ jobs:
           }
 
       - name: Verify required public mobile environment
-        shell: pwsh
+        shell: powershell
         run: |
           $required = @(
             "EXPO_PUBLIC_SUPABASE_URL",
@@ -88,12 +88,12 @@ jobs:
 
       - name: Build installable Android APK
         working-directory: apps/mobile/android
-        shell: pwsh
+        shell: powershell
         run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
 
       - name: Stage verified artifact and provenance
         id: artifact
-        shell: pwsh
+        shell: powershell
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           if ([string]::IsNullOrWhiteSpace($version)) { throw "VERSION is empty." }
@@ -145,7 +145,7 @@ jobs:
           retention-days: 30
 
       - name: Build summary
-        shell: pwsh
+        shell: powershell
         run: |
           @"
           ## Me+ Android self-hosted build
