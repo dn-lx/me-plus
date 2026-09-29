@@ -333,6 +333,30 @@ jobs:
           if ($changedInputs) { throw "Android build inputs changed during the run; rebuild the new committed source before publishing." }
           git checkout -B artifact-publish "origin/$env:SOURCE_BRANCH"
 
+          # A verification run on the artifact commit must not create another
+          # artifact commit indefinitely. Keep the already verified installer
+          # when its committed build inputs and recorded bytes are unchanged.
+          $publishedMetadataPath = Join-Path $releaseDir "$version.json"
+          if (Test-Path $publishedMetadataPath) {
+            $published = Get-Content $publishedMetadataPath -Raw | ConvertFrom-Json
+            $publishedApk = Join-Path $downloadDir $filename
+            if ($published.version -eq $version -and $published.filename -eq $filename -and
+                $published.sourceCommit -match '^[0-9a-f]{40}$' -and
+                $published.buildPath -eq "github-actions-self-hosted" -and
+                $published.embeddedJavascriptBundle -eq $true -and
+                $published.upgradeSignerVerified -eq $true -and (Test-Path $publishedApk)) {
+              git cat-file -e "$($published.sourceCommit)^{commit}"
+              if ($LASTEXITCODE -ne 0) { throw "Published APK source commit is unavailable." }
+              $publishedInputChanges = git diff --name-only $published.sourceCommit $env:SOURCE_SHA -- apps/mobile packages .npmrc tsconfig.json tsconfig.base.json package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION .github/workflows/android-local-build.yml
+              if ($LASTEXITCODE -ne 0) { throw "Published APK input comparison failed." }
+              $publishedHash = (Get-FileHash -Path $publishedApk -Algorithm SHA256).Hash.ToLowerInvariant()
+              if (!$publishedInputChanges -and $publishedHash -eq $published.sha256) {
+                Write-Host "Published APK bytes and committed build inputs are already verified; retaining release provenance."
+                exit 0
+              }
+            }
+          }
+
           New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
