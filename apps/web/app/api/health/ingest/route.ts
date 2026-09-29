@@ -29,9 +29,9 @@ export async function POST(request: Request) {
     }
 
     const rawText = await request.text();
-    if (new TextEncoder().encode(rawText).byteLength > 2_000_000) {
+    if (new TextEncoder().encode(rawText).byteLength > 5_000_000) {
       return NextResponse.json(
-        { error: "health_payload_too_large", detail: "Health ingestion payload exceeds 2 MB." },
+        { error: "health_payload_too_large", detail: "Health ingestion payload exceeds 5 MB." },
         { status: 413 },
       );
     }
