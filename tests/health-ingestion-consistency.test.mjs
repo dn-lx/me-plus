@@ -14,6 +14,10 @@ const collectorSource = await readFile(
   new URL("../apps/mobile/lib/health/health-connect.ts", import.meta.url),
   "utf8",
 );
+const routeSource = await readFile(
+  new URL("../apps/web/app/api/health/ingest/route.ts", import.meta.url),
+  "utf8",
+);
 
 function section(source, startMarker, endMarker = null) {
   const start = source.indexOf(startMarker);
@@ -87,4 +91,12 @@ test("authenticated Health Connect ingestion records source consent", () => {
   assert.match(consent, /domain:\s*"health"/);
   assert.match(consent, /health_connect_sensor_collection_and_analysis/);
   assert.match(consent, /android_health_connect_permission_and_authenticated_upload/);
+});
+
+
+test("invalid raw Health Connect payloads are client errors, not server failures", () => {
+  assert.match(routeSource, /message\.startsWith\("Health Connect raw record"\)/);
+  assert.match(routeSource, /message\.startsWith\("Unsupported Health Connect raw record type"\)/);
+  assert.match(routeSource, /invalid_health_payload/);
+  assert.match(routeSource, /status:\s*400/);
 });
