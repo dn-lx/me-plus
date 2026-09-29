@@ -8,7 +8,7 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 {
   "task_id": null,
   "repository": null,
-  "base": null,
+  "base": "dev",
   "branch": null,
   "pr": null,
   "status": "idle",
