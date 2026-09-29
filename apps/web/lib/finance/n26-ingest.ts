@@ -4,9 +4,10 @@ import type { FinanceSyncResult } from "@me-plus/contracts";
 
 import { createAdminClient } from "../supabase/admin";
 import {
+  isN26IdentityBootstrapMatch,
   n26RawTransactionExternalRecordId,
   previousExternalAccountRefs,
-  resolveProviderAccountIdentityHash,
+  resolveProviderAccountIdentityHashes,
 } from "./n26-account-identity";
 import {
   getEnableBankingAccountBalances,
@@ -230,14 +231,25 @@ async function syncFinancialAccount(
     availableBalance?.last_change_date_time ??
     availableBalance?.reference_date;
   const balanceAsOf = toTimestamp(balanceReference) ?? new Date().toISOString();
-  const providerAccountIdentityHash = resolveProviderAccountIdentityHash(
+  const providerAccountIdentityHashes = resolveProviderAccountIdentityHashes(
     account,
     sessionAccount,
   );
+  const preferredProviderAccountIdentityHash =
+    providerAccountIdentityHashes[0] ?? null;
+  const normalizedAccountType = accountType(account.cash_account_type);
+  const normalizedCurrency =
+    account.currency ??
+    currentBalance?.balance_amount.currency ??
+    availableBalance?.balance_amount.currency ??
+    "EUR";
+  const normalizedMaskedIban = maskedIban(account);
 
   const existingByUid = await client
     .from("financial_accounts")
-    .select("id,external_account_ref,provider_account_identity_hash,metadata")
+    .select(
+      "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+    )
     .eq("user_id", userId)
     .eq("data_source_id", dataSourceId)
     .eq("external_account_ref", account.uid)
@@ -246,23 +258,74 @@ async function syncFinancialAccount(
   throwIfError(existingByUid.error, `Unable to look up N26 account ${account.uid}`);
 
   let existing = existingByUid.data;
+  let identityMatchReason: string | null = existing ? "session_uid" : null;
 
-  if (!existing && providerAccountIdentityHash) {
+  if (!existing && providerAccountIdentityHashes.length > 0) {
     const existingByIdentity = await client
       .from("financial_accounts")
-      .select("id,external_account_ref,provider_account_identity_hash,metadata")
+      .select(
+        "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+      )
       .eq("user_id", userId)
       .eq("data_source_id", dataSourceId)
-      .eq("provider_account_identity_hash", providerAccountIdentityHash)
+      .in("provider_account_identity_hash", [...providerAccountIdentityHashes])
       .maybeSingle();
 
     throwIfError(
       existingByIdentity.error,
-      `Unable to reconcile N26 account identity ${providerAccountIdentityHash}`,
+      "Unable to reconcile N26 account by provider identity",
     );
     existing = existingByIdentity.data;
+    if (existing) {
+      identityMatchReason = "identification_hash";
+    }
   }
 
+  // The production account predates stable-identity persistence. Allow exactly
+  // one deliberately reconciled active legacy row to bootstrap its first
+  // provider hash; never guess from masked IBAN alone.
+  if (!existing && preferredProviderAccountIdentityHash) {
+    const legacyCandidates = await client
+      .from("financial_accounts")
+      .select(
+        "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+      )
+      .eq("user_id", userId)
+      .eq("data_source_id", dataSourceId)
+      .eq("provider", "n26")
+      .eq("active", true)
+      .is("provider_account_identity_hash", null)
+      .limit(3);
+
+    throwIfError(
+      legacyCandidates.error,
+      "Unable to inspect legacy N26 account identity candidates",
+    );
+
+    const matches = (legacyCandidates.data ?? []).filter((candidate) =>
+      isN26IdentityBootstrapMatch(candidate, {
+        accountType: normalizedAccountType,
+        currency: normalizedCurrency,
+        maskedIban: normalizedMaskedIban,
+        product: account.product ?? null,
+      }),
+    );
+
+    if (matches.length > 1) {
+      throw new Error(
+        "Unable to bootstrap N26 account identity safely: multiple reconciled legacy accounts match",
+      );
+    }
+
+    if (matches.length === 1) {
+      existing = matches[0];
+      identityMatchReason = "reconciled_legacy_bootstrap";
+    }
+  }
+
+  const canonicalProviderAccountIdentityHash =
+    existing?.provider_account_identity_hash ??
+    preferredProviderAccountIdentityHash;
   const previousExternalRef = existing?.external_account_ref ?? null;
   const previousRefs = previousExternalAccountRefs(
     existing?.metadata,
@@ -275,6 +338,20 @@ async function syncFinancialAccount(
     !Array.isArray(existing.metadata)
       ? (existing.metadata as Record<string, unknown>)
       : {};
+  const existingIdentityHashes = Array.isArray(
+    existingMetadata.providerAccountIdentityHashes,
+  )
+    ? existingMetadata.providerAccountIdentityHashes.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    : [];
+  const identityHashesSeen = [
+    ...new Set([
+      ...existingIdentityHashes,
+      ...providerAccountIdentityHashes,
+    ]),
+  ];
   const identityRotated =
     Boolean(existing?.id) &&
     Boolean(previousExternalRef) &&
@@ -282,14 +359,10 @@ async function syncFinancialAccount(
 
   const values = {
     provider: "n26",
-    provider_account_identity_hash: providerAccountIdentityHash,
-    account_type: accountType(account.cash_account_type),
+    provider_account_identity_hash: canonicalProviderAccountIdentityHash,
+    account_type: normalizedAccountType,
     display_name: account.name || account.product || "N26 account",
-    currency:
-      account.currency ??
-      currentBalance?.balance_amount.currency ??
-      availableBalance?.balance_amount.currency ??
-      "EUR",
+    currency: normalizedCurrency,
     current_balance: amountFromBalance(currentBalance),
     available_balance: amountFromBalance(availableBalance),
     balance_as_of: balanceAsOf,
@@ -301,14 +374,17 @@ async function syncFinancialAccount(
       product: account.product ?? null,
       cashAccountType: account.cash_account_type ?? null,
       psuStatus: account.psu_status ?? null,
-      maskedIban: maskedIban(account),
+      maskedIban: normalizedMaskedIban,
       accountServicer: account.account_servicer?.name ?? "N26",
       previousExternalAccountRefs: previousRefs,
+      providerAccountIdentityHashes: identityHashesSeen,
       ...(identityRotated
         ? {
             accountIdentityReconciledAt: new Date().toISOString(),
             accountIdentityReconciliationReason:
-              "Enable Banking account UID rotated; matched by identification_hash",
+              identityMatchReason === "reconciled_legacy_bootstrap"
+                ? "Enable Banking account UID rotated; bootstrapped stable identity from previously reconciled canonical account"
+                : "Enable Banking account UID rotated; matched by provider identification hash",
           }
         : {}),
     },
@@ -327,7 +403,7 @@ async function syncFinancialAccount(
     return {
       id: existing.id,
       created: false,
-      providerAccountIdentityHash,
+      providerAccountIdentityHash: canonicalProviderAccountIdentityHash,
     };
   }
 
@@ -351,7 +427,7 @@ async function syncFinancialAccount(
   return {
     id: inserted.data.id,
     created: true,
-    providerAccountIdentityHash,
+    providerAccountIdentityHash: canonicalProviderAccountIdentityHash,
   };
 }
 
