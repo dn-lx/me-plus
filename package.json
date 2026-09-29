@@ -12,7 +12,7 @@
     "build:web": "pnpm --filter @me-plus/web build",
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm test:finance && pnpm typecheck",
-    "test:finance": "node --test tests/n26-account-identity.test.mjs"
+    "test:finance": "node --experimental-strip-types --test tests/n26-account-identity.test.mjs"
   },
   "devDependencies": {
     "typescript": "6.0.3",
