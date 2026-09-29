@@ -67,7 +67,7 @@ const metricUnits: Record<HealthMetric, HealthUnit> = {
 
 const MAX_READINGS = 250;
 const MAX_RAW_RECORDS = 100;
-const MAX_RAW_PAYLOAD_BYTES = 160_000;
+const MAX_RAW_PAYLOAD_BYTES = 900_000;
 const MAX_SOURCE_METADATA_BYTES = 32_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
