@@ -88,57 +88,70 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Resolve pre-provisioned Android SDK
+      - name: Ensure pinned Android SDK toolchain
         shell: powershell
         run: |
-          # This repository uses a designated self-hosted Android builder.
-          # CI verifies the builder; it must not mutate SDK packages or block
-          # on interactive license prompts during a release.
-          $candidates = @(
-            (Join-Path $env:LOCALAPPDATA "Android\Sdk"),
-            $env:ANDROID_HOME,
-            $env:ANDROID_SDK_ROOT,
-            (Join-Path $env:USERPROFILE ".android\sdk")
-          ) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Select-Object -Unique
+          $sdk = Join-Path $env:USERPROFILE ".android\sdk"
+          $latest = Join-Path $sdk "cmdline-tools\latest"
+          $sdkManager = Join-Path $latest "bin\sdkmanager.bat"
 
-          $sdk = $null
-          foreach ($candidate in $candidates) {
-            if (-not (Test-Path $candidate)) {
-              continue
+          if (-not (Test-Path $sdkManager)) {
+            $archive = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902"
+            Remove-Item $archive -Force -ErrorAction SilentlyContinue
+            Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path $sdk | Out-Null
+
+            curl.exe --fail --location "https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip" --output $archive
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download Android command-line tools."
             }
 
-            $required = @(
-              (Join-Path $candidate "platform-tools\adb.exe"),
-              (Join-Path $candidate "platforms\android-36\android.jar"),
-              (Join-Path $candidate "build-tools\36.0.0\aapt2.exe"),
-              (Join-Path $candidate "ndk\27.1.12297006\source.properties"),
-              (Join-Path $candidate "cmake\3.22.1\bin\cmake.exe")
-            )
-            $missing = @($required | Where-Object { -not (Test-Path $_) })
-
-            if ($missing.Count -eq 0) {
-              $sdk = $candidate
-              break
-            }
-
-            Write-Host "Android SDK candidate is incomplete: $candidate"
-            foreach ($path in $missing) {
-              Write-Host "  missing: $path"
-            }
-          }
-
-          if ([string]::IsNullOrWhiteSpace($sdk)) {
-            throw "No pre-provisioned Android SDK contains API 36, Build Tools 36.0.0, NDK 27.1.12297006, CMake 3.22.1 and platform-tools."
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+            New-Item -ItemType Directory -Force -Path (Split-Path $latest) | Out-Null
+            Remove-Item $latest -Recurse -Force -ErrorAction SilentlyContinue
+            Move-Item (Join-Path $extract "cmdline-tools") $latest
           }
 
           "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
           "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
           "$sdk\platform-tools" >> $env:GITHUB_PATH
           "$sdk\build-tools\36.0.0" >> $env:GITHUB_PATH
+          "$latest\bin" >> $env:GITHUB_PATH
 
-          Write-Host "Using verified Android SDK at $sdk"
+          # sdkmanager.bat does not consume piped interactive answers reliably on
+          # this Windows service runner. Persist the standard Android license
+          # fingerprints before package installation so CI remains non-interactive.
+          $licenseDir = Join-Path $sdk "licenses"
+          New-Item -ItemType Directory -Force -Path $licenseDir | Out-Null
+          @(
+            "8933bad161af4178b1185d1a37fbf41ea5269c55",
+            "d56f5187479451eabf01fb78af6dfcb131a6481e",
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-license") -Encoding ascii
+          @(
+            "84831b9409646a918e30573bab4c9c91346d8abd",
+            "504667f4c0de7af1a06de9f4b1727b84351f2910"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-preview-license") -Encoding ascii
+
+          & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Android SDK package installation failed."
+          }
+
+          $required = @(
+            (Join-Path $sdk "platform-tools\adb.exe"),
+            (Join-Path $sdk "platforms\android-36\android.jar"),
+            (Join-Path $sdk "build-tools\36.0.0\aapt2.exe"),
+            (Join-Path $sdk "ndk\27.1.12297006\source.properties"),
+            (Join-Path $sdk "cmake\3.22.1\bin\cmake.exe")
+          )
+          $missing = @($required | Where-Object { -not (Test-Path $_) })
+          if ($missing.Count -gt 0) {
+            throw ("Android SDK installation incomplete. Missing: " + ($missing -join ", "))
+          }
+
+          Write-Host "Android SDK toolchain ready at $sdk"
 
       - name: Ensure dependency lockfile matches committed manifests
         id: lockfile
