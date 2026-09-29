@@ -1,0 +1,229 @@
+name: Android local builder
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "apps/mobile/**"
+      - "packages/contracts/**"
+      - "VERSION"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/android-local-build.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-local-builder-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: android / self-hosted-local-builder
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_PUBLIC_SUPABASE_URL: "https://wbqnctrvxohxwiaignhg.supabase.co"
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_1IJENqECdJNvRxN-vUup5w_3dV8d4Ws"
+      EXPO_PUBLIC_ME_PLUS_API_URL: "https://dev--me-plus-personal-intelligence.netlify.app"
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify designated local Android builder
+        shell: powershell
+        run: |
+          Write-Host "Runner: ${{ runner.name }}"
+          Write-Host "OS: ${{ runner.os }}"
+          Write-Host "Architecture: ${{ runner.arch }}"
+          if ("${{ runner.os }}" -ne "Windows") {
+            throw "Me+ Android builds must run on the designated self-hosted Windows Android builder."
+          }
+
+      - name: Verify required public mobile environment
+        shell: powershell
+        run: |
+          $required = @(
+            "EXPO_PUBLIC_SUPABASE_URL",
+            "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "EXPO_PUBLIC_ME_PLUS_API_URL"
+          )
+          $missing = @()
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              $missing += $name
+            }
+          }
+          if ($missing.Count -gt 0) {
+            throw ("Missing required runner environment variables: " + ($missing -join ", "))
+          }
+          Write-Host "Required public mobile environment is configured."
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Ensure dependency lockfile matches committed manifests
+        id: lockfile
+        shell: powershell
+        run: |
+          pnpm install --lockfile-only --no-frozen-lockfile
+
+          $lockStatus = git status --porcelain -- pnpm-lock.yaml
+          if (-not [string]::IsNullOrWhiteSpace($lockStatus)) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pnpm-lock.yaml
+            git commit -m "chore(deps): refresh lockfile for Android build"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+            throw "pnpm-lock.yaml was refreshed and committed. A new self-hosted build will run from the new committed SHA."
+          }
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Health ingestion regression tests
+        run: pnpm test:health
+
+      - name: Type-check workspace
+        run: pnpm typecheck
+
+      - name: Generate native Android project
+        run: pnpm --filter @me-plus/mobile exec expo prebuild --platform android --clean --no-install
+
+      - name: Build installable Android APK
+        working-directory: apps/mobile/android
+        shell: powershell
+        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
+
+      - name: Stage verified artifact and provenance
+        id: artifact
+        shell: powershell
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "VERSION is empty." }
+
+          $source = "apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          if (!(Test-Path $source)) { throw "Expected APK not found at $source" }
+
+          $dir = "artifacts/android"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $filename = "me-plus-$version.apk"
+          $dest = Join-Path $dir $filename
+          Copy-Item $source $dest -Force
+
+          $hash = (Get-FileHash -Path $dest -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $filename" | Set-Content -Path "$dest.sha256" -Encoding ascii
+
+          $appJson = Get-Content "apps/mobile/app.json" -Raw | ConvertFrom-Json
+          $metadata = [ordered]@{
+            app = "me-plus"
+            platform = "android"
+            version = $version
+            displayVersion = $version
+            filename = $filename
+            sha256 = $hash
+            sizeBytes = (Get-Item $dest).Length
+            packageName = $appJson.expo.android.package
+            versionCode = $appJson.expo.android.versionCode
+            buildType = "debug-development"
+            sourceCommit = "$env:SOURCE_SHA"
+            githubRunId = "${{ github.run_id }}"
+            githubRunAttempt = "${{ github.run_attempt }}"
+            buildPath = "github-actions-self-hosted"
+            runnerName = "${{ runner.name }}"
+            publishTarget = "netlify-static"
+            publicDownloadPath = "/downloads/$filename"
+          }
+          $metadata | ConvertTo-Json -Depth 8 | Set-Content -Path "$dir/$version.json" -Encoding utf8
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "filename=$filename" >> $env:GITHUB_OUTPUT
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Android build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: me-plus-android-${{ steps.artifact.outputs.version }}-${{ env.SOURCE_SHA }}
+          path: artifacts/android/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stage verified Android download in repository
+        shell: powershell
+        run: |
+          $version = "${{ steps.artifact.outputs.version }}"
+          $filename = "${{ steps.artifact.outputs.filename }}"
+          $artifactDir = "artifacts/android"
+          $downloadDir = "apps/web/public/downloads"
+          $releaseDir = "releases/android"
+
+          # Build from SOURCE_SHA, but publish onto the latest task-branch head so
+          # harmless concurrent documentation/web fixes do not cause a non-fast-forward push.
+          git fetch origin $env:SOURCE_BRANCH
+          git checkout -B artifact-publish "origin/$env:SOURCE_BRANCH"
+
+          New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+          Copy-Item (Join-Path $artifactDir $filename) (Join-Path $downloadDir $filename) -Force
+          Copy-Item (Join-Path $artifactDir "$filename.sha256") (Join-Path $downloadDir "$filename.sha256") -Force
+          Copy-Item (Join-Path $artifactDir "$version.json") (Join-Path $releaseDir "$version.json") -Force
+
+          $displayVersion = $version -replace "\.0$",""
+          $pagePath = "apps/web/app/page.tsx"
+          $page = Get-Content $pagePath -Raw
+          $page = [regex]::Replace($page, 'version: "[^"]+",', ('version: "' + $version + '",'), 1)
+          $page = [regex]::Replace($page, 'displayVersion: "[^"]+",', ('displayVersion: "' + $displayVersion + '",'), 1)
+          $page = [regex]::Replace($page, 'filename: "me-plus-[^"]+\.apk",', ('filename: "' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'href: "/downloads/me-plus-[^"]+\.apk",', ('href: "/downloads/' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'checksumHref: "/downloads/me-plus-[^"]+\.apk\.sha256",', ('checksumHref: "/downloads/' + $filename + '.sha256",'), 1)
+          Set-Content -Path $pagePath -Value $page -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $downloadDir $releaseDir $pagePath
+
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "chore(android): publish verified Me+ $version artifact"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+          } else {
+            Write-Host "Verified Android download is already staged for this version."
+          }
+
+      - name: Build summary
+        shell: powershell
+        run: |
+          @"
+          ## Me+ Android self-hosted build
+          - Source SHA: `$env:SOURCE_SHA`
+          - Runner: `${{ runner.name }}`
+          - APK: `${{ steps.artifact.outputs.filename }}`
+          - SHA-256: `${{ steps.artifact.outputs.sha256 }}`
+          - Build path: GitHub Actions → self-hosted local Android builder
+          "@ | Add-Content $env:GITHUB_STEP_SUMMARY
