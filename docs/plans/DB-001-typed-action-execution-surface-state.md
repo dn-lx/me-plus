@@ -54,8 +54,17 @@
 
 ## Open decisions
 
-- Final typed field set will be the smallest set that covers live execution-surface state and scheduler-control semantics; routine occurrence/provenance metadata remains in its existing canonical fields/JSON unless DB-001 requires it for correctness.
+- Resolved: use typed execution-surface columns on `public.actions` rather than a second table. Existing routine occurrence/provenance metadata remains in its current canonical fields/JSON.
+- Resolved: untouched legacy/catalog writers remain compatible through a one-way JSON-to-typed trigger; core scheduler reads and mutations use typed columns. Legacy JSON is retained as compatibility/provenance and can be retired in a later cleanup after all callers migrate.
 
 ## Completion evidence
 
-Pending.
+- Live migrations applied: `20260929122615_fix_db_001_typed_action_execution_surface_state` and `20260929123037_fix_db_001_surface_trigger_typed_insert_compatibility`; exact applied SQL is mirrored in this branch.
+- Backfill parity: 36 existing actions checked with zero mismatches across provider, IDs, state, source, completion source and timestamps; zero duplicate typed current external IDs.
+- Core runtime scan: seven scheduler/Todoist functions no longer branch on `constraint_flags` for surface state/task identity/control flags.
+- Durable regression test: `supabase/tests/db_001_action_execution_surface.sql` passed against live Supabase inside a transaction and rolled back cleanly. It covers legacy JSON writes, typed-first writes, create/update/remove, completion, mismatched-task rejection, key removal, duplicate external-ID rejection and invalid-state rejection.
+- Scheduler smoke: `me_scheduler_probe` completed successfully using the typed contract.
+- Security review: affected execution RPCs are service-role-only; authenticated users retain only `SELECT` table grant on `actions`; the private compatibility trigger is not directly executable.
+- Supabase advisors reported no DB-001-specific security/performance regression. Remaining advisor findings are pre-existing project issues; the new state index is naturally reported unused immediately after creation.
+- GitHub Runtime validation on implementation SHA `89c4f4d0a43ae74ba0c24a4c904c8c457dc9aa0b` passed workspace typecheck, web build and mobile-web bundle. Agent/Version/Gitleaks remain red with the same pre-existing baseline failures present on merged PR #33; dependency audit and Semgrep are green.
+
