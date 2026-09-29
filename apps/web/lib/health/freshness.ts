@@ -69,3 +69,32 @@ export function dedupeReadingsByFreshness(
     left.externalId.localeCompare(right.externalId),
   );
 }
+
+
+export type ProviderRevisionDecision = "create" | "update" | "resume" | "ignore";
+
+export function decideProviderRevision(
+  incoming: SensorReading,
+  current: {
+    reading: SensorReading | null;
+    revisionKey: string | null;
+    processingStatus: string | null;
+  } | null,
+): ProviderRevisionDecision {
+  if (!current) {
+    return "create";
+  }
+
+  const incomingKey = providerRevisionKey(incoming);
+  const comparison = current.reading
+    ? compareProviderRevision(incoming, current.reading)
+    : 1;
+  const sameRevision =
+    current.revisionKey === incomingKey || comparison === 0;
+
+  if (sameRevision) {
+    return current.processingStatus === "processed" ? "ignore" : "resume";
+  }
+
+  return comparison < 0 ? "ignore" : "update";
+}
