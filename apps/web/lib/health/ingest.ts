@@ -50,6 +50,14 @@ function throwIfError(error: { message: string } | null, context: string): void 
   }
 }
 
+function chunkValues<T>(values: readonly T[], size = 25): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 function storedSensorReading(payload: unknown): SensorReading | null {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return null;
@@ -182,16 +190,21 @@ async function bulkSyncRawEvents(
   recordsIgnoredStale: number;
 }> {
   const externalIds = readings.map((reading) => reading.externalId);
-  const existing = await client
-    .from("raw_events")
-    .select("id,external_record_id,payload,content_hash,processing_status")
-    .eq("data_source_id", dataSourceId)
-    .in("external_record_id", externalIds);
+  const existingRows: RawEventRow[] = [];
 
-  throwIfError(existing.error, "Unable to look up existing raw health events");
+  for (const externalIdChunk of chunkValues(externalIds)) {
+    const existing = await client
+      .from("raw_events")
+      .select("id,external_record_id,payload,content_hash,processing_status")
+      .eq("data_source_id", dataSourceId)
+      .in("external_record_id", externalIdChunk);
+
+    throwIfError(existing.error, "Unable to look up existing raw health events");
+    existingRows.push(...((existing.data ?? []) as RawEventRow[]));
+  }
 
   const existingByExternalId = new Map<string, RawEventRow>();
-  for (const row of (existing.data ?? []) as RawEventRow[]) {
+  for (const row of existingRows) {
     if (row.external_record_id) {
       existingByExternalId.set(row.external_record_id, row);
     }
@@ -294,19 +307,24 @@ async function bulkSyncObservations(
     throw new Error("Missing canonical raw event for one or more health readings");
   }
 
-  const existing = await client
-    .from("observations")
-    .select(
-      "raw_event_id,value_number,value_text,value_boolean,value_json,unit,quality,confidence,provenance",
-    )
-    .eq("user_id", userId)
-    .eq("data_source_id", dataSourceId)
-    .in("raw_event_id", rawEventIds as string[]);
+  const existingRows: ExistingObservationRow[] = [];
 
-  throwIfError(existing.error, "Unable to look up existing normalized health observations");
+  for (const rawEventIdChunk of chunkValues(rawEventIds as string[])) {
+    const existing = await client
+      .from("observations")
+      .select(
+        "raw_event_id,value_number,value_text,value_boolean,value_json,unit,quality,confidence,provenance",
+      )
+      .eq("user_id", userId)
+      .eq("data_source_id", dataSourceId)
+      .in("raw_event_id", rawEventIdChunk);
+
+    throwIfError(existing.error, "Unable to look up existing normalized health observations");
+    existingRows.push(...((existing.data ?? []) as ExistingObservationRow[]));
+  }
 
   const existingByRawEventId = new Map<string, ExistingObservationRow>();
-  for (const row of (existing.data ?? []) as ExistingObservationRow[]) {
+  for (const row of existingRows) {
     if (row.raw_event_id) {
       existingByRawEventId.set(row.raw_event_id, row);
     }
