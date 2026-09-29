@@ -30,17 +30,19 @@ This file is the compact implementation resume point. Canonical product/system b
 - The user has already confirmed Zepp data is present in Health Connect and relevant permissions are enabled.
 - No health records are uploaded to Supabase yet. This is intentional: the canonical sequence requires observing the real Health Connect inventory and source origins first, then designing raw/normalized mappings.
 
-## Local-machine validation decision
+## Local Android validation decision
 
-The user chose local Android compilation/testing instead of setting up a cloud build pipeline at this stage. The next validation path is:
+Android remains built on the designated local Windows Android build host, but the build MUST be orchestrated by GitHub Actions through the self-hosted runner. Direct Desktop Commander/terminal/IDE builds are no longer permitted as release/build evidence.
 
-1. Check out `feature/health-connect-collector` locally.
-2. Install dependencies with the repository's pnpm toolchain.
-3. Generate/run the native Android development build.
-4. Install on the user's Android phone over the normal local Android development path.
-5. Open the Me+ Health Connect screen, grant read access, and scan the last 7 days.
-6. Capture populated record types and source/data-origin values from Zepp.
-7. Use that observed inventory to implement authenticated Supabase raw-event ingestion and normalized health mappings while preserving provenance.
+Current validation path:
+
+1. Commit the intended source to the active task branch.
+2. GitHub Actions checks out that exact SHA on the self-hosted Windows Android builder.
+3. The workflow installs dependencies, runs focused health tests/typecheck, performs Expo Android prebuild, and builds the installable APK.
+4. The workflow calculates SHA-256, records source SHA/run/runner provenance, and uploads the APK + checksum + metadata as a GitHub Actions artifact.
+5. Only that verified artifact may be staged to the Me+ Netlify website.
+6. Verify the published website download matches the GitHub Actions checksum before declaring the Android release complete.
+7. If the self-hosted runner is unavailable, the Android build remains blocked; do not switch to another builder without explicit user approval to change this hard rule.
 
 ## Verification state
 
