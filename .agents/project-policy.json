@@ -14,5 +14,22 @@
     "draft_pr_for_non_trivial_work": true,
     "one_writer_per_task_branch": true,
     "github_state_over_chat_memory": true
+  },
+  "execution": {
+    "desktop_connector": {
+      "scope": "android_build_only",
+      "allowed": "Commands directly required to build, install, or run the Android app for Android build/runtime validation.",
+      "prohibited": [
+        "general repository validation",
+        "non-Android tests",
+        "non-Android typechecking",
+        "non-Android linting",
+        "web builds",
+        "database migrations",
+        "general shell work",
+        "GitHub operations"
+      ],
+      "fallback": "Use GitHub Actions or other hosted/project-native tooling for all non-Android engineering validation."
+    }
   }
 }
