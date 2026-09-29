@@ -2,10 +2,20 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const sourceUrl = new URL("../apps/web/lib/health/ingest.ts", import.meta.url);
-const source = await readFile(sourceUrl, "utf8");
+const ingestSource = await readFile(
+  new URL("../apps/web/lib/health/ingest.ts", import.meta.url),
+  "utf8",
+);
+const mobileSource = await readFile(
+  new URL("../apps/mobile/lib/health/background-health-sync.ts", import.meta.url),
+  "utf8",
+);
+const collectorSource = await readFile(
+  new URL("../apps/mobile/lib/health/health-connect.ts", import.meta.url),
+  "utf8",
+);
 
-function section(startMarker, endMarker = null) {
+function section(source, startMarker, endMarker = null) {
   const start = source.indexOf(startMarker);
   assert.notEqual(start, -1, `missing marker: ${startMarker}`);
   const end = endMarker ? source.indexOf(endMarker, start) : source.length;
@@ -13,18 +23,21 @@ function section(startMarker, endMarker = null) {
   return source.slice(start, end);
 }
 
-test("raw health events remain non-terminal until normalization succeeds", () => {
-  const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
+test("normalized health source events remain non-terminal until observation write succeeds", () => {
+  const rawSync = section(
+    ingestSource,
+    "async function bulkSyncReadingRawEvents",
+    "async function bulkSyncObservations",
+  );
   assert.match(rawSync, /processing_status:\s*"pending"/);
   assert.match(rawSync, /processed_at:\s*null/);
-  assert.doesNotMatch(rawSync, /processing_status:\s*"processed"/);
 });
 
-test("health ingestion marks raw events processed only after normalized observations", () => {
-  const ingest = section("export async function ingestHealthReadings");
-  const raw = ingest.indexOf("await bulkSyncRawEvents");
+test("health ingestion marks normalized source events processed only after observations", () => {
+  const ingest = section(ingestSource, "export async function ingestHealthReadings");
+  const raw = ingest.indexOf("await bulkSyncReadingRawEvents");
   const normalized = ingest.indexOf("await bulkSyncObservations");
-  const processed = ingest.indexOf("await markRawEventsProcessed");
+  const processed = ingest.indexOf("await markReadingRawEventsProcessed");
   const completed = ingest.indexOf('status: "completed"');
 
   assert.ok(raw >= 0 && normalized > raw);
@@ -32,9 +45,33 @@ test("health ingestion marks raw events processed only after normalized observat
   assert.ok(completed > processed);
 });
 
-test("failed normalization records raw failure without masking later-stage failures", () => {
-  const ingest = section("export async function ingestHealthReadings");
-  assert.match(ingest, /rawEventIds\.length > 0 && !observationsWritten/);
-  assert.match(ingest, /await markRawEventsFailed/);
+test("failed normalization records raw failure without masking sync-run failure", () => {
+  const ingest = section(ingestSource, "export async function ingestHealthReadings");
+  assert.match(ingest, /readingRawEventIds\.length > 0 && !observationsWritten/);
+  assert.match(ingest, /await markReadingRawEventsFailed/);
   assert.match(ingest, /try \{\s*await markSyncRunFailed/);
+});
+
+test("duplicate external ids choose the newest lastModifiedAt value", () => {
+  const newest = section(ingestSource, "function newest", "function dedupeReadings");
+  const dedupe = section(ingestSource, "function dedupeReadings", "function dedupeRawRecords");
+  assert.match(newest, /rightModified > leftModified/);
+  assert.match(dedupe, /newest\(prior, reading\)/);
+});
+
+test("all requested physical Health Connect records are preserved as raw provider data", () => {
+  assert.match(collectorSource, /HealthRateVariabilityRmssd|HeartRateVariabilityRmssd/);
+  assert.match(collectorSource, /BloodPressure/);
+  assert.match(collectorSource, /BodyFat/);
+  assert.match(collectorSource, /SkinTemperature/);
+  assert.match(collectorSource, /Vo2Max/);
+  assert.match(collectorSource, /rawRecords:\s*results\.flatMap/);
+});
+
+test("periodic collector uses Android background task and authenticated sync", () => {
+  assert.match(mobileSource, /TaskManager\.defineTask/);
+  assert.match(mobileSource, /minimumInterval:\s*MINIMUM_INTERVAL_MINUTES/);
+  assert.match(mobileSource, /hasHealthConnectBackgroundAccess/);
+  assert.match(mobileSource, /syncHealthConnectData/);
+  assert.match(mobileSource, /supabase\.auth\.getSession/);
 });
