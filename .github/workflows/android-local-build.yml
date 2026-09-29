@@ -32,6 +32,7 @@ jobs:
       EXPO_PUBLIC_ME_PLUS_API_URL: "https://dev--me-plus-personal-intelligence.netlify.app"
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      ANDROID_BUILD_ROOT: 'D:\\c'
 
     steps:
       - name: Check out committed source
@@ -169,20 +170,46 @@ jobs:
             throw "pnpm-lock.yaml was refreshed and committed. A new self-hosted build will run from the new committed SHA."
           }
 
+      - name: Prepare short-path Android checkout
+        shell: powershell
+        run: |
+          $root = $env:ANDROID_BUILD_ROOT
+          if (Test-Path (Join-Path $root ".git")) {
+            git -C $root reset --hard
+            git -C $root clean -fdx
+          } else {
+            if (Test-Path $root) {
+              Remove-Item $root -Recurse -Force
+            }
+            git clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
+          }
+
+          git -C $root fetch origin $env:SOURCE_SHA --depth=1
+          git -C $root checkout --detach $env:SOURCE_SHA
+          git -C $root reset --hard $env:SOURCE_SHA
+          git -C $root clean -fdx
+
+          "node-linker=hoisted" | Set-Content -Path (Join-Path $root ".npmrc") -Encoding ascii
+          Write-Host "Prepared short-path build checkout at $root"
+
       - name: Install workspace dependencies
+        working-directory: D:\c
         run: pnpm install --frozen-lockfile
 
       - name: Health ingestion regression tests
+        working-directory: D:\c
         run: pnpm test:health
 
       - name: Type-check workspace
+        working-directory: D:\c
         run: pnpm typecheck
 
       - name: Generate native Android project
+        working-directory: D:\c
         run: pnpm --filter @me-plus/mobile exec expo prebuild --platform android --clean --no-install
 
       - name: Configure Android SDK path
-        working-directory: apps/mobile/android
+        working-directory: D:\c\apps\mobile\android
         shell: powershell
         run: |
           $candidates = @(
@@ -203,7 +230,7 @@ jobs:
           Write-Host "Using Android SDK at $sdk"
 
       - name: Build installable Android APK
-        working-directory: apps/mobile/android
+        working-directory: D:\c\apps\mobile\android
         shell: powershell
         run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
 
@@ -211,10 +238,10 @@ jobs:
         id: artifact
         shell: powershell
         run: |
-          $version = (Get-Content VERSION -Raw).Trim()
+          $version = (Get-Content (Join-Path $env:ANDROID_BUILD_ROOT "VERSION") -Raw).Trim()
           if ([string]::IsNullOrWhiteSpace($version)) { throw "VERSION is empty." }
 
-          $source = "apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          $source = Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\android\app\build\outputs\apk\release\app-release.apk"
           if (!(Test-Path $source)) { throw "Expected APK not found at $source" }
 
           $dir = "artifacts/android"
@@ -226,7 +253,7 @@ jobs:
           $hash = (Get-FileHash -Path $dest -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $filename" | Set-Content -Path "$dest.sha256" -Encoding ascii
 
-          $appJson = Get-Content "apps/mobile/app.json" -Raw | ConvertFrom-Json
+          $appJson = Get-Content (Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\app.json") -Raw | ConvertFrom-Json
           $metadata = [ordered]@{
             app = "me-plus"
             platform = "android"
@@ -237,7 +264,7 @@ jobs:
             sizeBytes = (Get-Item $dest).Length
             packageName = $appJson.expo.android.package
             versionCode = $appJson.expo.android.versionCode
-            buildType = "debug-development"
+            buildType = "release"
             sourceCommit = "$env:SOURCE_SHA"
             githubRunId = "${{ github.run_id }}"
             githubRunAttempt = "${{ github.run_attempt }}"
