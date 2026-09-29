@@ -26,6 +26,7 @@ export interface EnableBankingAccount {
   currency?: string;
   psu_status?: string;
   identification_hash?: string;
+  identification_hashes?: readonly string[];
   [key: string]: unknown;
 }
 
