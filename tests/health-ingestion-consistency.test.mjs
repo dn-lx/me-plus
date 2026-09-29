@@ -75,3 +75,16 @@ test("periodic collector uses Android background task and authenticated sync", (
   assert.match(mobileSource, /syncHealthConnectData/);
   assert.match(mobileSource, /supabase\.auth\.getSession/);
 });
+
+test("health raw-event existence lookups are chunked before PostgREST queries", () => {
+  const lookup = section(ingestSource, "async function existingExternalIds", "async function bulkSyncProviderRawRecords");
+  assert.match(lookup, /lookupChunkSize = 40/);
+  assert.match(lookup, /externalIds\.slice\(index, index \+ lookupChunkSize\)/);
+});
+
+test("authenticated Health Connect ingestion records source consent", () => {
+  const consent = section(ingestSource, "async function ensureHealthConsent", "async function startSyncRun");
+  assert.match(consent, /domain:\s*"health"/);
+  assert.match(consent, /health_connect_sensor_collection_and_analysis/);
+  assert.match(consent, /android_health_connect_permission_and_authenticated_upload/);
+});
