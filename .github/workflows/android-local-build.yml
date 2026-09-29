@@ -32,7 +32,7 @@ jobs:
       EXPO_PUBLIC_ME_PLUS_API_URL: "https://dev--me-plus-personal-intelligence.netlify.app"
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-      ANDROID_BUILD_ROOT: 'D:\\c'
+      ANDROID_BUILD_ROOT: 'D:\b-${{ github.run_id }}-${{ github.run_attempt }}'
 
     steps:
       - name: Check out committed source
@@ -170,46 +170,45 @@ jobs:
             throw "pnpm-lock.yaml was refreshed and committed. A new self-hosted build will run from the new committed SHA."
           }
 
-      - name: Prepare short-path Android checkout
+      - name: Prepare fresh short-path Android checkout
         shell: powershell
         run: |
           $root = $env:ANDROID_BUILD_ROOT
-          if (Test-Path (Join-Path $root ".git")) {
-            git -C $root reset --hard
-            git -C $root clean -fdx
-          } else {
-            if (Test-Path $root) {
-              Remove-Item $root -Recurse -Force
-            }
-            git clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
+          if (Test-Path $root) {
+            throw "Fresh Android build root already exists: $root"
           }
 
+          git clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
+          if ($LASTEXITCODE -ne 0) { throw "Short-path repository clone failed." }
+
+          git -C $root config core.longpaths true
           git -C $root fetch origin $env:SOURCE_SHA --depth=1
+          if ($LASTEXITCODE -ne 0) { throw "Short-path source fetch failed." }
+
           git -C $root checkout --detach $env:SOURCE_SHA
-          git -C $root reset --hard $env:SOURCE_SHA
-          git -C $root clean -fdx
+          if ($LASTEXITCODE -ne 0) { throw "Short-path source checkout failed." }
 
           "node-linker=hoisted" | Set-Content -Path (Join-Path $root ".npmrc") -Encoding ascii
-          Write-Host "Prepared short-path build checkout at $root"
+          Write-Host "Prepared fresh short-path build checkout at $root"
 
       - name: Install workspace dependencies
-        working-directory: D:\c
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
         run: pnpm install --frozen-lockfile
 
       - name: Health ingestion regression tests
-        working-directory: D:\c
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
         run: pnpm test:health
 
       - name: Type-check workspace
-        working-directory: D:\c
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
         run: pnpm typecheck
 
       - name: Generate native Android project
-        working-directory: D:\c
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
         run: pnpm --filter @me-plus/mobile exec expo prebuild --platform android --clean --no-install
 
       - name: Configure Android SDK path
-        working-directory: D:\c\apps\mobile\android
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
         shell: powershell
         run: |
           $candidates = @(
@@ -230,7 +229,7 @@ jobs:
           Write-Host "Using Android SDK at $sdk"
 
       - name: Build installable Android APK
-        working-directory: D:\c\apps\mobile\android
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
         shell: powershell
         run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
 
