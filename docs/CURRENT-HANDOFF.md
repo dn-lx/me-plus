@@ -1,20 +1,20 @@
 # Current Handoff
 
-**Last updated:** 2026-09-28
+**Last updated:** 2026-09-29
 
 This file is the compact implementation resume point. Canonical product/system behavior lives in the Me+ Google Drive specifications; Supabase is the source of truth for live user/integration state. Git history preserves older implementation detail.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "BNK-003",
+  "task_id": null,
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": "fix/bnk-003-n26-account-reconciliation",
-  "pr": 32,
-  "status": "live_data_repaired_code_verification_blocked",
-  "last_verified_sha": "c9e9d4db3f15868cf43c42af9b102ecd20f538a2",
-  "next_step": "Run the full non-Android workspace validation through GitHub Actions. Desktop Connector is reserved for Android build/install/run validation only. If GitHub validation is green, mark PR #32 ready, merge it into dev, then use the normal approved dev-to-prod release path. After deployment, run an N26 refresh/reauthorization regression and verify the canonical account count and transaction count remain stable.",
-  "updated_at": "2026-09-29T09:40:00Z"
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": "08bbe5d6b71f494ceb726a37b7d4e7803ea8a06f",
+  "next_step": null,
+  "updated_at": "2026-09-29T10:08:49Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -115,6 +115,7 @@ Production Supabase now owns the authoritative Hourly clock and scheduler watchd
 - Production migration `20260929092808_fix_n26_account_identity_reconciliation` added a nullable provider stable-identity key and uniqueness guard.
 - The guarded repair removed only exact duplicate normalized transaction rows from the already-superseded N26 account. Current live result: 1 active N26 account, 60 normalized N26 transactions, 0 duplicate groups, 0 normalized rows on the superseded account.
 - All 120 raw N26 transaction events and the superseded account record were retained for provenance/history.
-- PR #32 adds provider `identification_hash`/historical-hash reconciliation, conservative bootstrap for the previously reconciled legacy canonical row, stable raw-event idempotency across UID rotation, and targeted regression tests.
-- Targeted tests are green (7/7) and the identity helper passes strict TypeScript compilation.
-- Desktop Connector is a hard Android-only execution boundary: use it only for commands directly required to build, install, or run the Android app. Non-Android repository tests, typechecks, linting, web builds, migrations, and general shell validation must use GitHub Actions or other hosted/project-native tooling. BNK-003 full workspace verification therefore proceeds through GitHub Actions.
+- PR #32 implemented provider `identification_hash`/historical-hash reconciliation, conservative bootstrap for the previously reconciled legacy canonical row, stable raw-event idempotency across UID rotation, and targeted regression tests; it merged into `dev` as `08bbe5d6b71f494ceb726a37b7d4e7803ea8a06f` on 2026-09-29.
+- Final hosted Runtime validation on the PR head passed whole-workspace TypeScript, web build, and mobile-web bundle; BNK regression tests passed 7/7. Semgrep and dependency audit passed. Remaining repository-wide red checks were confirmed pre-existing baseline debt rather than BNK regressions.
+- BNK-003 is complete at the `dev` integration boundary. Production promotion is outside this issue's completion criterion.
+- Desktop Connector is a hard Android-only execution boundary: use it only for commands directly required to build, install, or run the Android app. Non-Android repository tests, typechecks, linting, web builds, migrations, and general shell validation must use GitHub Actions or other hosted/project-native tooling.
