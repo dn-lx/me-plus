@@ -283,7 +283,7 @@ jobs:
           git add $downloadDir $releaseDir $pagePath
 
           if (-not (git diff --cached --quiet)) {
-            git commit -m "chore(android): publish verified Me+ $version artifact"
+            git commit -m "chore(android): publish verified Me+ $version artifact [skip ci]"
             git push origin "HEAD:$env:SOURCE_BRANCH"
           } else {
             Write-Host "Verified Android download is already staged for this version."
