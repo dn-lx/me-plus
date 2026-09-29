@@ -9,6 +9,14 @@
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 
+## [0.3.1] - 2026-09-29
+
+### Fixed
+- Health Connect uploads now use 50-reading mobile batches to avoid oversized backend lookup requests.
+- The health ingestion API limits a single request to 100 readings.
+- Health ingestion preserves provider revision history, resumes incomplete equal revisions, and selects the newest provider revision deterministically.
+- Android release builds now configure the installed Android SDK on the designated self-hosted Windows runner before Gradle.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added
