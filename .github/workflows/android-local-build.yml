@@ -118,15 +118,22 @@ jobs:
           "$sdk\platform-tools" >> $env:GITHUB_PATH
           "$latest\bin" >> $env:GITHUB_PATH
 
-          # Feed one answer per prompt directly to sdkmanager. The previous cmd.exe
-          # pipeline returned successfully without persisting the NDK license on this runner.
-          $yes = 1..200 | ForEach-Object { "y" }
-          $yes | & $sdkManager "--sdk_root=$sdk" "--licenses"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Android SDK license acceptance failed."
-          }
+          # sdkmanager.bat on the self-hosted Windows runner does not consume piped
+          # stdin reliably. Persist the standard Android SDK license fingerprints that
+          # the project already attempts to accept non-interactively in CI.
+          $licenseDir = Join-Path $sdk "licenses"
+          New-Item -ItemType Directory -Force -Path $licenseDir | Out-Null
+          @(
+            "8933bad161af4178b1185d1a37fbf41ea5269c55",
+            "d56f5187479451eabf01fb78af6dfcb131a6481e",
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-license") -Encoding ascii
+          @(
+            "84831b9409646a918e30573bab4c9c91346d8abd",
+            "504667f4c0de7af1a06de9f4b1727b84351f2910"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-preview-license") -Encoding ascii
 
-          $yes | & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+          & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
           if ($LASTEXITCODE -ne 0) {
             throw "Android SDK package installation failed."
           }
