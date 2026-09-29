@@ -9,7 +9,7 @@ import type {
 import { supabase } from "../supabase/client";
 
 const MAX_READINGS_PER_REQUEST = 150;
-const MAX_RAW_RECORDS_PER_REQUEST = 40;
+const MAX_RAW_RECORDS_PER_REQUEST = 5;
 const MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
 
