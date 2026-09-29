@@ -1,12 +1,18 @@
 import type { HealthIngestRequest, HealthIngestResult, SensorReading } from "@me-plus/contracts";
 
 import { createAdminClient } from "../supabase/admin";
+import {
+  compareProviderRevision,
+  dedupeReadingsByFreshness,
+  providerRevisionKey,
+} from "./freshness";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 type RawEventRow = {
   id: string;
   external_record_id: string | null;
+  payload: unknown;
 };
 
 type ExistingObservationRow = {
@@ -40,6 +46,28 @@ function throwIfError(error: { message: string } | null, context: string): void 
   if (error) {
     throw new Error(`${context}: ${error.message}`);
   }
+}
+
+function storedSensorReading(payload: unknown): SensorReading | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const value = payload as Partial<SensorReading>;
+  if (
+    typeof value.externalId !== "string" ||
+    typeof value.metric !== "string" ||
+    typeof value.value !== "number" ||
+    typeof value.unit !== "string" ||
+    typeof value.observedAt !== "string" ||
+    typeof value.lastModifiedAt !== "string" ||
+    !value.provenance ||
+    typeof value.provenance !== "object"
+  ) {
+    return null;
+  }
+
+  return value as SensorReading;
 }
 
 async function upsertDataSource(
@@ -86,7 +114,7 @@ async function startSyncRun(
       data_source_id: dataSourceId,
       status: "running",
       metadata: {
-        ingestion: "me-plus-health-v2-bulk",
+        ingestion: "me-plus-health-v3-freshness",
         requestedReadings: readingCount,
       },
     })
@@ -102,12 +130,40 @@ async function startSyncRun(
   return data.id;
 }
 
-function dedupeReadings(readings: readonly SensorReading[]): SensorReading[] {
-  const byExternalId = new Map<string, SensorReading>();
+async function storeRawEventRevisions(
+  client: AdminClient,
+  userId: string,
+  dataSourceId: string,
+  readings: readonly SensorReading[],
+): Promise<void> {
+  if (readings.length === 0) return;
+
+  const uniqueRevisions = new Map<string, SensorReading>();
   for (const reading of readings) {
-    byExternalId.set(reading.externalId, reading);
+    uniqueRevisions.set(
+      `${reading.externalId}\u0000${providerRevisionKey(reading)}`,
+      reading,
+    );
   }
-  return [...byExternalId.values()];
+
+  const rows = [...uniqueRevisions.values()].map((reading) => ({
+    user_id: userId,
+    data_source_id: dataSourceId,
+    external_record_id: reading.externalId,
+    provider_last_modified_at: reading.lastModifiedAt,
+    observed_at: reading.observedAt,
+    revision_key: providerRevisionKey(reading),
+    payload: reading,
+  }));
+
+  const result = await client
+    .from("raw_event_revisions")
+    .upsert(rows, {
+      onConflict: "data_source_id,external_record_id,revision_key",
+      ignoreDuplicates: true,
+    });
+
+  throwIfError(result.error, "Unable to preserve raw health event revisions");
 }
 
 async function bulkSyncRawEvents(
@@ -117,62 +173,89 @@ async function bulkSyncRawEvents(
   readings: readonly SensorReading[],
 ): Promise<{
   rowsByExternalId: Map<string, RawEventRow>;
+  acceptedReadings: SensorReading[];
   recordsCreated: number;
   recordsUpdated: number;
+  recordsIgnoredStale: number;
 }> {
   const externalIds = readings.map((reading) => reading.externalId);
   const existing = await client
     .from("raw_events")
-    .select("id,external_record_id")
+    .select("id,external_record_id,payload")
     .eq("data_source_id", dataSourceId)
     .in("external_record_id", externalIds);
 
   throwIfError(existing.error, "Unable to look up existing raw health events");
 
-  const existingIds = new Set(
-    (existing.data ?? [])
-      .map((row) => row.external_record_id)
-      .filter((value): value is string => Boolean(value)),
-  );
-
-  const rows = readings.map((reading) => ({
-    user_id: userId,
-    data_source_id: dataSourceId,
-    external_record_id: reading.externalId,
-    event_type: `health-connect.${reading.metric}`,
-    observed_at: reading.observedAt,
-    payload: reading,
-    payload_schema_version: "1",
-    processing_status: "pending",
-    processed_at: null,
-    error_code: null,
-  }));
-
-  const upserted = await client
-    .from("raw_events")
-    .upsert(rows, { onConflict: "data_source_id,external_record_id" })
-    .select("id,external_record_id");
-
-  throwIfError(upserted.error, "Unable to bulk upsert raw health events");
-
-  const rowsByExternalId = new Map<string, RawEventRow>();
-  for (const row of upserted.data ?? []) {
+  const existingByExternalId = new Map<string, RawEventRow>();
+  for (const row of (existing.data ?? []) as RawEventRow[]) {
     if (row.external_record_id) {
-      rowsByExternalId.set(row.external_record_id, row);
+      existingByExternalId.set(row.external_record_id, row);
     }
   }
 
-  if (rowsByExternalId.size !== readings.length) {
-    throw new Error(
-      `Unable to resolve all bulk raw health events: expected ${readings.length}, got ${rowsByExternalId.size}`,
-    );
+  const acceptedReadings: SensorReading[] = [];
+  const rowsByExternalId = new Map(existingByExternalId);
+  const rows: Array<Record<string, unknown>> = [];
+  let recordsCreated = 0;
+  let recordsUpdated = 0;
+
+  for (const reading of readings) {
+    const current = existingByExternalId.get(reading.externalId);
+    const currentReading = current ? storedSensorReading(current.payload) : null;
+
+    if (currentReading && compareProviderRevision(reading, currentReading) <= 0) {
+      continue;
+    }
+
+    acceptedReadings.push(reading);
+    if (current) {
+      recordsUpdated += 1;
+    } else {
+      recordsCreated += 1;
+    }
+
+    rows.push({
+      user_id: userId,
+      data_source_id: dataSourceId,
+      external_record_id: reading.externalId,
+      event_type: `health-connect.${reading.metric}`,
+      observed_at: reading.observedAt,
+      payload: reading,
+      payload_schema_version: "1",
+      processing_status: "pending",
+      processed_at: null,
+      error_code: null,
+    });
   }
 
-  const recordsUpdated = readings.filter((reading) => existingIds.has(reading.externalId)).length;
+  if (rows.length > 0) {
+    const upserted = await client
+      .from("raw_events")
+      .upsert(rows, { onConflict: "data_source_id,external_record_id" })
+      .select("id,external_record_id,payload");
+
+    throwIfError(upserted.error, "Unable to bulk upsert raw health events");
+
+    for (const row of (upserted.data ?? []) as RawEventRow[]) {
+      if (row.external_record_id) {
+        rowsByExternalId.set(row.external_record_id, row);
+      }
+    }
+  }
+
+  for (const reading of acceptedReadings) {
+    if (!rowsByExternalId.has(reading.externalId)) {
+      throw new Error(`Unable to resolve bulk raw health event ${reading.externalId}`);
+    }
+  }
+
   return {
     rowsByExternalId,
-    recordsCreated: readings.length - recordsUpdated,
+    acceptedReadings,
+    recordsCreated,
     recordsUpdated,
+    recordsIgnoredStale: readings.length - acceptedReadings.length,
   };
 }
 
@@ -183,7 +266,13 @@ async function bulkSyncObservations(
   readings: readonly SensorReading[],
   rawEvents: Map<string, RawEventRow>,
 ): Promise<string[]> {
-  const rawEventIds = [...rawEvents.values()].map((row) => row.id);
+  if (readings.length === 0) return [];
+
+  const rawEventIds = readings.map((reading) => rawEvents.get(reading.externalId)?.id);
+  if (rawEventIds.some((id) => !id)) {
+    throw new Error("Missing canonical raw event for one or more health readings");
+  }
+
   const existing = await client
     .from("observations")
     .select(
@@ -191,7 +280,7 @@ async function bulkSyncObservations(
     )
     .eq("user_id", userId)
     .eq("data_source_id", dataSourceId)
-    .in("raw_event_id", rawEventIds);
+    .in("raw_event_id", rawEventIds as string[]);
 
   throwIfError(existing.error, "Unable to look up existing normalized health observations");
 
@@ -251,6 +340,7 @@ async function bulkSyncObservations(
         recordingMethod: reading.provenance.recordingMethod ?? null,
         externalId: reading.externalId,
         lastModifiedAt: reading.lastModifiedAt,
+        providerRevisionKey: providerRevisionKey(reading),
       },
     };
   });
@@ -332,21 +422,25 @@ export async function ingestHealthReadings(
   input: HealthIngestRequest,
 ): Promise<HealthIngestResult> {
   const client = createAdminClient();
-  const readings = dedupeReadings(input.readings);
+  const readings = dedupeReadingsByFreshness(input.readings);
   const dataSourceId = await upsertDataSource(client, userId, input);
-  const syncRunId = await startSyncRun(client, userId, dataSourceId, readings.length);
+  const syncRunId = await startSyncRun(client, userId, dataSourceId, input.readings.length);
   let rawEventIds: string[] = [];
   let observationsWritten = false;
 
   try {
+    await storeRawEventRevisions(client, userId, dataSourceId, input.readings);
+
     const rawEvents = await bulkSyncRawEvents(client, userId, dataSourceId, readings);
-    rawEventIds = [...rawEvents.rowsByExternalId.values()].map((row) => row.id);
+    rawEventIds = rawEvents.acceptedReadings
+      .map((reading) => rawEvents.rowsByExternalId.get(reading.externalId)?.id)
+      .filter((id): id is string => Boolean(id));
 
     const observationIds = await bulkSyncObservations(
       client,
       userId,
       dataSourceId,
-      readings,
+      rawEvents.acceptedReadings,
       rawEvents.rowsByExternalId,
     );
     observationsWritten = true;
@@ -360,14 +454,16 @@ export async function ingestHealthReadings(
         status: "completed",
         finished_at: finishedAt,
         cursor_after: input.cursorAfter ?? null,
-        records_seen: readings.length,
+        records_seen: input.readings.length,
         records_created: rawEvents.recordsCreated,
         records_updated: rawEvents.recordsUpdated,
         error_code: null,
         metadata: {
-          ingestion: "me-plus-health-v2-bulk",
+          ingestion: "me-plus-health-v3-freshness",
           requestedReadings: input.readings.length,
           dedupedReadings: readings.length,
+          acceptedReadings: rawEvents.acceptedReadings.length,
+          staleReadingsIgnored: rawEvents.recordsIgnoredStale,
         },
       })
       .eq("id", syncRunId);
@@ -384,7 +480,7 @@ export async function ingestHealthReadings(
     return {
       dataSourceId,
       syncRunId,
-      recordsSeen: readings.length,
+      recordsSeen: input.readings.length,
       recordsCreated: rawEvents.recordsCreated,
       recordsUpdated: rawEvents.recordsUpdated,
       observationIds,
