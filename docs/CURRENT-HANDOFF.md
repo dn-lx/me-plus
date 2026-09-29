@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
+  "task_id": "DB-003",
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
+  "branch": "fix/db-003-remaining-source-boundaries",
   "pr": null,
-  "status": "idle",
-  "last_verified_sha": "7666a2776ce5b10b96ab16dbe60db1ee328cab67",
-  "next_step": null,
-  "updated_at": "2026-09-29T13:15:00Z"
+  "status": "in_progress",
+  "last_verified_sha": "7c3caeba255e197b7ef6624a8aa482dec765d5c8",
+  "next_step": "Tighten remaining source-aware mutation policies discovered by the all-table provenance scan, verify, then close DB-003.",
+  "updated_at": "2026-09-29T13:18:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
