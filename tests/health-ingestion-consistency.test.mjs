@@ -13,6 +13,41 @@ function section(startMarker, endMarker = null) {
   return source.slice(start, end);
 }
 
+test("raw provider revisions are preserved before canonical normalization", () => {
+  const ingest = section("export async function ingestHealthReadings");
+  const revisions = ingest.indexOf("await storeRawEventRevisions");
+  const canonicalRaw = ingest.indexOf("await bulkSyncRawEvents");
+  const normalized = ingest.indexOf("await bulkSyncObservations");
+
+  assert.ok(revisions >= 0);
+  assert.ok(canonicalRaw > revisions);
+  assert.ok(normalized > canonicalRaw);
+});
+
+test("provider revision history is idempotent per source, external ID and revision key", () => {
+  const revisions = section(
+    "async function storeRawEventRevisions",
+    "async function bulkSyncRawEvents",
+  );
+  assert.match(
+    revisions,
+    /onConflict:\s*"data_source_id,external_record_id,revision_key"/,
+  );
+  assert.match(revisions, /ignoreDuplicates:\s*true/);
+});
+
+test("canonical raw events reject stale or equal provider revisions", () => {
+  const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
+  assert.match(
+    rawSync,
+    /compareProviderRevision\(reading, currentReading\) <= 0/,
+  );
+  assert.match(
+    rawSync,
+    /recordsIgnoredStale:\s*readings\.length - acceptedReadings\.length/,
+  );
+});
+
 test("raw health events remain non-terminal until normalization succeeds", () => {
   const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
   assert.match(rawSync, /processing_status:\s*"pending"/);
