@@ -114,8 +114,12 @@ export default function HealthConnectScreen() {
     try {
       const permissions = await requestHealthConnectReadPermissions();
       const background = await hasHealthConnectBackgroundAccess();
+      if (background && authenticated) {
+        await registerHealthBackgroundSync();
+        await refreshBackgroundStatus();
+      }
       setStatus(
-        `Health Connect granted ${permissions.length} permission entries. Background reads: ${background ? "granted" : "not granted"}.`,
+        `Health Connect granted ${permissions.length} permission entries. Background reads: ${background ? "granted" : "not granted"}.${background && authenticated ? " Periodic sync is enabled." : ""}`,
       );
     } catch (error) {
       setStatus(toErrorMessage(error));
