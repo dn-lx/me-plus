@@ -30,6 +30,17 @@ For claims about **current implementation**, source/tests/runtime evidence overr
 
 Read `.agents/skills/release-workflow/SKILL.md` before creating/merging a production PR or changing production deployment policy.
 
+
+## Android build and distribution hard rule
+
+- Every Me+ Android APK or AAB build MUST be orchestrated by GitHub Actions and executed on the designated self-hosted/local Android build runner.
+- The authoritative build path is Git commit → GitHub Actions → self-hosted Android runner → verified/checksummed artifact → website distribution.
+- Desktop Commander may inspect, repair or configure the build host, but MUST NOT be used to perform the normal or fallback Android build.
+- Do not publish Android artifacts produced ad hoc from Android Studio, a shell/terminal, a local script, a cloud Android builder, or Netlify.
+- Netlify distributes a verified artifact; Netlify never compiles Android.
+- If the self-hosted runner is unavailable, Android build/release work is blocked. Do not silently switch build paths unless the user explicitly changes this rule.
+- Android Definition of Done requires a successful GitHub Actions run on the self-hosted runner, artifact checksum/provenance, and verification of the website download after publication.
+
 ## Branch cleanup and versioning
 
 Read `docs/BRANCH-LIFECYCLE.md` and `docs/VERSIONING.md` for lifecycle work. Only `prod` and `dev` are permanent. Verify completed temporary branches are deleted after merge; preserve active/unmerged work. Every material change must identify version impact and update CHANGELOG.md when user-visible. Release preparation updates VERSION and dated notes; publish immutable tags only after approved dev → prod release. All host adapters inherit these rules.
