@@ -1,3 +1,5 @@
+import "../lib/health/background-health-sync";
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
