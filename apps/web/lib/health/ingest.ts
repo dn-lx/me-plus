@@ -9,6 +9,33 @@ type RawEventRow = {
   external_record_id: string | null;
 };
 
+type ExistingObservationRow = {
+  raw_event_id: string | null;
+  value_number: number | null;
+  value_text: string | null;
+  value_boolean: boolean | null;
+  value_json: unknown;
+  unit: string | null;
+  quality: string | null;
+  confidence: number | null;
+  provenance: unknown;
+};
+
+function userCorrectedFields(metadata: unknown): ReadonlySet<string> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return new Set();
+  }
+
+  const value = (metadata as Record<string, unknown>).userCorrectedFields;
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+
+  return new Set(
+    value.filter((field): field is string => typeof field === "string" && field.length > 0),
+  );
+}
+
 function throwIfError(error: { message: string } | null, context: string): void {
   if (error) {
     throw new Error(`${context}: ${error.message}`);
@@ -156,11 +183,45 @@ async function bulkSyncObservations(
   readings: readonly SensorReading[],
   rawEvents: Map<string, RawEventRow>,
 ): Promise<string[]> {
+  const rawEventIds = [...rawEvents.values()].map((row) => row.id);
+  const existing = await client
+    .from("observations")
+    .select(
+      "raw_event_id,value_number,value_text,value_boolean,value_json,unit,quality,confidence,provenance",
+    )
+    .eq("user_id", userId)
+    .eq("data_source_id", dataSourceId)
+    .in("raw_event_id", rawEventIds);
+
+  throwIfError(existing.error, "Unable to look up existing normalized health observations");
+
+  const existingByRawEventId = new Map<string, ExistingObservationRow>();
+  for (const row of (existing.data ?? []) as ExistingObservationRow[]) {
+    if (row.raw_event_id) {
+      existingByRawEventId.set(row.raw_event_id, row);
+    }
+  }
+
   const values = readings.map((reading) => {
     const rawEvent = rawEvents.get(reading.externalId);
     if (!rawEvent) {
       throw new Error(`Missing raw event for health reading ${reading.externalId}`);
     }
+
+    const current = existingByRawEventId.get(rawEvent.id);
+    const currentProvenance =
+      current?.provenance &&
+      typeof current.provenance === "object" &&
+      !Array.isArray(current.provenance)
+        ? (current.provenance as Record<string, unknown>)
+        : {};
+    const correctedFields = userCorrectedFields(currentProvenance);
+    const correctedValue = [
+      "value_number",
+      "value_text",
+      "value_boolean",
+      "value_json",
+    ].some((field) => correctedFields.has(field));
 
     return {
       user_id: userId,
@@ -169,14 +230,21 @@ async function bulkSyncObservations(
       domain: "health",
       observation_type: reading.metric,
       observed_at: reading.observedAt,
-      value_number: reading.value,
-      value_text: null,
-      value_boolean: null,
-      value_json: reading.sourcePayload ?? null,
-      unit: reading.unit,
-      quality: "source",
-      confidence: 1,
+      value_number: correctedValue ? current?.value_number ?? null : reading.value,
+      value_text: correctedValue ? current?.value_text ?? null : null,
+      value_boolean: correctedValue ? current?.value_boolean ?? null : null,
+      value_json: correctedValue
+        ? current?.value_json ?? null
+        : reading.sourcePayload ?? null,
+      unit: correctedFields.has("unit") ? current?.unit ?? null : reading.unit,
+      quality: correctedFields.has("quality")
+        ? current?.quality ?? null
+        : "source",
+      confidence: correctedFields.has("confidence")
+        ? current?.confidence ?? null
+        : 1,
       provenance: {
+        ...currentProvenance,
         provider: reading.provenance.provider,
         sourcePackage: reading.provenance.sourcePackage,
         device: reading.provenance.device ?? null,

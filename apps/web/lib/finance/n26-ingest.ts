@@ -31,6 +31,21 @@ function stableHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function userCorrectedFields(metadata: unknown): ReadonlySet<string> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return new Set();
+  }
+
+  const value = (metadata as Record<string, unknown>).userCorrectedFields;
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+
+  return new Set(
+    value.filter((field): field is string => typeof field === "string" && field.length > 0),
+  );
+}
+
 function toTimestamp(value: string | undefined): string | null {
   if (!value) {
     return null;
@@ -248,7 +263,7 @@ async function syncFinancialAccount(
   const existingByUid = await client
     .from("financial_accounts")
     .select(
-      "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+      "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
     )
     .eq("user_id", userId)
     .eq("data_source_id", dataSourceId)
@@ -264,7 +279,7 @@ async function syncFinancialAccount(
     const existingByIdentity = await client
       .from("financial_accounts")
       .select(
-        "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+        "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
       )
       .eq("user_id", userId)
       .eq("data_source_id", dataSourceId)
@@ -288,7 +303,7 @@ async function syncFinancialAccount(
     const legacyCandidates = await client
       .from("financial_accounts")
       .select(
-        "id,external_account_ref,provider_account_identity_hash,account_type,currency,metadata",
+        "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
       )
       .eq("user_id", userId)
       .eq("data_source_id", dataSourceId)
@@ -341,6 +356,7 @@ async function syncFinancialAccount(
     !Array.isArray(existing.metadata)
       ? (existing.metadata as Record<string, unknown>)
       : {};
+  const correctedFields = userCorrectedFields(existingMetadata);
   const existingIdentityHashes = Array.isArray(
     existingMetadata.providerAccountIdentityHashes,
   )
@@ -363,9 +379,18 @@ async function syncFinancialAccount(
   const values = {
     provider: "n26",
     provider_account_identity_hash: canonicalProviderAccountIdentityHash,
-    account_type: normalizedAccountType,
-    display_name: account.name || account.product || "N26 account",
-    currency: normalizedCurrency,
+    account_type:
+      correctedFields.has("account_type") && existing?.account_type
+        ? existing.account_type
+        : normalizedAccountType,
+    display_name:
+      correctedFields.has("display_name") && existing?.display_name
+        ? existing.display_name
+        : account.name || account.product || "N26 account",
+    currency:
+      correctedFields.has("currency") && existing?.currency
+        ? existing.currency
+        : normalizedCurrency,
     current_balance: amountFromBalance(currentBalance),
     available_balance: amountFromBalance(availableBalance),
     balance_as_of: balanceAsOf,
@@ -646,7 +671,9 @@ async function syncFinancialTransaction(
 
   const existing = await client
     .from("financial_transactions")
-    .select("id")
+    .select(
+      "id,merchant,description,category,transaction_type,recurring_candidate,metadata",
+    )
     .eq("financial_account_id", financialAccountId)
     .eq("external_transaction_id", providerTransactionId)
     .maybeSingle();
@@ -657,9 +684,39 @@ async function syncFinancialTransaction(
   );
 
   if (existing.data?.id) {
+    const existingMetadata =
+      existing.data.metadata &&
+      typeof existing.data.metadata === "object" &&
+      !Array.isArray(existing.data.metadata)
+        ? (existing.data.metadata as Record<string, unknown>)
+        : {};
+    const correctedFields = userCorrectedFields(existingMetadata);
+    const reconciledValues = {
+      ...values,
+      merchant: correctedFields.has("merchant")
+        ? existing.data.merchant
+        : values.merchant,
+      description: correctedFields.has("description")
+        ? existing.data.description
+        : values.description,
+      category: correctedFields.has("category")
+        ? existing.data.category
+        : values.category,
+      transaction_type: correctedFields.has("transaction_type")
+        ? existing.data.transaction_type
+        : values.transaction_type,
+      recurring_candidate: correctedFields.has("recurring_candidate")
+        ? existing.data.recurring_candidate
+        : values.recurring_candidate,
+      metadata: {
+        ...existingMetadata,
+        ...values.metadata,
+      },
+    };
+
     const updated = await client
       .from("financial_transactions")
-      .update(values)
+      .update(reconciledValues)
       .eq("id", existing.data.id);
     throwIfError(
       updated.error,
