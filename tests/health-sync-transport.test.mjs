@@ -6,7 +6,7 @@ const sourceUrl = new URL("../apps/mobile/lib/health/sync-health-readings.ts", i
 const source = await readFile(sourceUrl, "utf8");
 
 test("mobile health sync uses bounded request batches", () => {
-  assert.match(source, /const MAX_READINGS_PER_REQUEST = 200/);
+  assert.match(source, /const MAX_READINGS_PER_REQUEST = 50/);
   assert.match(
     source,
     /sourceReadings\.slice\(index, index \+ MAX_READINGS_PER_REQUEST\)/,
@@ -31,4 +31,12 @@ test("HTML or other non-JSON error bodies do not crash JSON parsing", () => {
 test("successful responses still require a JSON object", () => {
   assert.match(source, /response\.ok/);
   assert.match(source, /typeof body !== "object" \|\| body === null/);
+});
+
+const validatorUrl = new URL("../apps/web/lib/health/validate-ingest.ts", import.meta.url);
+const validatorSource = await readFile(validatorUrl, "utf8");
+
+test("server health ingestion rejects oversized reading batches", () => {
+  assert.match(validatorSource, /value\.readings\.length > 100/);
+  assert.match(validatorSource, /limited to 100 readings per request/);
 });
