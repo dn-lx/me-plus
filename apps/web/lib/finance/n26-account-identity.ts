@@ -26,11 +26,75 @@ function identificationHashes(account: EnableBankingAccount | undefined): readon
  * reauthorizations/sessions. Prefer the detailed account response, then the
  * session account record.
  */
+export function resolveProviderAccountIdentityHashes(
+  account: EnableBankingAccount,
+  sessionAccount?: EnableBankingAccount,
+): readonly string[] {
+  return [
+    ...new Set([
+      ...identificationHashes(account),
+      ...identificationHashes(sessionAccount),
+    ]),
+  ];
+}
+
 export function resolveProviderAccountIdentityHash(
   account: EnableBankingAccount,
   sessionAccount?: EnableBankingAccount,
 ): string | null {
-  return identificationHashes(account)[0] ?? identificationHashes(sessionAccount)[0] ?? null;
+  return resolveProviderAccountIdentityHashes(account, sessionAccount)[0] ?? null;
+}
+
+export function isN26IdentityBootstrapMatch(
+  stored: {
+    account_type?: string | null;
+    currency?: string | null;
+    metadata?: unknown;
+  },
+  incoming: {
+    accountType: string;
+    currency: string;
+    maskedIban: string | null;
+    product: string | null;
+  },
+): boolean {
+  const metadata =
+    stored.metadata &&
+    typeof stored.metadata === "object" &&
+    !Array.isArray(stored.metadata)
+      ? (stored.metadata as Record<string, unknown>)
+      : {};
+
+  const priorRefs = Array.isArray(metadata.previousExternalAccountRefs)
+    ? metadata.previousExternalAccountRefs.filter(
+        (value): value is string => typeof value === "string" && value.length > 0,
+      )
+    : [];
+  const hasPriorReconciliationEvidence =
+    priorRefs.length > 0 ||
+    typeof metadata.accountIdentityReconciliationReason === "string";
+
+  if (!hasPriorReconciliationEvidence || !incoming.maskedIban) {
+    return false;
+  }
+
+  if (
+    metadata.maskedIban !== incoming.maskedIban ||
+    stored.account_type !== incoming.accountType ||
+    stored.currency !== incoming.currency
+  ) {
+    return false;
+  }
+
+  if (
+    typeof metadata.product === "string" &&
+    incoming.product &&
+    metadata.product !== incoming.product
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
