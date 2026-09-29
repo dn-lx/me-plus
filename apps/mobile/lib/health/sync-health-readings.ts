@@ -7,6 +7,7 @@ import type {
 
 import { supabase } from "../supabase/client";
 
+// Keep Health Connect batches comfortably below backend query/body limits.
 const MAX_READINGS_PER_REQUEST = 50;
 const MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
