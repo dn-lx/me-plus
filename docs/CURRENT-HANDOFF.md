@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
+  "task_id": "DB-003",
   "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": "89c4f4d0a43ae74ba0c24a4c904c8c457dc9aa0b",
-  "next_step": null,
-  "updated_at": "2026-09-29T12:36:00Z"
+  "branch": "fix/db-003-source-aware-mutation-boundary",
+  "pr": 35,
+  "status": "in_progress",
+  "last_verified_sha": "adc574b62e4ba56f1cff1378a7db4bda80d4add7",
+  "next_step": "Implement source-aware RLS/grants and audited typed correction RPCs, then run database/security/runtime verification.",
+  "updated_at": "2026-09-29T12:51:01Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
