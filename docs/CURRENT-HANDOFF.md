@@ -6,15 +6,15 @@ This file is the compact implementation resume point. Canonical product/system b
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "BNK-003",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-28T20:37:30Z"
+  "branch": "fix/bnk-003-n26-account-reconciliation",
+  "pr": 32,
+  "status": "live_data_repaired_code_verification_blocked",
+  "last_verified_sha": "c9e9d4db3f15868cf43c42af9b102ecd20f538a2",
+  "next_step": "Run the full pnpm workspace check/build when a real runner/local machine is available. If green, mark PR #32 ready, merge it into dev, then use the normal approved dev-to-prod release path. After deployment, run an N26 refresh/reauthorization regression and verify the canonical account count and transaction count remain stable.",
+  "updated_at": "2026-09-29T09:40:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -106,3 +106,15 @@ Production Supabase now owns the authoritative Hourly clock and scheduler watchd
 - The backend Hourly and watchdog heartbeats are healthy under policy `1.14-draft`.
 - The previous ChatGPT Scheduled Hourly task and watchdog were intentionally disabled after acceptance.
 - External Todoist execution is deliberately not fabricated: no server-side Todoist credential exists in Supabase Vault or the repository. Work requiring Todoist/AI execution is durably recorded in `scheduler_dispatches` with a blocked diagnostic until a backend adapter is configured.
+
+
+## BNK-003 — N26 reconnect identity reconciliation — 2026-09-29
+
+- The Engineering Issue Register identified BNK-003 as the highest-priority unresolved issue (Critical).
+- Root cause confirmed: Enable Banking account UIDs are session-scoped, while Me+ normalized account identity was keyed to that reconnect-sensitive UID.
+- Production migration `20260929092808_fix_n26_account_identity_reconciliation` added a nullable provider stable-identity key and uniqueness guard.
+- The guarded repair removed only exact duplicate normalized transaction rows from the already-superseded N26 account. Current live result: 1 active N26 account, 60 normalized N26 transactions, 0 duplicate groups, 0 normalized rows on the superseded account.
+- All 120 raw N26 transaction events and the superseded account record were retained for provenance/history.
+- PR #32 adds provider `identification_hash`/historical-hash reconciliation, conservative bootstrap for the previously reconciled legacy canonical row, stable raw-event idempotency across UID rotation, and targeted regression tests.
+- Targeted tests are green (7/7) and the identity helper passes strict TypeScript compilation.
+- GitHub Actions for the current code SHA fail before any workflow step starts and provide no logs; the authorized local desktop is offline. Therefore the full monorepo typecheck/build remains an infrastructure-blocked verification gate, and PR #32 stays draft.
