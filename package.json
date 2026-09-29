@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm test:finance && pnpm test:health && pnpm typecheck",
     "test:finance": "node --experimental-strip-types --test tests/n26-account-identity.test.mjs",
-    "test:health": "node --experimental-strip-types --test tests/health-freshness.test.mjs tests/health-ingestion-consistency.test.mjs"
+    "test:health": "node --experimental-strip-types --test tests/health-freshness.test.mjs tests/health-ingestion-consistency.test.mjs tests/health-sync-transport.test.mjs"
   },
   "devDependencies": {
     "typescript": "6.0.3",
