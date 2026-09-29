@@ -413,7 +413,6 @@ function sourcePayload(
     time: record.time ?? null,
     metadata: record.metadata ?? null,
     ...(extra ?? {}),
-    sourceRecord: record,
   };
 }
 
