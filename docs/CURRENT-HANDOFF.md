@@ -6,21 +6,21 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "health-connect-upload-0.3.1",
-  "repository": "dn-lx/me-plus",
-  "base": "dev",
-  "branch": "fix/health-connect-upload-0.3.1",
-  "pr": 37,
-  "status": "implementing",
-  "last_verified_sha": "1a14b601dbf174b12fc3a6a1a67345b15e3c5356",
-  "next_step": "Verify atomic ingestion, pass CI, verify self-hosted standalone APK, merge PR 37, then publish through release workflow.",
-  "updated_at": "2026-09-29T23:05:00Z"
+  "task_id": null,
+  "repository": null,
+  "base": null,
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-09-29T23:15:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## Health Connect correction and Android 0.3.1
 
-- PR 37 is the current task; PR 17 collector work is historical and superseded.
+- PR 37 is the release candidate; its GitHub checks and build provenance determine merge readiness. PR 17 collector work is historical and superseded.
 - User authorized correction, merge and web publication of the APK.
 - Pipeline: Zepp → Health Connect → authenticated Me+ Android collector → backend → Supabase raw revisions and normalized observations.
 - Live failures: a 500-reading lookup produced Bad Request; an earlier upload timed out.
@@ -33,6 +33,8 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 ## Verification and release
 
 Required before merge: behavioral health tests, atomic SQL acceptance/denied-role checks, workspace typecheck/build, repository policy/security checks, independent review, and successful self-hosted APK build with provenance.
+
+Atomic ingestion migration and live rollback acceptance passed: retries are idempotent, stale revisions cannot overwrite newer records, manual corrections survive, failed batches roll back without advancing last_sync, and anon/authenticated cannot call the server RPC. Runtime CI passed on 866e1d60e9993460b265a5ccc54092377674d7b3. The final merge-candidate SHA must pass all checks and APK verification.
 
 Required before claiming phone sync fixed: install the new APK and perform a live Health Connect upload on the phone; inspect successful canonical sync/observation state and repeat idempotently. A device upload cannot be fabricated from connector access.
 
