@@ -2,7 +2,7 @@ import type { HealthIngestRequest, HealthIngestResult, SensorReading } from "@me
 
 import { createAdminClient } from "../supabase/admin";
 import {
-  compareProviderRevision,
+  decideProviderRevision,
   dedupeReadingsByFreshness,
   providerRevisionKey,
 } from "./freshness";
@@ -209,49 +209,29 @@ async function bulkSyncRawEvents(
     const current = existingByExternalId.get(reading.externalId);
     const currentReading = current ? storedSensorReading(current.payload) : null;
     const revisionKey = providerRevisionKey(reading);
-    const comparison = currentReading
-      ? compareProviderRevision(reading, currentReading)
-      : current
-        ? 1
-        : null;
-    const sameRevision =
-      Boolean(current) &&
-      (current?.content_hash === revisionKey || comparison === 0);
+    const decision = decideProviderRevision(
+      reading,
+      current
+        ? {
+            reading: currentReading,
+            revisionKey: current.content_hash,
+            processingStatus: current.processing_status,
+          }
+        : null,
+    );
 
-    if (sameRevision) {
-      if (current?.processing_status === "processed") {
-        recordsIgnoredStale += 1;
-        continue;
-      }
-
-      acceptedReadings.push(reading);
-      recordsResumed += 1;
-      rows.push({
-        user_id: userId,
-        data_source_id: dataSourceId,
-        external_record_id: reading.externalId,
-        event_type: `health-connect.${reading.metric}`,
-        observed_at: reading.observedAt,
-        payload: reading,
-        payload_schema_version: "1",
-        content_hash: revisionKey,
-        processing_status: "pending",
-        processed_at: null,
-        error_code: null,
-      });
-      continue;
-    }
-
-    if (comparison !== null && comparison < 0) {
+    if (decision === "ignore") {
       recordsIgnoredStale += 1;
       continue;
     }
 
     acceptedReadings.push(reading);
-    if (current) {
+    if (decision === "create") {
+      recordsCreated += 1;
+    } else if (decision === "update") {
       recordsUpdated += 1;
     } else {
-      recordsCreated += 1;
+      recordsResumed += 1;
     }
 
     rows.push({
