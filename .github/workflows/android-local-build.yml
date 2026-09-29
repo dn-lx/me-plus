@@ -116,6 +116,27 @@ jobs:
       - name: Generate native Android project
         run: pnpm --filter @me-plus/mobile exec expo prebuild --platform android --clean --no-install
 
+      - name: Configure Android SDK path
+        working-directory: apps/mobile/android
+        shell: powershell
+        run: |
+          $candidates = @(
+            $env:ANDROID_HOME,
+            $env:ANDROID_SDK_ROOT,
+            (Join-Path $env:LOCALAPPDATA "Android\Sdk")
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+          $sdk = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($sdk)) {
+            throw "Android SDK not found on the designated self-hosted builder."
+          }
+
+          "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          $escapedSdk = $sdk -replace '\\', '\\\\'
+          "sdk.dir=$escapedSdk" | Set-Content -Path local.properties -Encoding ascii
+          Write-Host "Using Android SDK at $sdk"
+
       - name: Build installable Android APK
         working-directory: apps/mobile/android
         shell: powershell
