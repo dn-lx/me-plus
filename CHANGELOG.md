@@ -15,6 +15,7 @@
 - Health uploads validate acknowledgements, abort timed-out requests, retry bounded transient failures, and refresh the session for each batch.
 - Heart-rate payloads retain sample/provider context without repeating the full sample series.
 - Provider revision keys use fixed-size SHA-256 digests.
+- Health ingestion uses a server-only source-serialized database transaction so retries cannot overwrite newer revisions; failures roll back health writes while retaining attempt history and manual corrections.
 - Health Connect uploads now use 50-reading mobile batches to avoid oversized backend lookup requests.
 - The health ingestion API limits a single request to 100 readings.
 - Health ingestion preserves provider revision history, resumes incomplete equal revisions, and selects the newest provider revision deterministically.
