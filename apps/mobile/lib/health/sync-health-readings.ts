@@ -193,12 +193,13 @@ export async function syncHealthConnectData(
       (record) => record.provenance.sourcePackage === sourcePackage,
     );
     for (const batch of chunkRawRecords(sourceRawRecords)) {
+      const cursorAfter = latestTimestamp(batch);
       const result = await postHealthBatch(
         {
           source,
           readings: [],
           rawRecords: batch,
-          cursorAfter: latestTimestamp(batch),
+          ...(cursorAfter ? { cursorAfter } : {}),
         },
         accessToken,
       );
@@ -210,11 +211,12 @@ export async function syncHealthConnectData(
     );
     for (let index = 0; index < sourceReadings.length; index += MAX_READINGS_PER_REQUEST) {
       const batch = sourceReadings.slice(index, index + MAX_READINGS_PER_REQUEST);
+      const cursorAfter = latestTimestamp(batch);
       const result = await postHealthBatch(
         {
           source,
           readings: batch,
-          cursorAfter: latestTimestamp(batch),
+          ...(cursorAfter ? { cursorAfter } : {}),
         },
         accessToken,
       );
