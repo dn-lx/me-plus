@@ -36,16 +36,13 @@ test("provider revision history is idempotent per source, external ID and revisi
   assert.match(revisions, /ignoreDuplicates:\s*true/);
 });
 
-test("canonical raw events reject stale or equal provider revisions", () => {
+test("canonical raw events route provider revisions through the freshness decision state machine", () => {
   const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
-  assert.match(
-    rawSync,
-    /compareProviderRevision\(reading, currentReading\) <= 0/,
-  );
-  assert.match(
-    rawSync,
-    /recordsIgnoredStale:\s*readings\.length - acceptedReadings\.length/,
-  );
+  assert.match(rawSync, /const decision = decideProviderRevision\(/);
+  assert.match(rawSync, /if \(decision === "ignore"\)/);
+  assert.match(rawSync, /recordsIgnoredStale \+= 1/);
+  assert.match(rawSync, /else if \(decision === "update"\)/);
+  assert.match(rawSync, /else \{\s*recordsResumed \+= 1/);
 });
 
 test("raw health events remain non-terminal until normalization succeeds", () => {
