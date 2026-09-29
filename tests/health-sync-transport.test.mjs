@@ -1,42 +1,50 @@
-import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { postHealthBatch } from '../apps/mobile/lib/health/transport.ts';
+import { sampleSourcePayload } from '../apps/mobile/lib/health/sample-source-payload.ts';
+import { parseHealthIngestRequest } from '../apps/web/lib/health/validate-ingest.ts';
 
-const sourceUrl = new URL("../apps/mobile/lib/health/sync-health-readings.ts", import.meta.url);
-const source = await readFile(sourceUrl, "utf8");
+const reading = { externalId:'record-1', metric:'heart-rate', value:70, unit:'bpm',
+  observedAt:'2026-09-29T10:00:00Z', lastModifiedAt:'2026-09-29T10:01:00Z',
+  provenance:{provider:'health-connect',sourcePackage:'com.example.health'} };
+const payload = {source:{provider:'health-connect',displayName:'Test'},readings:[reading]};
+const result = {dataSourceId:'source',syncRunId:'run',recordsSeen:1,recordsCreated:1,recordsUpdated:0,observationIds:['observation']};
+const ok = () => new Response(JSON.stringify(result),{status:200});
 
-test("mobile health sync uses bounded request batches", () => {
-  assert.match(source, /const MAX_READINGS_PER_REQUEST = 50/);
-  assert.match(
-    source,
-    /sourceReadings\.slice\(index, index \+ MAX_READINGS_PER_REQUEST\)/,
-  );
+test('transient HTML errors retry the same authenticated batch with bounded backoff',async()=>{
+  let calls=0;const delays=[];
+  const actual=await postHealthBatch(payload,'test-token','https://example.test/api',{
+    fetch:async(url,init)=>{assert.equal(init.headers.Authorization,'Bearer test-token');assert.deepEqual(JSON.parse(init.body),payload);return ++calls===1?new Response('<html>upstream unavailable</html>',{status:504}):ok();},
+    wait:async ms=>{delays.push(ms);},
+  });
+  assert.deepEqual(actual,result);assert.equal(calls,2);assert.deepEqual(delays,[750]);
 });
-
-test("timeout and transient upstream failures are retried with a bound", () => {
-  assert.match(source, /const MAX_ATTEMPTS = 3/);
-  for (const status of [408, 429, 502, 503, 504]) {
-    assert.match(source, new RegExp(String(status)));
+test('authorization and invalid-payload failures are not retried',async()=>{
+  for(const status of [400,401,403]){let calls=0;await assert.rejects(postHealthBatch(payload,'test-token','https://example.test/api',{fetch:async()=>{calls++;return new Response('denied',{status});},wait:async()=>{}}),new RegExp(String(status)));assert.equal(calls,1);}
+});
+test('invalid success acknowledgements never count as uploaded',async()=>{
+  for(const body of ['<html>ok</html>','{}',JSON.stringify({...result,recordsSeen:99}),JSON.stringify({...result,recordsCreated:-1})]){
+    let calls=0;await assert.rejects(postHealthBatch(payload,'test-token','https://example.test/api',{fetch:async()=>{calls++;return new Response(body);},wait:async()=>{}}),/invalid upload acknowledgement/);assert.equal(calls,1);
   }
-  assert.match(source, /750 \* 2 \*\* \(attempt - 1\)/);
 });
-
-test("HTML or other non-JSON error bodies do not crash JSON parsing", () => {
-  assert.match(source, /function parseResponseBody/);
-  assert.match(source, /catch \{\s*return null;\s*\}/);
-  assert.match(source, /response\.text\(\)/);
-  assert.doesNotMatch(source, /await response\.json\(\)/);
+test('network timeouts abort and stop after three attempts',async()=>{
+  let calls=0;const delays=[];
+  await assert.rejects(postHealthBatch(payload,'test-token','https://example.test/api',{
+    timeoutMs:5,
+    fetch:async(url,{signal})=>{calls++;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted')),{once:true}));},
+    wait:async ms=>{delays.push(ms);},
+  }),/timed out/);
+  assert.equal(calls,3);assert.deepEqual(delays,[750,1500]);
 });
-
-test("successful responses still require a JSON object", () => {
-  assert.match(source, /response\.ok/);
-  assert.match(source, /typeof body !== "object" \|\| body === null/);
+test('heart-rate samples preserve all raw values with linear payload growth',()=>{
+  const samples=Array.from({length:1000},(_,i)=>({time:`sample-${i}`,beatsPerMinute:60+i%30}));
+  const record={recordType:'HeartRate',startTime:'start',endTime:'end',metadata:{id:'provider-id',dataOrigin:'com.zepp'},samples};
+  const mapped=samples.map((sample,i)=>sampleSourcePayload(record,sample,i));
+  assert.deepEqual(mapped.flatMap(x=>x.sourceRecord.samples),samples);
+  assert.deepEqual(mapped[0].metadata,record.metadata);
+  assert.equal(record.samples.length,1000);
+  assert.ok(JSON.stringify(mapped).length < 700000);
 });
-
-const validatorUrl = new URL("../apps/web/lib/health/validate-ingest.ts", import.meta.url);
-const validatorSource = await readFile(validatorUrl, "utf8");
-
-test("server health ingestion rejects oversized reading batches", () => {
-  assert.match(validatorSource, /value\.readings\.length > 100/);
-  assert.match(validatorSource, /limited to 100 readings per request/);
+test('server rejects batches larger than 100 readings before writing',()=>{
+  assert.throws(()=>parseHealthIngestRequest({...payload,readings:Array.from({length:101},()=>reading)}),/limited to 100 readings/);
 });

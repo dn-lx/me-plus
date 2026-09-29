@@ -143,3 +143,9 @@ test("older retries are ignored and newer revisions update", () => {
     "update",
   );
 });
+
+
+test('revision keys stay fixed-size for large provider payloads',()=>{
+  const key = providerRevisionKey(reading({sourcePayload:{samples:Array.from({length:10000},(_,i)=>({time:i,value:70}))}}));
+  assert.match(key,/^[0-9a-f]{64}$/);
+});

@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   build-android:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: android / self-hosted-local-builder
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 45
@@ -174,20 +175,16 @@ jobs:
         shell: powershell
         run: |
           $root = $env:ANDROID_BUILD_ROOT
-          if (Test-Path $root) {
-            throw "Fresh Android build root already exists: $root"
-          }
-
-          git clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
-          if ($LASTEXITCODE -ne 0) { throw "Short-path repository clone failed." }
-
+          if (Test-Path $root) { throw "Fresh Android build root already exists: $root" }
+          git -c core.longpaths=true clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
+          if ($LASTEXITCODE -ne 0) { throw "Short-path clone failed." }
           git -C $root config core.longpaths true
           git -C $root fetch origin $env:SOURCE_SHA --depth=1
           if ($LASTEXITCODE -ne 0) { throw "Short-path source fetch failed." }
-
           git -C $root checkout --detach $env:SOURCE_SHA
           if ($LASTEXITCODE -ne 0) { throw "Short-path source checkout failed." }
-
+          $actualSha = (git -C $root rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:SOURCE_SHA) { throw "Build source does not match SOURCE_SHA." }
           "node-linker=hoisted" | Set-Content -Path (Join-Path $root ".npmrc") -Encoding ascii
           Write-Host "Prepared fresh short-path build checkout at $root"
 
@@ -231,7 +228,9 @@ jobs:
       - name: Build installable Android APK
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
         shell: powershell
-        run: .\gradlew.bat assembleRelease --no-daemon --stacktrace
+        run: |
+          .\gradlew.bat assembleRelease --no-daemon --stacktrace
+          if ($LASTEXITCODE -ne 0) { throw "Android release build failed." }
 
       - name: Stage verified artifact and provenance
         id: artifact
@@ -242,6 +241,26 @@ jobs:
 
           $source = Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\android\app\build\outputs\apk\release\app-release.apk"
           if (!(Test-Path $source)) { throw "Expected APK not found at $source" }
+          $apksigner = Join-Path $env:ANDROID_HOME "build-tools\36.0.0\apksigner.bat"
+          $actualSha = (git -C $env:ANDROID_BUILD_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:SOURCE_SHA) { throw "Artifact source checkout mismatch." }
+          $signingOutput = & $apksigner verify --print-certs $source
+          if ($LASTEXITCODE -ne 0) { throw "APK signature verification failed." }
+          $signerMatch = [regex]::Match(($signingOutput -join "`n"), 'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)')
+          if (!$signerMatch.Success) { throw "APK signer identity missing." }
+          $signerSha256 = $signerMatch.Groups[1].Value.ToLowerInvariant()
+          $previousApk = "apps/web/public/downloads/me-plus-0.3.apk"
+          $previousOutput = & $apksigner verify --print-certs $previousApk
+          if ($LASTEXITCODE -ne 0) { throw "Previous APK signature verification failed." }
+          $previousSigner = [regex]::Match(($previousOutput -join "`n"), 'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)')
+          if (!$previousSigner.Success -or $previousSigner.Groups[1].Value.ToLowerInvariant() -ne $signerSha256) {
+            throw "APK signing identity changed; update compatibility is not verified."
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $apkZip = [IO.Compression.ZipFile]::OpenRead($source)
+          try {
+            if (!$apkZip.GetEntry("assets/index.android.bundle")) { throw "APK has no embedded JavaScript bundle." }
+          } finally { $apkZip.Dispose() }
 
           $dir = "artifacts/android"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -253,6 +272,15 @@ jobs:
           "$hash  $filename" | Set-Content -Path "$dest.sha256" -Encoding ascii
 
           $appJson = Get-Content (Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\app.json") -Raw | ConvertFrom-Json
+          $aapt = Join-Path $env:ANDROID_HOME "build-tools\36.0.0\aapt.exe"
+          $badging = & $aapt dump badging $source
+          if ($LASTEXITCODE -ne 0) { throw "APK manifest inspection failed." }
+          $manifest = $badging -join "`n"
+          if ($manifest -notmatch ("package: name='" + [regex]::Escape($appJson.expo.android.package) + "'") -or
+              $manifest -notmatch ("versionCode='" + $appJson.expo.android.versionCode + "'") -or
+              $manifest -notmatch ("versionName='" + [regex]::Escape($version) + "'")) {
+            throw "APK package or version differs from committed release configuration."
+          }
           $metadata = [ordered]@{
             app = "me-plus"
             platform = "android"
@@ -260,6 +288,9 @@ jobs:
             displayVersion = $version
             filename = $filename
             sha256 = $hash
+            signerCertificateSha256 = $signerSha256
+            embeddedJavascriptBundle = $true
+            upgradeSignerVerified = $true
             sizeBytes = (Get-Item $dest).Length
             packageName = $appJson.expo.android.package
             versionCode = $appJson.expo.android.versionCode
@@ -298,6 +329,8 @@ jobs:
           # Build from SOURCE_SHA, but publish onto the latest task-branch head so
           # harmless concurrent documentation/web fixes do not cause a non-fast-forward push.
           git fetch origin $env:SOURCE_BRANCH
+          $changedInputs = git diff --name-only $env:SOURCE_SHA "origin/$env:SOURCE_BRANCH" -- apps/mobile packages .npmrc tsconfig.json tsconfig.base.json package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION .github/workflows/android-local-build.yml
+          if ($changedInputs) { throw "Android build inputs changed during the run; rebuild the new committed source before publishing." }
           git checkout -B artifact-publish "origin/$env:SOURCE_BRANCH"
 
           New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null

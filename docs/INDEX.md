@@ -74,3 +74,9 @@ Agent-skill discovery is separate: use `.agents/SKILL-INDEX.md`.
 ## Maintenance
 
 Run `node scripts/validate-docs.mjs` to check documentation structure/references. After adapting the starter into a real project, run `node scripts/validate-docs.mjs --strict-project` to find starter placeholders that should have been replaced.
+
+
+## Application implementation
+
+- `docs/ARCHITECTURE.md` — application architecture
+- `docs/N26-OPEN-BANKING.md` — N26 integration

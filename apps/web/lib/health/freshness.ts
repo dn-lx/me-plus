@@ -1,4 +1,5 @@
 import type { SensorReading } from "@me-plus/contracts";
+import { createHash } from "node:crypto";
 
 function timestampValue(value: string): number {
   const parsed = Date.parse(value);
@@ -22,7 +23,7 @@ function stableJson(value: unknown): string {
 }
 
 export function providerRevisionKey(reading: SensorReading): string {
-  return stableJson({
+  const canonical = stableJson({
     externalId: reading.externalId,
     metric: reading.metric,
     value: reading.value,
@@ -32,6 +33,7 @@ export function providerRevisionKey(reading: SensorReading): string {
     provenance: reading.provenance,
     sourcePayload: reading.sourcePayload ?? null,
   });
+  return createHash("sha256").update(canonical).digest("hex");
 }
 
 export function compareProviderRevision(

@@ -7,7 +7,7 @@ Use this immediately after creating a repository from Agent Project Starter.
 - [ ] Rename/update README for the real project.
 - [ ] Fill `docs/PROJECT-MEMORY.md` and confirm `.agents/project-policy.json` matches the repository branch policy.
 - [ ] Replace the examples in `docs/REQUIREMENTS.md` with the project's ordered requirements, issues and roadmap.
-- [ ] Replace `.agents/skills/project-template/` with a real `.agents/skills/<project-name>/SKILL.md`; remove its obsolete generated `.claude/skills/project-template/` adapter and regenerate Claude adapters.
+- [x] Project-specific skill generated at `.agents/skills/me-plus/SKILL.md`; regenerate Claude adapters after bootstrap.
 - [ ] Remove starter-only examples/placeholders that do not apply.
 
 ## Branching
@@ -179,3 +179,4 @@ If not, the bootstrap is incomplete.
 - [ ] Verify a merged test branch is cleaned up.
 - [ ] Follow `docs/CLAUDE-GEMINI-SETUP.md` for the chosen host; verify context, skills and actual MCP connections.
 - [ ] Regenerate Claude adapters after adding a project skill: `node scripts/sync-claude-skills.mjs --write`.
+
