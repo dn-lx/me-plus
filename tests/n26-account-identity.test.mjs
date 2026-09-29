@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isN26IdentityBootstrapMatch,
   n26RawTransactionExternalRecordId,
   previousExternalAccountRefs,
   resolveProviderAccountIdentityHash,
+  resolveProviderAccountIdentityHashes,
 } from "../apps/web/lib/finance/n26-account-identity.ts";
 
 test("prefers stable provider account identity over session-scoped UID", () => {
@@ -65,5 +67,76 @@ test("preserves existing aliases and appends the replaced session UID once", () 
       "uid-new",
     ),
     ["uid-old"],
+  );
+});
+
+
+test("retains current and historical provider identity hashes as match candidates", () => {
+  assert.deepEqual(
+    resolveProviderAccountIdentityHashes(
+      {
+        uid: "uid-new",
+        identification_hash: "hash-new",
+        identification_hashes: ["hash-new", "hash-old"],
+      },
+      { uid: "uid-new", identification_hash: "hash-old" },
+    ),
+    ["hash-new", "hash-old"],
+  );
+});
+
+test("bootstrap matching requires prior reconciliation evidence and exact stored account signature", () => {
+  const incoming = {
+    accountType: "checking",
+    currency: "EUR",
+    maskedIban: "•••• 8308",
+    product: "Individual Current Account",
+  };
+
+  assert.equal(
+    isN26IdentityBootstrapMatch(
+      {
+        account_type: "checking",
+        currency: "EUR",
+        metadata: {
+          maskedIban: "•••• 8308",
+          product: "Individual Current Account",
+          previousExternalAccountRefs: ["uid-old"],
+        },
+      },
+      incoming,
+    ),
+    true,
+  );
+
+  assert.equal(
+    isN26IdentityBootstrapMatch(
+      {
+        account_type: "checking",
+        currency: "EUR",
+        metadata: {
+          maskedIban: "•••• 8308",
+          product: "Individual Current Account",
+        },
+      },
+      incoming,
+    ),
+    false,
+  );
+
+  assert.equal(
+    isN26IdentityBootstrapMatch(
+      {
+        account_type: "checking",
+        currency: "EUR",
+        metadata: {
+          maskedIban: "•••• 9999",
+          product: "Individual Current Account",
+          previousExternalAccountRefs: ["uid-old"],
+        },
+      },
+      incoming,
+    ),
+    false,
   );
 });
