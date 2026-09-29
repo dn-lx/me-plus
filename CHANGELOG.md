@@ -9,6 +9,24 @@
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 
+## [0.4.0] - 2026-09-29
+
+### Added
+- Periodic Android Health Connect collection through Expo BackgroundTask / Android WorkManager, with a three-hour minimum interval and explicit background-read permission.
+- Comprehensive physical Health Connect collection for activity, sleep, vitals, body measurements and fitness sensor records while deliberately excluding reproductive/sexual and nutrition categories from the default collector.
+- Raw Health Connect provider-record preservation in Me+ alongside normalized numeric observations, so newly supported sensor types remain available for later analysis even before a dedicated normalizer exists.
+- A 30-day authenticated Health Connect backfill flow and in-app controls for enabling/disabling periodic sync and reviewing last background-sync status.
+
+### Fixed
+- Health ingestion now chooses the newest lastModifiedAt value when duplicate external IDs arrive out of order.
+- Health ingestion rejects oversized requests and unusually large nested source payloads before expensive database work.
+- Background uploads refresh an expiring Supabase session before sending sensor data.
+- Health Connect uploads continue using bounded bulk/idempotent batches with truthful raw-event processing state and retry handling for transient gateway/time-out failures.
+
+### Changed
+- Android app metadata now targets Me+ 0.4.0 with versionCode 4.
+- Health Connect normalized metrics remain compact for current analysis, while complete provider records are retained separately with source package, device, recording method and source timestamps.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added
