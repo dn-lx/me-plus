@@ -3,7 +3,11 @@
   "branches": {
     "integration": "dev",
     "production": "prod",
-    "work_prefixes": ["feature/", "fix/", "chore/"]
+    "work_prefixes": [
+      "feature/",
+      "fix/",
+      "chore/"
+    ]
   },
   "release": {
     "production_requires_explicit_approval": true,
@@ -14,5 +18,15 @@
     "draft_pr_for_non_trivial_work": true,
     "one_writer_per_task_branch": true,
     "github_state_over_chat_memory": true
+  },
+  "android_build": {
+    "orchestrator": "github_actions",
+    "runner": "self_hosted_local_android_builder",
+    "require_committed_sha": true,
+    "require_artifact_checksum": true,
+    "publish_only_verified_artifacts": true,
+    "netlify_compiles_android": false,
+    "desktop_commander_build_allowed": false,
+    "fallback_requires_explicit_user_rule_change": true
   }
 }
