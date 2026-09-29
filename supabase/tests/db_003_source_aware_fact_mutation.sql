@@ -195,11 +195,16 @@ end
 $client$;
 
 reset role;
+select set_config(
+  'app.db003_test_user',
+  (select id::text from public.profiles order by created_at limit 1),
+  true
+);
 set local role service_role;
 
 do $server$
 declare
-  v_user uuid;
+  v_user uuid := current_setting('app.db003_test_user')::uuid;
   v_tx uuid;
   v_account uuid;
   v_observation uuid;
@@ -207,8 +212,6 @@ declare
   v_correction jsonb;
   v_expected boolean;
 begin
-  select id into v_user from public.profiles order by created_at limit 1;
-
   if not has_function_privilege(
     'service_role',
     'public.server_correct_financial_transaction(uuid,uuid,jsonb,text)',
