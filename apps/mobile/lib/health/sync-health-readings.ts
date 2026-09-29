@@ -9,7 +9,8 @@ import type {
 import { supabase } from "../supabase/client";
 
 const MAX_READINGS_PER_REQUEST = 150;
-const MAX_RAW_RECORDS_PER_REQUEST = 5;
+const MAX_RAW_RECORDS_PER_REQUEST = 50;
+const MAX_RAW_BATCH_JSON_CHARS = 2_000_000;
 const MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
 
@@ -191,8 +192,7 @@ export async function syncHealthConnectData(
     const sourceRawRecords = rawRecords.filter(
       (record) => record.provenance.sourcePackage === sourcePackage,
     );
-    for (let index = 0; index < sourceRawRecords.length; index += MAX_RAW_RECORDS_PER_REQUEST) {
-      const batch = sourceRawRecords.slice(index, index + MAX_RAW_RECORDS_PER_REQUEST);
+    for (const batch of chunkRawRecords(sourceRawRecords)) {
       const result = await postHealthBatch(
         {
           source,
@@ -265,4 +265,32 @@ function latestTimestamp(
     .filter((value) => Number.isFinite(Date.parse(value)))
     .sort()
     .at(-1);
+}
+
+function chunkRawRecords(
+  records: readonly HealthConnectRawRecord[],
+): HealthConnectRawRecord[][] {
+  const batches: HealthConnectRawRecord[][] = [];
+  let current: HealthConnectRawRecord[] = [];
+  let currentChars = 0;
+
+  for (const record of records) {
+    const estimatedChars = JSON.stringify(record).length + 2;
+
+    if (
+      current.length > 0 &&
+      (current.length >= MAX_RAW_RECORDS_PER_REQUEST ||
+        currentChars + estimatedChars > MAX_RAW_BATCH_JSON_CHARS)
+    ) {
+      batches.push(current);
+      current = [];
+      currentChars = 0;
+    }
+
+    current.push(record);
+    currentChars += estimatedChars;
+  }
+
+  if (current.length > 0) batches.push(current);
+  return batches;
 }
