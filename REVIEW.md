@@ -39,6 +39,7 @@ Avoid speculative findings that cannot be tied to the changed code or a real pro
 - Material frontend changes require rendered-runtime evidence; source inspection alone is insufficient.
 - Analytics changes must preserve privacy boundaries and remain non-authoritative for transactional behavior.
 - External writes and privileged operations require the same trust-boundary review defined in `AGENTS.md`.
+- Android APK/AAB artifacts are acceptable only when built by the GitHub Actions self-hosted/local Android builder from the reviewed commit SHA; manual/Desktop Commander/cloud-built Android artifacts must be rejected.
 - Documentation that represents an operational contract must change when that contract changes.
 
 ## Review completion
