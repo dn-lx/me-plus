@@ -73,3 +73,13 @@ test("failed normalization records raw failure without masking later-stage failu
   assert.match(ingest, /await markRawEventsFailed/);
   assert.match(ingest, /try \{\s*await markSyncRunFailed/);
 });
+
+test("large reconciliation lookups are chunked before PostgREST IN filters", () => {
+  assert.match(source, /function chunkValues<T>\(values: readonly T\[\], size = 25\)/);
+  const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
+  const observationSync = section("async function bulkSyncObservations", "async function markRawEventsProcessed");
+  assert.match(rawSync, /for \(const externalIdChunk of chunkValues\(externalIds\)\)/);
+  assert.match(rawSync, /\.in\("external_record_id", externalIdChunk\)/);
+  assert.match(observationSync, /for \(const rawEventIdChunk of chunkValues\(rawEventIds as string\[\]\)\)/);
+  assert.match(observationSync, /\.in\("raw_event_id", rawEventIdChunk\)/);
+});
