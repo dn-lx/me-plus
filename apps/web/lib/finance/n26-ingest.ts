@@ -318,8 +318,11 @@ async function syncFinancialAccount(
     }
 
     if (matches.length === 1) {
-      existing = matches[0];
-      identityMatchReason = "reconciled_legacy_bootstrap";
+      const [matchedLegacyAccount] = matches;
+      if (matchedLegacyAccount) {
+        existing = matchedLegacyAccount;
+        identityMatchReason = "reconciled_legacy_bootstrap";
+      }
     }
   }
 
