@@ -89,9 +89,47 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: "platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1"
+        shell: powershell
+        run: |
+          $sdk = Join-Path $env:USERPROFILE ".android\sdk"
+          $latest = Join-Path $sdk "cmdline-tools\latest"
+          $sdkManager = Join-Path $latest "bin\sdkmanager.bat"
+
+          if (-not (Test-Path $sdkManager)) {
+            $archive = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902"
+            Remove-Item $archive -Force -ErrorAction SilentlyContinue
+            Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path $sdk | Out-Null
+
+            curl.exe --fail --location "https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip" --output $archive
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download Android command-line tools."
+            }
+
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+            New-Item -ItemType Directory -Force -Path (Split-Path $latest) | Out-Null
+            Remove-Item $latest -Recurse -Force -ErrorAction SilentlyContinue
+            Move-Item (Join-Path $extract "cmdline-tools") $latest
+          }
+
+          "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          "$sdk\platform-tools" >> $env:GITHUB_PATH
+          "$latest\bin" >> $env:GITHUB_PATH
+
+          $licenseInput = 1..100 | ForEach-Object { "y" }
+          $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses | Out-Host
+          if ($LASTEXITCODE -ne 0) {
+            throw "Android SDK license acceptance failed."
+          }
+
+          & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Android SDK package installation failed."
+          }
+
+          Write-Host "Android SDK ready at $sdk"
 
       - name: Ensure dependency lockfile matches committed manifests
         id: lockfile
