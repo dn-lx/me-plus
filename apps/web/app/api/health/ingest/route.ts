@@ -64,7 +64,10 @@ export async function POST(request: Request) {
       message.startsWith("Health ingestion") ||
       message.startsWith("Health reading") ||
       message.startsWith("Each health reading") ||
-      message.startsWith("Unsupported health metric")
+      message.startsWith("Unsupported health metric") ||
+      message.startsWith("Health Connect raw record") ||
+      message.startsWith("Each Health Connect raw record") ||
+      message.startsWith("Unsupported Health Connect raw record type")
     ) {
       return NextResponse.json({ error: "invalid_health_payload", detail: message }, { status: 400 });
     }
