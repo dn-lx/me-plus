@@ -9,6 +9,7 @@ on:
       - "packages/contracts/**"
       - "VERSION"
       - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/android-local-build.yml"
 
 permissions:
@@ -81,8 +82,24 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Ensure dependency lockfile matches committed manifests
+        id: lockfile
+        shell: powershell
+        run: |
+          pnpm install --lockfile-only --no-frozen-lockfile
+
+          git diff --quiet -- pnpm-lock.yaml
+          if ($LASTEXITCODE -ne 0) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pnpm-lock.yaml
+            git commit -m "chore(deps): refresh lockfile for Android build"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+            throw "pnpm-lock.yaml was refreshed and committed. A new self-hosted build will run from the new committed SHA."
+          }
+
       - name: Install workspace dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Health ingestion regression tests
         run: node --test tests/health-ingestion-consistency.test.mjs
