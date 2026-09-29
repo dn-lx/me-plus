@@ -1,0 +1,26 @@
+name: Cancel stuck Android run
+
+on:
+  push:
+    branches:
+      - fix/health-connect-upload-0.3.1
+    paths:
+      - ".github/workflows/cancel-stuck-android-run.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-stuck-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel superseded stuck Android workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STUCK_RUN_ID: "36639719801"
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${STUCK_RUN_ID}/cancel" || true
+          echo "Cancellation requested for workflow run ${STUCK_RUN_ID}."
