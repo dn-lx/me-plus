@@ -118,8 +118,8 @@ jobs:
           "$sdk\platform-tools" >> $env:GITHUB_PATH
           "$latest\bin" >> $env:GITHUB_PATH
 
-          $licenseInput = 1..100 | ForEach-Object { "y" }
-          $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses | Out-Host
+          $licenseCommand = "(for /l %i in (1,1,100) do @echo y) | `"$sdkManager`" --sdk_root=`"$sdk`" --licenses"
+          cmd.exe /d /s /c $licenseCommand
           if ($LASTEXITCODE -ne 0) {
             throw "Android SDK license acceptance failed."
           }
