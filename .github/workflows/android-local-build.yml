@@ -231,7 +231,7 @@ jobs:
       - name: Build installable Android APK
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
         shell: powershell
-        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
+        run: .\gradlew.bat assembleRelease --no-daemon --stacktrace
 
       - name: Stage verified artifact and provenance
         id: artifact
