@@ -7,16 +7,15 @@ import {
   type HealthConnectInventory,
 } from "../lib/health/health-connect";
 import {
-  syncHealthConnectReadings,
-  type HealthSyncSummary,
-} from "../lib/health/sync-health-readings";
+  runForegroundHealthSyncIfDue,
+  type ForegroundHealthSyncResult,
+} from "../lib/health/foreground-health-sync";
 import { supabase } from "../lib/supabase/client";
-import type { SensorReading } from "@me-plus/contracts";
 
 export default function HealthConnectScreen() {
   const [inventory, setInventory] = useState<HealthConnectInventory | null>(null);
-  const [readings, setReadings] = useState<SensorReading[]>([]);
-  const [syncSummary, setSyncSummary] = useState<HealthSyncSummary | null>(null);
+  const [inventoryReadingCount, setInventoryReadingCount] = useState(0);
+  const [syncSummary, setSyncSummary] = useState<ForegroundHealthSyncResult | null>(null);
   const [status, setStatus] = useState("Ready to connect Health Connect to Me+.");
   const [busy, setBusy] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -100,6 +99,11 @@ export default function HealthConnectScreen() {
     try {
       const permissions = await requestHealthConnectReadPermissions();
       setStatus(`Health Connect granted ${permissions.length} read permission entries.`);
+      if (authenticated) {
+        const result = await runForegroundHealthSyncIfDue(true);
+        setSyncSummary(result);
+        setStatus(syncStatus(result));
+      }
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -114,10 +118,10 @@ export default function HealthConnectScreen() {
     try {
       const scanResult = await scanHealthConnect(7);
       setInventory(scanResult.inventory);
-      setReadings(scanResult.readings);
+      setInventoryReadingCount(scanResult.readings.length);
       const populated = scanResult.inventory.items.filter((item) => item.count > 0).length;
       setStatus(
-        `Scan complete: ${populated} record types contain data and ${scanResult.readings.length} normalized readings are ready to upload.`,
+        `Diagnostic scan complete: ${populated} record types contain data. This scan does not upload the window.`,
       );
     } catch (error) {
       setStatus(toErrorMessage(error));
@@ -126,28 +130,18 @@ export default function HealthConnectScreen() {
     }
   }
 
-  async function upload() {
+  async function syncNow() {
     if (!authenticated) {
       setStatus("Connect this phone to your Me+ account before uploading.");
       return;
     }
 
-    if (!inventory || readings.length === 0) {
-      setStatus("Scan Health Connect before uploading.");
-      return;
-    }
-
     setBusy(true);
-    setStatus(`Uploading ${readings.length} readings to Me+…`);
+    setStatus("Checking Health Connect for new or updated readings…");
     try {
-      const result = await syncHealthConnectReadings(readings, {
-        windowStart: inventory.windowStart,
-        windowEnd: inventory.windowEnd,
-      });
+      const result = await runForegroundHealthSyncIfDue(true);
       setSyncSummary(result);
-      setStatus(
-        `Me+ sync complete: ${result.recordsCreated} created, ${result.recordsUpdated} updated across ${result.sourceCount} source origins.`,
-      );
+      setStatus(syncStatus(result));
     } catch (error) {
       setStatus(toErrorMessage(error));
     } finally {
@@ -160,7 +154,7 @@ export default function HealthConnectScreen() {
       <Text style={styles.eyebrow}>HEALTH CONNECT · ME+ SYNC</Text>
       <Text style={styles.title}>Bring your watch data into Me+ without losing where it came from.</Text>
       <Text style={styles.lede}>
-        Me+ reads Health Connect on this phone, paginates the full seven-day window, preserves source-app and device provenance, and uploads authenticated batches into Me+.
+        Me+ checks for changes when you open the app and every minute while it is active. After a one-time seven-day setup, only new or updated readings are uploaded in small authenticated requests.
       </Text>
 
       <View style={styles.statusCard}>
@@ -240,33 +234,27 @@ export default function HealthConnectScreen() {
 
       <Pressable
         accessibilityRole="button"
-        disabled={busy}
-        onPress={scan}
-        style={[styles.button, styles.secondaryButton, busy && styles.buttonDisabled]}
+        onPress={syncNow}
+        style={[styles.button, styles.uploadButton, (busy || !authenticated) && styles.buttonDisabled]}
+        disabled={busy || !authenticated}
       >
-        <Text style={styles.buttonText}>2. Scan full last 7 days</Text>
+        <Text style={styles.buttonText}>2. Sync changes now</Text>
       </Pressable>
 
       <Pressable
         accessibilityRole="button"
-        disabled={busy || !authenticated || readings.length === 0}
-        onPress={upload}
-        style={[
-          styles.button,
-          styles.uploadButton,
-          (busy || !authenticated || readings.length === 0) && styles.buttonDisabled,
-        ]}
+        disabled={busy}
+        onPress={scan}
+        style={[styles.button, styles.secondaryButton, busy && styles.buttonDisabled]}
       >
-        <Text style={styles.buttonText}>
-          3. Upload {readings.length > 0 ? `${readings.length} readings` : "to Me+"}
-        </Text>
+        <Text style={styles.buttonText}>Inspect last 7 days (optional)</Text>
       </Pressable>
 
-      {syncSummary ? (
+      {syncSummary?.status === "synced" ? (
         <View style={styles.successCard}>
           <Text style={styles.successTitle}>SYNCED TO ME+</Text>
           <Text style={styles.successText}>
-            {syncSummary.recordsSeen} readings processed · {syncSummary.recordsCreated} created · {syncSummary.recordsUpdated} updated · {syncSummary.sourceCount} source origins · {syncSummary.batchCount} upload batches
+            {syncSummary.recordsSeen} readings processed · {syncSummary.recordsCreated} created · {syncSummary.recordsUpdated} updated · {syncSummary.batchCount} small upload requests
           </Text>
         </View>
       ) : null}
@@ -275,7 +263,7 @@ export default function HealthConnectScreen() {
         <>
           <Text style={styles.sectionTitle}>Inventory</Text>
           <Text style={styles.inventoryMeta}>
-            Granted permissions: {inventory.permissionCount} · Window: {formatDate(inventory.windowStart)} → {formatDate(inventory.windowEnd)} · Normalized readings: {readings.length}
+            Granted permissions: {inventory.permissionCount} · Window: {formatDate(inventory.windowStart)} → {formatDate(inventory.windowEnd)} · Normalized readings: {inventoryReadingCount}
           </Text>
           <View style={styles.list}>
             {inventory.items.map((item) => (
@@ -309,6 +297,15 @@ export default function HealthConnectScreen() {
 
 function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown Health Connect error";
+}
+
+function syncStatus(result: ForegroundHealthSyncResult) {
+  if (result.status === "skipped") return `Sync paused: ${result.detail ?? "unavailable"}.`;
+  const mode = result.mode === "bootstrap" ? "Initial backfill" : "Incremental sync";
+  const deletions = result.deletionChangesSeen
+    ? ` ${result.deletionChangesSeen} Health Connect deletions still need server reconciliation.`
+    : "";
+  return `${mode} complete: ${result.recordsCreated} created, ${result.recordsUpdated} updated.${deletions}`;
 }
 
 function formatDate(value: string) {

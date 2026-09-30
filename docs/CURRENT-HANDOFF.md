@@ -6,19 +6,23 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "health-connect-auto-sync-0.3.2",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-30T00:33:58.937Z"
+  "branch": "feat/health-connect-auto-sync-0.3.2",
+  "pr": 38,
+  "status": "testing",
+  "last_verified_sha": "fe8e5624521bbcc239a4bfab73981b8f9395d168",
+  "next_step": "Review and apply the health batch run-key migration to the shared database; run the rollback-only SQL acceptance, verify PR 38 CI and the Android installer, then validate a real phone upload.",
+  "updated_at": "2026-09-30T07:42:24Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## Health Connect correction and Android 0.3.1
+
+PR 38 now uses one foreground incremental collector. It checks on resume/sign-in and every minute while active, scopes cursors by user and granted record types, and routes manual Sync now through the same small-batch path. The first run or an expired cursor performs a one-time seven-day backfill. No background scheduler is present; Health Connect does not push changes to reader apps. Local tests/typecheck/web build passed on the working tree; GitHub checks, a verified 0.3.2 APK, and physical-device sync are still pending.
+
+The live source-sync guard introduced by PR 39 treats a missing run key as one logical run per minute. Multiple ≤50-reading health batches from the same origin therefore conflict after the first completes. PR 38 adds `20260930073538_health_batch_unique_run_key.sql`: a narrowly scoped before-insert trigger gives each atomic health batch a unique key while preserving source-wide serialization and revision idempotence. The SQL acceptance now exercises two same-minute bounded batches. This migration is committed for review but has **not** been applied to the shared dev/production Supabase database. Until it is applied and accepted, a multi-batch mobile upload can fail.
 
 - PR 37 is the release candidate; its GitHub checks and build provenance determine merge readiness. PR 17 collector work is historical and superseded.
 - User authorized correction, merge and web publication of the APK.

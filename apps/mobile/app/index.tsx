@@ -16,7 +16,7 @@ export default function HomeScreen() {
       <Text style={styles.eyebrow}>ME+ DAILY SURFACE</Text>
       <Text style={styles.title}>One system for your daily context.</Text>
       <Text style={styles.lede}>
-        Mobile is the quick-capture and device-facing client. Shared business rules stay outside native code.
+        Mobile is the quick-capture and device-facing client. Shared business rules remain outside native code.
       </Text>
 
       <Link href="/health-connect" asChild>

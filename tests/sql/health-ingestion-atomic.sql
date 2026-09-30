@@ -53,6 +53,22 @@ begin
   if result ? 'error' or (result->>'recordsUpdated')::int <> 1 then raise exception 'Legacy key blocked equal-time new revision: %',result; end if;
   if exists(select 1 from public.raw_events where data_source_id=ds and processing_status<>'processed') then raise exception 'Unprocessed health events remain'; end if;
   if has_function_privilege('anon','public.server_ingest_health_batch(uuid,jsonb,jsonb)','execute') or has_function_privilege('authenticated','public.server_ingest_health_batch(uuid,jsonb,jsonb)','execute') then raise exception 'RPC exposed to clients'; end if;
+  -- Independent small batches in the same minute must not share a run key.
+  source := source || '{"displayName":"__pr38_two_bounded_batches__"}'::jsonb;
+  reading := reading || '{"externalId":"batch-1"}'::jsonb;
+  input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
+  result := public.server_ingest_health_batch(u,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('1',64))));
+  if result ? 'error' or (result->>'recordsCreated')::int <> 1 then raise exception 'First bounded batch failed: %',result; end if;
+  ds := (result->>'dataSourceId')::uuid;
+  reading := reading || '{"externalId":"batch-2"}'::jsonb;
+  input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
+  result := public.server_ingest_health_batch(u,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('2',64))));
+  if result ? 'error' or (result->>'recordsCreated')::int <> 1 then raise exception 'Second bounded batch in same minute failed: %',result; end if;
+  select count(*) into count_rows from public.source_sync_runs
+  where data_source_id=ds and status='completed'
+    and metadata->>'syncPurpose'='health_ingestion_batch'
+    and metadata->>'runKey'='health_batch:' || id::text;
+  if count_rows <> 2 then raise exception 'Health batches did not receive distinct run keys'; end if;
 end;
 $test$;
 set local role authenticated;
@@ -66,5 +82,5 @@ begin
 end;
 $denied$;
 reset role;
-select 'PASS: create/retry/newest/stale/correction/rollback/legacy/denied-role; all test writes rolled back' as health_acceptance;
+select 'PASS: create/retry/newest/stale/correction/rollback/legacy/two bounded batches/denied-role; all test writes rolled back' as health_acceptance;
 rollback;
