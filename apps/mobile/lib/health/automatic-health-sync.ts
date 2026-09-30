@@ -154,8 +154,11 @@ export async function runForegroundHealthSyncIfDue(force = false) {
     } satisfies AutomaticHealthSyncResult;
   }
 
-  localStorage.setItem(LAST_ATTEMPT_KEY, new Date(now).toISOString());
-  return runAutomaticHealthSync("foreground");
+  const result = await runAutomaticHealthSync("foreground");
+  if (result.status === "synced") {
+    localStorage.setItem(LAST_ATTEMPT_KEY, new Date(now).toISOString());
+  }
+  return result;
 }
 
 export function runAutomaticHealthSync(reason: "background" | "foreground") {
