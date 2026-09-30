@@ -34,6 +34,19 @@ Locally, agents/users may run `git fetch --prune` and safely remove stale local 
 
 Protect `prod` and `dev` against deletion and force pushes. Require PRs and relevant checks, including version validation and the production guard. Enable GitHub native automatic head-branch deletion after those protections are in place.
 
+### Required GitHub enforcement for `prod`
+
+The production guard workflow is only a status report until GitHub requires its check. In September 2026, PRs 39 and 40 targeted `prod` directly and were merged while the repository had no ruleset. The guard file alone did not prevent those merges.
+
+An administrator must create an **active branch ruleset** targeting exactly `refs/heads/prod`, with no bypass actors (including repository administrators and integrations):
+
+1. Require a pull request and the `policy / prod-source-and-approval` and `policy / version` checks before merge. The guard rejects every head except this repository's `dev` branch.
+2. Block deletion and force pushes, and disable direct branch updates.
+3. Keep `prod` locked against updates between explicitly authorized releases. The owner must deliberately unlock it for the specific reviewed `dev → prod` PR, then lock it again after the release. A label is only a supplemental check; agents and integrations can set labels, so it is not proof of the owner's approval.
+4. Never enable production auto-merge. Review the live ruleset and a deliberately invalid feature → prod PR before considering the protection verified.
+
+Repository files cannot activate or make GitHub rulesets required. Until the live ruleset is confirmed, treat `prod` as unprotected and do not merge anything into it.
+
 An unmerged abandoned branch needs an explicit reviewed decision to preserve, supersede or discard its unique work. No automatic age-based deletion.
 
 ## Adapting branch names

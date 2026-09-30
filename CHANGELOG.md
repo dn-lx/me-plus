@@ -8,6 +8,7 @@
 
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
+- Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
 
 ## [0.3.1] - 2026-09-29
 
@@ -91,4 +92,3 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
-

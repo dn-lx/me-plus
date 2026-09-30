@@ -7,6 +7,9 @@
   },
   "release": {
     "production_requires_explicit_approval": true,
+    "approval_must_name_current_dev_to_prod_release": true,
+    "testing_never_authorizes_production_merge": true,
+    "production_auto_merge_forbidden": true,
     "approval_label": "production-approved",
     "only_integration_may_target_production": true
   },
