@@ -147,8 +147,8 @@ export function parseHealthIngestRequest(value: unknown): HealthIngestRequest {
     throw new Error("Health ingestion requires at least one reading");
   }
 
-  if (value.readings.length > 500) {
-    throw new Error("Health ingestion is limited to 500 readings per request");
+  if (value.readings.length > 100) {
+    throw new Error("Health ingestion is limited to 100 readings per request");
   }
 
   if (value.cursorAfter !== undefined && !isNonEmptyString(value.cursorAfter)) {

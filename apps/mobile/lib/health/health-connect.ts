@@ -1,5 +1,6 @@
 import type { SensorReading } from "@me-plus/contracts";
 import { Platform } from "react-native";
+import { sampleSourcePayload } from "./sample-source-payload";
 
 export const HEALTH_CONNECT_RECORD_TYPES = [
   "HeartRate",
@@ -266,10 +267,7 @@ function mapRecordToReadings(
           observedAt,
           lastModifiedAt,
           provenance,
-          sourcePayload: sourcePayload(record, {
-            sampleIndex,
-            sample,
-          }),
+          sourcePayload: sampleSourcePayload(record, sample, sampleIndex),
         },
       ];
     });

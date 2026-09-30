@@ -9,6 +9,19 @@
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 
+## [0.3.1] - 2026-09-29
+
+### Fixed
+- Health uploads validate acknowledgements, abort timed-out requests, retry bounded transient failures, and refresh the session for each batch.
+- Heart-rate payloads retain sample/provider context without repeating the full sample series.
+- Provider revision keys use fixed-size SHA-256 digests.
+- Health ingestion uses a server-only source-serialized database transaction so retries cannot overwrite newer revisions; failures roll back health writes while retaining attempt history and manual corrections.
+- Health Connect uploads now use 50-reading mobile batches to avoid oversized backend lookup requests.
+- The health ingestion API limits a single request to 100 readings.
+- Health ingestion preserves provider revision history, resumes incomplete equal revisions, and selects the newest provider revision deterministically.
+- Android release builds use verified short native dependency paths, Expo-compatible versions and checksum-pinned Ninja on the designated Windows runner.
+- The standalone installer retains the previous ARM64 target and verifies its embedded JavaScript bundle, version, signing identity and architecture before publication.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added
@@ -78,3 +91,4 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
+

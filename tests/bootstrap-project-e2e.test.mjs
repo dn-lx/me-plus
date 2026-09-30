@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { access, cp, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { access, cp, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -42,7 +42,7 @@ const config = {
 }
 
 function run(root, args) {
-  return execFileSync(process.execPath, args, {
+  return execFileSync(process.execPath, [resolve(root, args[0]), ...args.slice(1)], {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -57,6 +57,22 @@ test('full starter copy bootstraps and passes strict validation', async () => {
     recursive: true,
     filter: source => !source.split(/[\\/]/).includes('.git'),
   })
+
+  // This repository has already been bootstrapped. Reset only the disposable
+  // copy's generated project identity; the production migration guard stays on.
+  const indexPath = join(projectRoot, '.agents/SKILL-INDEX.md')
+  const index = await readFile(indexPath, 'utf8')
+  const projectSlug = index.match(/^\| Project-specific durable guidance \| `([^`]+)` \|$/m)?.[1]
+  if (projectSlug) {
+    await rm(join(projectRoot, '.agents/skills', projectSlug), { recursive: true, force: true })
+    await rm(join(projectRoot, '.claude/skills', projectSlug), { recursive: true, force: true })
+    await writeFile(indexPath, index.replace(/^\| Project-specific durable guidance.*\n/m, '| Starter placeholder project knowledge | `project-template` |\n'), 'utf8')
+  }
+
+  const checklistPath = join(projectRoot, 'docs/PROJECT-BOOTSTRAP-CHECKLIST.md')
+  const checklist = await readFile(checklistPath, 'utf8')
+  await writeFile(checklistPath, checklist.replace(/^-[^\n]*(?:Project-specific skill generated|starter project-template skill)[^\n]*$/m,
+    '- [ ] Replace `.agents/skills/project-template/` with a real `.agents/skills/<project-name>/SKILL.md`; remove its obsolete generated `.claude/skills/project-template/` adapter and regenerate Claude adapters.'), 'utf8')
 
   const configPath = join(projectRoot, 'bootstrap.e2e.json')
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
@@ -99,3 +115,4 @@ test('full starter copy bootstraps and passes strict validation', async () => {
   await assert.rejects(access(join(projectRoot, '.agents/skills/project-template/SKILL.md')))
   await assert.rejects(access(join(projectRoot, '.claude/skills/project-template/SKILL.md')))
 })
+

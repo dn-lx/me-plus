@@ -6,10 +6,10 @@ import type {
 } from "@me-plus/contracts";
 
 import { supabase } from "../supabase/client";
+import { postHealthBatch as postBatch } from "./transport";
 
-const MAX_READINGS_PER_REQUEST = 200;
-const MAX_ATTEMPTS = 3;
-const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
+// Bound each authenticated upload below backend limits.
+const MAX_READINGS_PER_REQUEST = 50;
 
 export type HealthSyncSummary = {
   sourceCount: number;
@@ -51,86 +51,8 @@ async function getAccessToken(): Promise<string> {
   return accessToken;
 }
 
-function parseResponseBody(text: string): unknown {
-  if (!text.trim()) return null;
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-}
-
-function errorDetail(body: unknown, responseText: string, fallback: string): string {
-  if (typeof body === "object" && body !== null) {
-    if ("detail" in body) return String((body as { detail?: unknown }).detail);
-    if ("error" in body) return String((body as { error?: unknown }).error);
-  }
-
-  const plain = responseText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return plain.slice(0, 180) || fallback;
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-async function postHealthBatch(
-  payload: HealthIngestRequest,
-  accessToken: string,
-): Promise<HealthIngestResult> {
-  const url = `${getApiBaseUrl()}/api/health/ingest`;
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-      const body = parseResponseBody(responseText);
-
-      if (response.ok) {
-        if (typeof body !== "object" || body === null) {
-          throw new Error(
-            `Me+ health API returned a non-JSON success response from ${url}. Please retry after updating the app.`,
-          );
-        }
-        return body as HealthIngestResult;
-      }
-
-      const detail = errorDetail(body, responseText, response.statusText);
-      const failure = new Error(`Health sync failed (${response.status}): ${detail}`);
-
-      if (!RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_ATTEMPTS) {
-        throw failure;
-      }
-
-      lastError = failure;
-    } catch (error) {
-      const failure = error instanceof Error ? error : new Error("Unknown health sync network error");
-      if (
-        attempt === MAX_ATTEMPTS ||
-        (failure.message.startsWith("Health sync failed (") &&
-          ![...RETRYABLE_STATUS_CODES].some((status) =>
-            failure.message.startsWith(`Health sync failed (${status})`),
-          ))
-      ) {
-        throw failure;
-      }
-      lastError = failure;
-    }
-
-    await wait(750 * 2 ** (attempt - 1));
-  }
-
-  throw lastError ?? new Error("Health sync failed after retries");
+async function postHealthBatch(payload: HealthIngestRequest, accessToken: string) {
+  return postBatch(payload, accessToken, `${getApiBaseUrl()}/api/health/ingest`);
 }
 
 export async function syncHealthReadings(
@@ -164,7 +86,6 @@ export async function syncHealthConnectReadings(
     };
   }
 
-  const accessToken = await getAccessToken();
   const bySource = new Map<string, SensorReading[]>();
 
   for (const reading of readings) {
@@ -202,7 +123,7 @@ export async function syncHealthConnectReadings(
         readings: batch,
         ...(cursorAfter ? { cursorAfter } : {}),
       };
-      const result = await postHealthBatch(payload, accessToken);
+      const result = await postHealthBatch(payload, await getAccessToken());
 
       batchCount += 1;
       recordsSeen += result.recordsSeen;
@@ -231,3 +152,4 @@ function latestTimestamp(readings: readonly SensorReading[]): string | undefined
     .sort()
     .at(-1);
 }
+

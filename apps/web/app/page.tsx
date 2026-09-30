@@ -1,4 +1,4 @@
-import { ME_PLUS_DOMAINS } from "@me-plus/domain";
+﻿import { ME_PLUS_DOMAINS } from "@me-plus/domain";
 
 const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
   learning: "Goals, plans, practice and progress.",
@@ -8,11 +8,11 @@ const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
 };
 
 const androidBuild = {
-  version: "0.3.0",
-  displayVersion: "0.3",
-  filename: "me-plus-0.3.apk",
-  href: "/downloads/me-plus-0.3.apk",
-  checksumHref: "/downloads/me-plus-0.3.apk.sha256",
+  version: "0.3.1",
+  displayVersion: "0.3.1",
+  filename: "me-plus-0.3.1.apk",
+  href: "/downloads/me-plus-0.3.1.apk",
+  checksumHref: "/downloads/me-plus-0.3.1.apk.sha256",
 };
 
 export default function HomePage() {
@@ -38,7 +38,7 @@ export default function HomePage() {
               Install the Android build to validate Health Connect directly on your phone.
             </p>
             <small>
-              Version {androidBuild.version} · {androidBuild.filename}
+              Version {androidBuild.version} Â· {androidBuild.filename}
             </small>
           </div>
           <div className="downloadActions">
@@ -62,7 +62,7 @@ export default function HomePage() {
             <article className="card" key={domain}>
               <h3>{domain}</h3>
               <p>{domainDescriptions[domain]}</p>
-              <small>Shared contracts ready · runtime wiring next</small>
+              <small>Shared contracts ready Â· runtime wiring next</small>
             </article>
           ))}
         </div>
@@ -76,3 +76,4 @@ export default function HomePage() {
     </main>
   );
 }
+

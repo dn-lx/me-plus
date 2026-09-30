@@ -1,0 +1,456 @@
+name: Android local builder
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+      - "VERSION"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - "tsconfig.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/android-local-build.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-local-builder-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: android / self-hosted-local-builder
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      CMAKE_VERSION: "3.22.1"
+      EXPO_PUBLIC_SUPABASE_URL: "https://wbqnctrvxohxwiaignhg.supabase.co"
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_1IJENqECdJNvRxN-vUup5w_3dV8d4Ws"
+      EXPO_PUBLIC_ME_PLUS_API_URL: "https://dev--me-plus-personal-intelligence.netlify.app"
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      ANDROID_BUILD_ROOT: 'D:\b-${{ github.run_id }}-${{ github.run_attempt }}'
+
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify designated local Android builder
+        shell: powershell
+        run: |
+          Write-Host "Runner: ${{ runner.name }}"
+          Write-Host "OS: ${{ runner.os }}"
+          Write-Host "Architecture: ${{ runner.arch }}"
+          if ("${{ runner.os }}" -ne "Windows") {
+            throw "Me+ Android builds must run on the designated self-hosted Windows Android builder."
+          }
+
+      - name: Verify required public mobile environment
+        shell: powershell
+        run: |
+          $required = @(
+            "EXPO_PUBLIC_SUPABASE_URL",
+            "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "EXPO_PUBLIC_ME_PLUS_API_URL"
+          )
+          $missing = @()
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              $missing += $name
+            }
+          }
+          if ($missing.Count -gt 0) {
+            throw ("Missing required runner environment variables: " + ($missing -join ", "))
+          }
+          Write-Host "Required public mobile environment is configured."
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Ensure pinned Android SDK toolchain
+        shell: powershell
+        run: |
+          $sdk = Join-Path $env:USERPROFILE ".android\sdk"
+          $latest = Join-Path $sdk "cmdline-tools\latest"
+          $sdkManager = Join-Path $latest "bin\sdkmanager.bat"
+
+          if (-not (Test-Path $sdkManager)) {
+            $archive = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "android-commandlinetools-15859902"
+            Remove-Item $archive -Force -ErrorAction SilentlyContinue
+            Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path $sdk | Out-Null
+
+            curl.exe --fail --location "https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip" --output $archive
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download Android command-line tools."
+            }
+
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+            New-Item -ItemType Directory -Force -Path (Split-Path $latest) | Out-Null
+            Remove-Item $latest -Recurse -Force -ErrorAction SilentlyContinue
+            Move-Item (Join-Path $extract "cmdline-tools") $latest
+          }
+
+          "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          "$sdk\platform-tools" >> $env:GITHUB_PATH
+          "$sdk\build-tools\36.0.0" >> $env:GITHUB_PATH
+          "$latest\bin" >> $env:GITHUB_PATH
+
+          # sdkmanager.bat does not consume piped interactive answers reliably on
+          # this Windows service runner. Persist the standard Android license
+          # fingerprints before package installation so CI remains non-interactive.
+          $licenseDir = Join-Path $sdk "licenses"
+          New-Item -ItemType Directory -Force -Path $licenseDir | Out-Null
+          @(
+            "8933bad161af4178b1185d1a37fbf41ea5269c55",
+            "d56f5187479451eabf01fb78af6dfcb131a6481e",
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-license") -Encoding ascii
+          @(
+            "84831b9409646a918e30573bab4c9c91346d8abd",
+            "504667f4c0de7af1a06de9f4b1727b84351f2910"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-preview-license") -Encoding ascii
+
+          & $sdkManager "--sdk_root=$sdk" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Android SDK package installation failed."
+          }
+
+          $required = @(
+            (Join-Path $sdk "platform-tools\adb.exe"),
+            (Join-Path $sdk "platforms\android-36\android.jar"),
+            (Join-Path $sdk "build-tools\36.0.0\aapt2.exe"),
+            (Join-Path $sdk "ndk\27.1.12297006\source.properties"),
+            (Join-Path $sdk "cmake\3.22.1\bin\cmake.exe")
+          )
+          $missing = @($required | Where-Object { -not (Test-Path $_) })
+          if ($missing.Count -gt 0) {
+            throw ("Android SDK installation incomplete. Missing: " + ($missing -join ", "))
+          }
+
+          Write-Host "Android SDK toolchain ready at $sdk"
+
+      - name: Ensure pinned Ninja with Windows long-path support
+        shell: powershell
+        run: |
+          # Gradle invokes this SDK executable directly; changing PATH alone
+          # would leave the older Ninja shipped with CMake 3.22.1 in use.
+          $ninja = Join-Path $env:ANDROID_HOME "cmake\3.22.1\bin\ninja.exe"
+          $currentVersion = (& $ninja --version).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "SDK Ninja version inspection failed." }
+          Write-Host "SDK Ninja before verification: $currentVersion"
+          if ($currentVersion -ne "1.13.2") {
+            $archive = Join-Path $env:RUNNER_TEMP "me-plus-ninja-1.13.2.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "me-plus-ninja-1.13.2"
+            curl.exe --fail --location "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip" --output $archive
+            if ($LASTEXITCODE -ne 0) { throw "Pinned Ninja download failed." }
+            $hash = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -ne "07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65") {
+              throw "Pinned Ninja archive differs from the upstream release digest."
+            }
+            Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+            $backup = "$ninja.me-plus-original"
+            if (!(Test-Path $backup)) { Copy-Item $ninja $backup }
+            Copy-Item (Join-Path $extract "ninja.exe") $ninja -Force
+          }
+          $actualVersion = (& $ninja --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne "1.13.2") { throw "Pinned SDK Ninja verification failed." }
+          Write-Host "SDK Ninja ready: $actualVersion"
+
+      - name: Ensure dependency lockfile matches committed manifests
+        id: lockfile
+        shell: powershell
+        run: |
+          pnpm install --lockfile-only --no-frozen-lockfile
+
+          $lockStatus = git status --porcelain -- pnpm-lock.yaml
+          if (-not [string]::IsNullOrWhiteSpace($lockStatus)) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add pnpm-lock.yaml
+            git commit -m "chore(deps): refresh lockfile for Android build"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+            throw "pnpm-lock.yaml was refreshed and committed. A new self-hosted build will run from the new committed SHA."
+          }
+
+      - name: Prepare fresh short-path Android checkout
+        shell: powershell
+        run: |
+          $root = $env:ANDROID_BUILD_ROOT
+          if (Test-Path $root) { throw "Fresh Android build root already exists: $root" }
+          git -c core.longpaths=true clone --no-checkout "https://github.com/${{ github.repository }}.git" $root
+          if ($LASTEXITCODE -ne 0) { throw "Short-path clone failed." }
+          git -C $root config core.longpaths true
+          git -C $root fetch origin $env:SOURCE_SHA --depth=1
+          if ($LASTEXITCODE -ne 0) { throw "Short-path source fetch failed." }
+          git -C $root checkout --detach $env:SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw "Short-path source checkout failed." }
+          $actualSha = (git -C $root rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:SOURCE_SHA) { throw "Build source does not match SOURCE_SHA." }
+          Write-Host "Prepared fresh short-path build checkout at $root"
+
+      - name: Install workspace dependencies
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        shell: powershell
+        run: |
+          $linker = (pnpm config get nodeLinker).Trim()
+          if ($LASTEXITCODE -ne 0 -or $linker -ne "hoisted") { throw "Android build requires pnpm nodeLinker=hoisted." }
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "Workspace dependency installation failed." }
+          @'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          for (const name of ['react-native-screens', 'react-native-worklets']) {
+            const file = fs.realpathSync(require.resolve(name + '/package.json', {paths: [path.join(process.cwd(), 'apps/mobile')]}));
+            if (file.includes('.pnpm') || file.length > 120) throw new Error('Native dependency path is too long: ' + file);
+            console.log('Native dependency path verified: ' + name);
+          }
+          '@ | node
+          if ($LASTEXITCODE -ne 0) { throw "Native dependency layout verification failed." }
+
+      - name: Health ingestion regression tests
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        run: pnpm test:health
+
+      - name: Type-check workspace
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        run: pnpm typecheck
+
+      - name: Verify Expo native dependency compatibility
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        run: pnpm --filter @me-plus/mobile exec expo install --check
+
+      - name: Generate native Android project
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}
+        run: pnpm --filter @me-plus/mobile exec expo prebuild --platform android --clean --no-install
+
+      - name: Configure Android SDK path
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
+        shell: powershell
+        run: |
+          $candidates = @(
+            $env:ANDROID_HOME,
+            $env:ANDROID_SDK_ROOT,
+            (Join-Path $env:LOCALAPPDATA "Android\Sdk")
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+          $sdk = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($sdk)) {
+            throw "Android SDK not found on the designated self-hosted builder."
+          }
+
+          "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
+          "ANDROID_SDK_ROOT=$sdk" >> $env:GITHUB_ENV
+          $escapedSdk = $sdk -replace '\\', '\\\\'
+          "sdk.dir=$escapedSdk" | Set-Content -Path local.properties -Encoding ascii
+          Write-Host "Using Android SDK at $sdk"
+
+      - name: Build installable Android APK
+        working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
+        shell: powershell
+        run: |
+          .\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
+          if ($LASTEXITCODE -ne 0) { throw "Android release build failed." }
+
+      - name: Stage verified artifact and provenance
+        id: artifact
+        shell: powershell
+        run: |
+          $version = (Get-Content (Join-Path $env:ANDROID_BUILD_ROOT "VERSION") -Raw).Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "VERSION is empty." }
+
+          $source = Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\android\app\build\outputs\apk\release\app-release.apk"
+          if (!(Test-Path $source)) { throw "Expected APK not found at $source" }
+          $apksigner = Join-Path $env:ANDROID_HOME "build-tools\36.0.0\apksigner.bat"
+          $actualSha = (git -C $env:ANDROID_BUILD_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualSha -ne $env:SOURCE_SHA) { throw "Artifact source checkout mismatch." }
+          $signingOutput = & $apksigner verify --print-certs $source
+          if ($LASTEXITCODE -ne 0) { throw "APK signature verification failed." }
+          $signerMatch = [regex]::Match(($signingOutput -join "`n"), 'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)')
+          if (!$signerMatch.Success) { throw "APK signer identity missing." }
+          $signerSha256 = $signerMatch.Groups[1].Value.ToLowerInvariant()
+          $previousApk = "apps/web/public/downloads/me-plus-0.3.apk"
+          $previousOutput = & $apksigner verify --print-certs $previousApk
+          if ($LASTEXITCODE -ne 0) { throw "Previous APK signature verification failed." }
+          $previousSigner = [regex]::Match(($previousOutput -join "`n"), 'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)')
+          if (!$previousSigner.Success -or $previousSigner.Groups[1].Value.ToLowerInvariant() -ne $signerSha256) {
+            throw "APK signing identity changed; update compatibility is not verified."
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $apkZip = [IO.Compression.ZipFile]::OpenRead($source)
+          try {
+            if (!$apkZip.GetEntry("assets/index.android.bundle")) { throw "APK has no embedded JavaScript bundle." }
+            $abis = @($apkZip.Entries | Where-Object { $_.FullName -match '^lib/[^/]+/[^/]+\.so$' } | ForEach-Object { $_.FullName.Split('/')[1] } | Sort-Object -Unique)
+            if ($abis.Count -ne 1 -or $abis[0] -ne "arm64-v8a") { throw "APK does not match the published ARM64 installer target." }
+          } finally { $apkZip.Dispose() }
+
+          $dir = "artifacts/android"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $filename = "me-plus-$version.apk"
+          $dest = Join-Path $dir $filename
+          Copy-Item $source $dest -Force
+
+          if ((Get-Item $dest).Length -gt 100MB) { throw "APK exceeds the repository download file limit." }
+          $hash = (Get-FileHash -Path $dest -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $filename" | Set-Content -Path "$dest.sha256" -Encoding ascii
+
+          $appJson = Get-Content (Join-Path $env:ANDROID_BUILD_ROOT "apps\mobile\app.json") -Raw | ConvertFrom-Json
+          $aapt = Join-Path $env:ANDROID_HOME "build-tools\36.0.0\aapt.exe"
+          $badging = & $aapt dump badging $source
+          if ($LASTEXITCODE -ne 0) { throw "APK manifest inspection failed." }
+          $manifest = $badging -join "`n"
+          if ($manifest -notmatch ("package: name='" + [regex]::Escape($appJson.expo.android.package) + "'") -or
+              $manifest -notmatch ("versionCode='" + $appJson.expo.android.versionCode + "'") -or
+              $manifest -notmatch ("versionName='" + [regex]::Escape($version) + "'")) {
+            throw "APK package or version differs from committed release configuration."
+          }
+          $metadata = [ordered]@{
+            app = "me-plus"
+            platform = "android"
+            architecture = "arm64-v8a"
+            version = $version
+            displayVersion = $version
+            filename = $filename
+            sha256 = $hash
+            signerCertificateSha256 = $signerSha256
+            embeddedJavascriptBundle = $true
+            upgradeSignerVerified = $true
+            sizeBytes = (Get-Item $dest).Length
+            packageName = $appJson.expo.android.package
+            versionCode = $appJson.expo.android.versionCode
+            buildType = "release"
+            pnpmVersion = "12.6.0"
+            ninjaVersion = "1.13.2"
+            cmakeVersion = "3.22.1"
+            ndkVersion = "27.1.12297006"
+            sourceCommit = "$env:SOURCE_SHA"
+            githubRunId = "${{ github.run_id }}"
+            githubRunAttempt = "${{ github.run_attempt }}"
+            buildPath = "github-actions-self-hosted"
+            runnerName = "${{ runner.name }}"
+            publishTarget = "netlify-static"
+            publicDownloadPath = "/downloads/$filename"
+          }
+          $metadata | ConvertTo-Json -Depth 8 | Set-Content -Path "$dir/$version.json" -Encoding utf8
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "filename=$filename" >> $env:GITHUB_OUTPUT
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Android build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: me-plus-android-${{ steps.artifact.outputs.version }}-${{ env.SOURCE_SHA }}
+          path: artifacts/android/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stage verified Android download in repository
+        shell: powershell
+        run: |
+          $version = "${{ steps.artifact.outputs.version }}"
+          $filename = "${{ steps.artifact.outputs.filename }}"
+          $artifactDir = "artifacts/android"
+          $downloadDir = "apps/web/public/downloads"
+          $releaseDir = "releases/android"
+
+          # Build from SOURCE_SHA, but publish onto the latest task-branch head so
+          # harmless concurrent documentation/web fixes do not cause a non-fast-forward push.
+          git fetch origin $env:SOURCE_BRANCH
+          $changedInputs = git diff --name-only $env:SOURCE_SHA "origin/$env:SOURCE_BRANCH" -- apps/mobile packages .npmrc tsconfig.json tsconfig.base.json package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION .github/workflows/android-local-build.yml
+          if ($changedInputs) { throw "Android build inputs changed during the run; rebuild the new committed source before publishing." }
+          git checkout -B artifact-publish "origin/$env:SOURCE_BRANCH"
+
+          # A verification run on the artifact commit must not create another
+          # artifact commit indefinitely. Keep the already verified installer
+          # when its committed build inputs and recorded bytes are unchanged.
+          $publishedMetadataPath = Join-Path $releaseDir "$version.json"
+          if (Test-Path $publishedMetadataPath) {
+            $published = Get-Content $publishedMetadataPath -Raw | ConvertFrom-Json
+            $publishedApk = Join-Path $downloadDir $filename
+            if ($published.version -eq $version -and $published.filename -eq $filename -and
+                $published.sourceCommit -match '^[0-9a-f]{40}$' -and
+                $published.buildPath -eq "github-actions-self-hosted" -and
+                $published.embeddedJavascriptBundle -eq $true -and
+                $published.upgradeSignerVerified -eq $true -and (Test-Path $publishedApk)) {
+              git cat-file -e "$($published.sourceCommit)^{commit}"
+              if ($LASTEXITCODE -ne 0) { throw "Published APK source commit is unavailable." }
+              $publishedInputChanges = git diff --name-only $published.sourceCommit $env:SOURCE_SHA -- apps/mobile packages .npmrc tsconfig.json tsconfig.base.json package.json pnpm-lock.yaml pnpm-workspace.yaml VERSION .github/workflows/android-local-build.yml
+              if ($LASTEXITCODE -ne 0) { throw "Published APK input comparison failed." }
+              $publishedHash = (Get-FileHash -Path $publishedApk -Algorithm SHA256).Hash.ToLowerInvariant()
+              if (!$publishedInputChanges -and $publishedHash -eq $published.sha256) {
+                Write-Host "Published APK bytes and committed build inputs are already verified; retaining release provenance."
+                exit 0
+              }
+            }
+          }
+
+          New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+          Copy-Item (Join-Path $artifactDir $filename) (Join-Path $downloadDir $filename) -Force
+          Copy-Item (Join-Path $artifactDir "$filename.sha256") (Join-Path $downloadDir "$filename.sha256") -Force
+          Copy-Item (Join-Path $artifactDir "$version.json") (Join-Path $releaseDir "$version.json") -Force
+
+          $displayVersion = $version -replace "\.0$",""
+          $pagePath = "apps/web/app/page.tsx"
+          $page = Get-Content $pagePath -Raw
+          $page = [regex]::Replace($page, 'version: "[^"]+",', ('version: "' + $version + '",'), 1)
+          $page = [regex]::Replace($page, 'displayVersion: "[^"]+",', ('displayVersion: "' + $displayVersion + '",'), 1)
+          $page = [regex]::Replace($page, 'filename: "me-plus-[^"]+\.apk",', ('filename: "' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'href: "/downloads/me-plus-[^"]+\.apk",', ('href: "/downloads/' + $filename + '",'), 1)
+          $page = [regex]::Replace($page, 'checksumHref: "/downloads/me-plus-[^"]+\.apk\.sha256",', ('checksumHref: "/downloads/' + $filename + '.sha256",'), 1)
+          Set-Content -Path $pagePath -Value $page -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $downloadDir $releaseDir $pagePath
+
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "chore(android): publish verified Me+ $version artifact [skip ci]"
+            git push origin "HEAD:$env:SOURCE_BRANCH"
+          } else {
+            Write-Host "Verified Android download is already staged for this version."
+          }
+
+      - name: Build summary
+        shell: powershell
+        run: |
+          @"
+          ## Me+ Android self-hosted build
+          - Source SHA: `$env:SOURCE_SHA`
+          - Runner: `${{ runner.name }}`
+          - APK: `${{ steps.artifact.outputs.filename }}`
+          - SHA-256: `${{ steps.artifact.outputs.sha256 }}`
+          - Build path: GitHub Actions → self-hosted local Android builder
+          "@ | Add-Content $env:GITHUB_STEP_SUMMARY

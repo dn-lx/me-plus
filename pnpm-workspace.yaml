@@ -2,7 +2,18 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# React Native/CMake on Windows requires short physical package paths.
+# pnpm 12 reads this setting here, not from .npmrc.
+nodeLinker: hoisted
+
 catalog:
   react: 19.2.3
   react-dom: 19.2.3
   typescript: 6.0.3
+
+minimumReleaseAgeExclude:
+  - '@expo/ui@57.0.21'
+  - expo-constants@57.0.20
+  - expo-modules-core@57.0.20
+  - expo-router@57.0.24
+  - expo@57.0.26

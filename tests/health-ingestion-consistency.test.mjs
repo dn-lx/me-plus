@@ -1,40 +1,29 @@
-import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { ingestAtomicBatch } from '../apps/web/lib/health/ingest-batch.ts';
+import { providerRevisionKey } from '../apps/web/lib/health/freshness.ts';
 
-const sourceUrl = new URL("../apps/web/lib/health/ingest.ts", import.meta.url);
-const source = await readFile(sourceUrl, "utf8");
+const reading = {externalId:'record-1',metric:'heart-rate',value:70,unit:'bpm',
+  observedAt:'2026-09-29T10:00:00Z',lastModifiedAt:'2026-09-29T10:01:00Z',
+  provenance:{provider:'health-connect',sourcePackage:'com.example.health'}};
+const input={source:{provider:'health-connect',displayName:'Test'},readings:[reading,{...reading,value:72,lastModifiedAt:'2026-09-29T10:09:00Z'}]};
+const result={dataSourceId:'source',syncRunId:'run',recordsSeen:2,recordsCreated:1,recordsUpdated:0,observationIds:['observation']};
 
-function section(startMarker, endMarker = null) {
-  const start = source.indexOf(startMarker);
-  assert.notEqual(start, -1, `missing marker: ${startMarker}`);
-  const end = endMarker ? source.indexOf(endMarker, start) : source.length;
-  assert.notEqual(end, -1, `missing end marker: ${endMarker}`);
-  return source.slice(start, end);
-}
-
-test("raw health events remain non-terminal until normalization succeeds", () => {
-  const rawSync = section("async function bulkSyncRawEvents", "async function bulkSyncObservations");
-  assert.match(rawSync, /processing_status:\s*"pending"/);
-  assert.match(rawSync, /processed_at:\s*null/);
-  assert.doesNotMatch(rawSync, /processing_status:\s*"processed"/);
+test('one atomic call preserves all provider revisions and authenticated owner',async()=>{
+  let calls=0;
+  const actual=await ingestAtomicBatch('verified-user',input,providerRevisionKey,async params=>{
+    calls++;assert.equal(params.p_user_id,'verified-user');assert.deepEqual(params.p_input,input);
+    assert.deepEqual(params.p_revisions.map(x=>x.reading),input.readings);
+    assert.notEqual(params.p_revisions[0].revisionKey,params.p_revisions[1].revisionKey);
+    for(const revision of params.p_revisions)assert.match(revision.revisionKey,/^[0-9a-f]{64}$/);
+    return {data:result,error:null};
+  });assert.deepEqual(actual,result);assert.equal(calls,1);
 });
-
-test("health ingestion marks raw events processed only after normalized observations", () => {
-  const ingest = section("export async function ingestHealthReadings");
-  const raw = ingest.indexOf("await bulkSyncRawEvents");
-  const normalized = ingest.indexOf("await bulkSyncObservations");
-  const processed = ingest.indexOf("await markRawEventsProcessed");
-  const completed = ingest.indexOf('status: "completed"');
-
-  assert.ok(raw >= 0 && normalized > raw);
-  assert.ok(processed > normalized);
-  assert.ok(completed > processed);
+test('atomic rollback and database failures cannot return upload success',async()=>{
+  for(const response of [{data:{error:'health_atomic_22P02',syncRunId:'failed'},error:null},{data:null,error:{code:'57014'}},{data:null,error:null}]){
+    await assert.rejects(ingestAtomicBatch('verified-user',input,providerRevisionKey,async()=>response),/Unable to ingest health batch/);
+  }
 });
-
-test("failed normalization records raw failure without masking later-stage failures", () => {
-  const ingest = section("export async function ingestHealthReadings");
-  assert.match(ingest, /rawEventIds\.length > 0 && !observationsWritten/);
-  assert.match(ingest, /await markRawEventsFailed/);
-  assert.match(ingest, /try \{\s*await markSyncRunFailed/);
-});
+// Full create/retry/newest/stale/manual-correction/rollback/legacy/denied-role
+// database acceptance is reproducible in tests/sql/health-ingestion-atomic.sql.
+// Run it as a server role inside its rollback transaction before deployment.
