@@ -19,7 +19,7 @@ import {
 } from "./sync-health-readings";
 
 export const HEALTH_BACKGROUND_TASK = "me-plus-health-connect-auto-sync";
-// Android WorkManager treats 15 minutes as a minimum, not an exact execution time.
+// Android WorkManager treats 15 minutes as an inexact minimum, not a fixed schedule.
 export const HEALTH_BACKGROUND_MINIMUM_INTERVAL_MINUTES = 15;
 export const HEALTH_FOREGROUND_POLL_INTERVAL_MS = 5 * 60 * 1000;
 
