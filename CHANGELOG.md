@@ -9,6 +9,17 @@
 ### Fixed
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 
+## [0.3.2] - 2026-09-30
+
+### Added
+- Health Connect background-read permission and Android WorkManager-backed automatic synchronization at the platform minimum 15-minute interval.
+- Incremental Health Connect Changes API ingestion so automatic runs upload only new or updated records instead of rescanning the full seven-day window.
+- Immediate catch-up when Me+ becomes active plus a lightweight five-minute foreground poll while the app remains open.
+- Durable change-token replay semantics: a token advances only after the corresponding Me+ upload is acknowledged, with a seven-day bootstrap fallback when no token exists or the token expires.
+
+### Changed
+- Android app metadata advances to Me+ 0.3.2 / versionCode 5.
+
 ## [0.3.1] - 2026-09-29
 
 ### Fixed
