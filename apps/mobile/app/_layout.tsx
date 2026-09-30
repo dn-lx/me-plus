@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { AppState } from "react-native";
 
 import {
-  ensureAutomaticHealthSyncRegistered,
   HEALTH_FOREGROUND_POLL_INTERVAL_MS,
   runForegroundHealthSyncIfDue,
 } from "../lib/health/automatic-health-sync";
@@ -13,7 +12,6 @@ export default function RootLayout() {
   useEffect(() => {
     const catchUp = async () => {
       try {
-        await ensureAutomaticHealthSyncRegistered();
         await runForegroundHealthSyncIfDue();
       } catch {
         // Automatic sync persists a privacy-safe status for the Health Connect screen.
