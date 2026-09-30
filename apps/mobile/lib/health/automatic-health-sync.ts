@@ -1,10 +1,6 @@
 import "expo-sqlite/localStorage/install";
 
-import * as BackgroundTask from "expo-background-task";
-import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
-
-import type { SensorReading } from "@me-plus/contracts";
 
 import { supabase } from "../supabase/client";
 import {
@@ -18,10 +14,7 @@ import {
   type HealthSyncSummary,
 } from "./sync-health-readings";
 
-export const HEALTH_BACKGROUND_TASK = "me-plus-health-connect-auto-sync";
-// Android WorkManager treats 15 minutes as an inexact minimum, not a fixed schedule.
-export const HEALTH_BACKGROUND_MINIMUM_INTERVAL_MINUTES = 15;
-export const HEALTH_FOREGROUND_POLL_INTERVAL_MS = 5 * 60 * 1000;
+export const HEALTH_FOREGROUND_POLL_INTERVAL_MS = 60 * 1000;
 
 const BOOTSTRAP_DAYS = 7;
 const CHANGES_TOKEN_KEY = "me-plus.health-connect.changes-token.v1";
@@ -42,100 +35,6 @@ export type AutomaticHealthSyncResult = {
   deletionChangesSeen: number;
   detail?: string;
 };
-
-export type AutomaticHealthSyncStatus = {
-  available: boolean;
-  registered: boolean;
-  authenticated: boolean;
-  backgroundReadGranted: boolean;
-  recordReadPermissionCount: number;
-  minimumIntervalMinutes: number;
-  lastSuccessAt: string | null;
-  lastError: string | null;
-};
-
-if (!TaskManager.isTaskDefined(HEALTH_BACKGROUND_TASK)) {
-  TaskManager.defineTask(HEALTH_BACKGROUND_TASK, async () => {
-    try {
-      await runAutomaticHealthSync("background");
-      return BackgroundTask.BackgroundTaskResult.Success;
-    } catch (error) {
-      persistLastError(error);
-      return BackgroundTask.BackgroundTaskResult.Failed;
-    }
-  });
-}
-
-export async function ensureAutomaticHealthSyncRegistered(): Promise<boolean> {
-  if (Platform.OS !== "android") {
-    return false;
-  }
-
-  const [{ data }, permissionState, status] = await Promise.all([
-    supabase.auth.getSession(),
-    getHealthConnectPermissionState(),
-    BackgroundTask.getStatusAsync(),
-  ]);
-
-  if (
-    !data.session ||
-    !permissionState.backgroundReadGranted ||
-    status !== BackgroundTask.BackgroundTaskStatus.Available
-  ) {
-    return false;
-  }
-
-  if (!(await TaskManager.isTaskRegisteredAsync(HEALTH_BACKGROUND_TASK))) {
-    await BackgroundTask.registerTaskAsync(HEALTH_BACKGROUND_TASK, {
-      minimumInterval: HEALTH_BACKGROUND_MINIMUM_INTERVAL_MINUTES,
-    });
-  }
-
-  return true;
-}
-
-export async function disableAutomaticHealthSync(): Promise<void> {
-  if (Platform.OS !== "android") {
-    return;
-  }
-
-  if (await TaskManager.isTaskRegisteredAsync(HEALTH_BACKGROUND_TASK)) {
-    await BackgroundTask.unregisterTaskAsync(HEALTH_BACKGROUND_TASK);
-  }
-}
-
-export async function getAutomaticHealthSyncStatus(): Promise<AutomaticHealthSyncStatus> {
-  if (Platform.OS !== "android") {
-    return {
-      available: false,
-      registered: false,
-      authenticated: false,
-      backgroundReadGranted: false,
-      recordReadPermissionCount: 0,
-      minimumIntervalMinutes: HEALTH_BACKGROUND_MINIMUM_INTERVAL_MINUTES,
-      lastSuccessAt: readLocal(LAST_SUCCESS_KEY),
-      lastError: readLocal(LAST_ERROR_KEY),
-    };
-  }
-
-  const [{ data }, permissionState, backgroundStatus, registered] = await Promise.all([
-    supabase.auth.getSession(),
-    getHealthConnectPermissionState(),
-    BackgroundTask.getStatusAsync(),
-    TaskManager.isTaskRegisteredAsync(HEALTH_BACKGROUND_TASK),
-  ]);
-
-  return {
-    available: backgroundStatus === BackgroundTask.BackgroundTaskStatus.Available,
-    registered,
-    authenticated: Boolean(data.session),
-    backgroundReadGranted: permissionState.backgroundReadGranted,
-    recordReadPermissionCount: permissionState.recordReadPermissionCount,
-    minimumIntervalMinutes: HEALTH_BACKGROUND_MINIMUM_INTERVAL_MINUTES,
-    lastSuccessAt: readLocal(LAST_SUCCESS_KEY),
-    lastError: readLocal(LAST_ERROR_KEY),
-  };
-}
 
 export async function runForegroundHealthSyncIfDue(force = false) {
   const now = Date.now();
