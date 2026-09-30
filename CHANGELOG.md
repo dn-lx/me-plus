@@ -19,7 +19,8 @@
 - Health Connect uploads now use 50-reading mobile batches to avoid oversized backend lookup requests.
 - The health ingestion API limits a single request to 100 readings.
 - Health ingestion preserves provider revision history, resumes incomplete equal revisions, and selects the newest provider revision deterministically.
-- Android release builds now configure the installed Android SDK on the designated self-hosted Windows runner before Gradle.
+- Android release builds use verified short native dependency paths, Expo-compatible versions and checksum-pinned Ninja on the designated Windows runner.
+- The standalone installer retains the previous ARM64 target and verifies its embedded JavaScript bundle, version, signing identity and architecture before publication.
 
 ## [0.3.0] - 2026-09-28
 

@@ -279,7 +279,7 @@ jobs:
         working-directory: ${{ env.ANDROID_BUILD_ROOT }}\apps\mobile\android
         shell: powershell
         run: |
-          .\gradlew.bat assembleRelease --no-daemon --stacktrace
+          .\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
           if ($LASTEXITCODE -ne 0) { throw "Android release build failed." }
 
       - name: Stage verified artifact and provenance
@@ -310,6 +310,8 @@ jobs:
           $apkZip = [IO.Compression.ZipFile]::OpenRead($source)
           try {
             if (!$apkZip.GetEntry("assets/index.android.bundle")) { throw "APK has no embedded JavaScript bundle." }
+            $abis = @($apkZip.Entries | Where-Object { $_.FullName -match '^lib/[^/]+/[^/]+\.so$' } | ForEach-Object { $_.FullName.Split('/')[1] } | Sort-Object -Unique)
+            if ($abis.Count -ne 1 -or $abis[0] -ne "arm64-v8a") { throw "APK does not match the published ARM64 installer target." }
           } finally { $apkZip.Dispose() }
 
           $dir = "artifacts/android"
@@ -318,6 +320,7 @@ jobs:
           $dest = Join-Path $dir $filename
           Copy-Item $source $dest -Force
 
+          if ((Get-Item $dest).Length -gt 100MB) { throw "APK exceeds the repository download file limit." }
           $hash = (Get-FileHash -Path $dest -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $filename" | Set-Content -Path "$dest.sha256" -Encoding ascii
 
@@ -334,6 +337,7 @@ jobs:
           $metadata = [ordered]@{
             app = "me-plus"
             platform = "android"
+            architecture = "arm64-v8a"
             version = $version
             displayVersion = $version
             filename = $filename
