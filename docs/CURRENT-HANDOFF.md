@@ -14,7 +14,7 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-09-29T23:15:00Z"
+  "updated_at": "2026-09-30T00:33:58.937Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -34,7 +34,11 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 
 Required before merge: behavioral health tests, atomic SQL acceptance/denied-role checks, workspace typecheck/build, repository policy/security checks, independent review, and successful self-hosted APK build with provenance.
 
-Atomic ingestion migration and live rollback acceptance passed: retries are idempotent, stale revisions cannot overwrite newer records, manual corrections survive, failed batches roll back without advancing last_sync, and anon/authenticated cannot call the server RPC. Runtime CI passed on 866e1d60e9993460b265a5ccc54092377674d7b3. The final merge-candidate SHA must pass all checks and APK verification.
+Atomic ingestion and rollback acceptance passed: replay/freshness/manual-correction/error/last-sync/legacy-key cases and denied-role checks. All input CI passed on `0cb985a9af41acf0d42d5931f4ec913b5fd8938c`.
+
+Windows run `36648794596` produced verified ARM64 0.3.1 (versionCode 4), with the embedded JS bundle and previous installer signer. APK SHA-256: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b`; size 44,362,126 bytes. Download/provenance are in `apps/web/public/downloads/` and `releases/android/0.3.1.json`. The downloaded artifact digest and Git blob match the published bytes. Final artifact-head checks precede merge.
+
+Build repair: pnpm 12 workspace `nodeLinker: hoisted`, short physical native paths, checksum-pinned SDK Ninja 1.13.2 (runner previously had 1.10.2), and Expo 57 compatible native pins. Expo compatibility and peer checks pass.
 
 Required before claiming phone sync fixed: install the new APK and perform a live Health Connect upload on the phone; inspect successful canonical sync/observation state and repeat idempotently. A device upload cannot be fabricated from connector access.
 
@@ -42,4 +46,4 @@ Production path: focused fix → dev → approved dev-to-prod PR. Never bypass t
 
 ## Service boundaries
 
-Use native GitHub, Supabase, Google Drive and Netlify connectors for service operations. Desktop Commander is Android-host troubleshooting only. Credentials and sensitive provider payloads stay out of Git and logs.
+Use native GitHub, Supabase, Google Drive and Netlify connectors for service operations. Desktop Commander is Android-host troubleshooting only. Credentials and sensitive provider payloads stay out of Git and logs. The current Netlify connector cannot select a dev revision; verify the dev API/web deployment before claiming it is published.
