@@ -1,11 +1,24 @@
-import { accessSync, constants, realpathSync } from "node:fs";
+import { accessSync, constants, lstatSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export function hasNextLauncher(root) {
+  const workspaceLauncher = join(root, "apps", "web", "node_modules", ".bin", "next");
+  const rootLauncher = join(root, "node_modules", ".bin", "next");
+
+  // pnpm may link the executable in the workspace or at the hoisted root.
+  // A stale workspace symlink wins during `pnpm --filter @me-plus/web build`,
+  // even if the root launcher still points to a healthy Next.js install.
+  let launcher = rootLauncher;
   try {
-    const target = realpathSync(join(root, "node_modules", ".bin", "next"));
+    lstatSync(workspaceLauncher);
+    launcher = workspaceLauncher;
+  } catch {
+    // No workspace launcher exists; pnpm will use the root one.
+  }
+  try {
+    const target = realpathSync(launcher);
     accessSync(target, constants.R_OK);
     return true;
   } catch {
