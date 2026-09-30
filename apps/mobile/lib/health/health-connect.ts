@@ -38,6 +38,20 @@ export type HealthConnectScan = {
   readings: SensorReading[];
 };
 
+export type HealthConnectPermissionState = {
+  initialized: boolean;
+  recordReadPermissionCount: number;
+  backgroundReadGranted: boolean;
+};
+
+export type HealthConnectChanges = {
+  readings: SensorReading[];
+  deletionCount: number;
+  nextChangesToken: string;
+  changesTokenExpired: boolean;
+  hasMore: boolean;
+};
+
 type GenericMetadata = {
   id?: string | null;
   lastModifiedTime?: string | null;
@@ -87,11 +101,83 @@ export async function requestHealthConnectReadPermissions() {
   }
 
   return healthConnect.requestPermission(
-    HEALTH_CONNECT_RECORD_TYPES.map((recordType) => ({
-      accessType: "read" as const,
-      recordType,
-    })) as never,
+    [
+      ...HEALTH_CONNECT_RECORD_TYPES.map((recordType) => ({
+        accessType: "read" as const,
+        recordType,
+      })),
+      {
+        accessType: "read" as const,
+        recordType: "BackgroundAccessPermission" as const,
+      },
+    ] as never,
   );
+}
+
+export async function getHealthConnectPermissionState(): Promise<HealthConnectPermissionState> {
+  assertAndroid();
+  const healthConnect = await import("react-native-health-connect");
+  const initialized = await healthConnect.initialize();
+
+  if (!initialized) {
+    throw new Error("Health Connect could not be initialized on this device.");
+  }
+
+  const grantedPermissions = await healthConnect.getGrantedPermissions();
+  const recordTypes = new Set<string>(HEALTH_CONNECT_RECORD_TYPES);
+
+  return {
+    initialized,
+    recordReadPermissionCount: grantedPermissions.filter(
+      (permission) =>
+        permission.accessType === "read" &&
+        recordTypes.has(String(permission.recordType)),
+    ).length,
+    backgroundReadGranted: grantedPermissions.some(
+      (permission) =>
+        permission.accessType === "read" &&
+        permission.recordType === "BackgroundAccessPermission",
+    ),
+  };
+}
+
+export async function readHealthConnectChanges(
+  changesToken?: string,
+): Promise<HealthConnectChanges> {
+  assertAndroid();
+  const healthConnect = await import("react-native-health-connect");
+  const initialized = await healthConnect.initialize();
+
+  if (!initialized) {
+    throw new Error("Health Connect could not be initialized on this device.");
+  }
+
+  const result = await healthConnect.getChanges({
+    recordTypes: [...HEALTH_CONNECT_RECORD_TYPES],
+    ...(changesToken ? { changesToken } : {}),
+  } as never);
+
+  const readings = result.upsertionChanges.flatMap((change, index) => {
+    const record = change.record as unknown as GenericRecord;
+    const recordType = record.recordType;
+
+    if (
+      typeof recordType !== "string" ||
+      !HEALTH_CONNECT_RECORD_TYPES.includes(recordType as HealthConnectRecordType)
+    ) {
+      return [];
+    }
+
+    return mapRecordToReadings(recordType as HealthConnectRecordType, record, index);
+  });
+
+  return {
+    readings,
+    deletionCount: result.deletionChanges.length,
+    nextChangesToken: result.nextChangesToken,
+    changesTokenExpired: result.changesTokenExpired,
+    hasMore: result.hasMore,
+  };
 }
 
 export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInventory> {
