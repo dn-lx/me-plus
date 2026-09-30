@@ -101,16 +101,10 @@ export async function requestHealthConnectReadPermissions() {
   }
 
   return healthConnect.requestPermission(
-    [
-      ...HEALTH_CONNECT_RECORD_TYPES.map((recordType) => ({
-        accessType: "read" as const,
-        recordType,
-      })),
-      {
-        accessType: "read" as const,
-        recordType: "BackgroundAccessPermission" as const,
-      },
-    ] as never,
+    HEALTH_CONNECT_RECORD_TYPES.map((recordType) => ({
+      accessType: "read" as const,
+      recordType,
+    })) as never,
   );
 }
 
