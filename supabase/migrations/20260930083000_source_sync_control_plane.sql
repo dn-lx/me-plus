@@ -9,7 +9,12 @@ create table if not exists private.source_sync_leases (
   acquired_at timestamptz not null default now(),
   expires_at timestamptz not null,
   updated_at timestamptz not null default now(),
-  primary key (user_id, data_source_id, sync_purpose)
+  primary key (user_id, data_source_id, sync_purpose),
+  constraint source_sync_leases_run_fkey
+    foreign key (sync_run_id)
+    references public.source_sync_runs(id)
+    on delete cascade
+    deferrable initially deferred
 );
 
 alter table private.source_sync_leases enable row level security;
@@ -39,6 +44,7 @@ declare
   v_max_attempts integer;
   v_attempt integer;
   v_lease private.source_sync_leases%rowtype;
+  v_running public.source_sync_runs%rowtype;
   v_lock_key bigint;
 begin
   if new.status <> 'running' then
@@ -46,13 +52,17 @@ begin
   end if;
 
   v_purpose := coalesce(nullif(btrim(new.metadata->>'syncPurpose'),''),'source_sync');
-  v_bucket := date_trunc('hour',v_now)
-    + make_interval(mins => (extract(minute from v_now)::integer / 5) * 5);
+
+  -- Existing app callers do not yet supply a logical run key. Give those calls
+  -- a deterministic minute bucket so immediate retries converge without making
+  -- ordinary manual refreshes several minutes later look like the same run.
+  v_bucket := date_trunc('minute',v_now);
   v_run_key := coalesce(
     nullif(btrim(new.metadata->>'runKey'),''),
     'source_sync:' || new.data_source_id::text || ':' ||
       to_char(v_bucket at time zone 'UTC','YYYY-MM-DD"T"HH24:MI"Z"')
   );
+
   v_lease_seconds := greatest(
     60,
     least(coalesce(nullif(new.metadata->>'leaseSeconds','')::integer,900),3600)
@@ -62,8 +72,11 @@ begin
     least(coalesce(nullif(new.metadata->>'maxAttempts','')::integer,3),10)
   );
 
+  -- The live schema already enforces one running row per source. Serialize on
+  -- that same source-wide invariant; sync_purpose remains part of provenance
+  -- and retry accounting, not a loophole for parallel provider work.
   v_lock_key := hashtextextended(
-    new.user_id::text || ':' || new.data_source_id::text || ':' || v_purpose,
+    new.user_id::text || ':' || new.data_source_id::text,
     0
   );
   perform pg_advisory_xact_lock(v_lock_key);
@@ -72,38 +85,62 @@ begin
   from private.source_sync_leases l
   where l.user_id=new.user_id
     and l.data_source_id=new.data_source_id
-    and l.sync_purpose=v_purpose
+    and l.expires_at > v_now
+  order by l.expires_at desc
+  limit 1
   for update;
 
-  if found and v_lease.expires_at > v_now then
+  if found then
     raise exception using
       errcode='P0001',
       message='source_sync_overlap',
       detail=jsonb_build_object(
         'sync_run_id',v_lease.sync_run_id,
+        'sync_purpose',v_lease.sync_purpose,
         'run_key',v_lease.run_key,
         'attempt',v_lease.attempt,
         'lease_expires_at',v_lease.expires_at
       )::text;
   end if;
 
+  -- Expired leases are recovery evidence, not blockers.
+  delete from private.source_sync_leases
+  where user_id=new.user_id
+    and data_source_id=new.data_source_id
+    and expires_at <= v_now;
+
+  -- Recover a legacy/orphaned running row even when it predates the lease
+  -- table. Recent work is treated as a real overlap; only stale work is failed.
+  select * into v_running
+  from public.source_sync_runs r
+  where r.user_id=new.user_id
+    and r.data_source_id=new.data_source_id
+    and r.status='running'
+  order by r.started_at desc
+  limit 1
+  for update;
+
   if found then
+    if v_running.started_at > v_now - make_interval(secs => v_lease_seconds) then
+      raise exception using
+        errcode='P0001',
+        message='source_sync_overlap',
+        detail=jsonb_build_object(
+          'sync_run_id',v_running.id,
+          'run_key',v_running.metadata->>'runKey',
+          'started_at',v_running.started_at
+        )::text;
+    end if;
+
     update public.source_sync_runs
     set status='failed',
         finished_at=coalesce(finished_at,v_now),
-        error_code=coalesce(error_code,'stale_sync_lease_recovered'),
+        error_code=coalesce(error_code,'orphaned_running_sync_recovered'),
         metadata=coalesce(metadata,'{}'::jsonb) || jsonb_build_object(
-          'staleLeaseRecoveredAt',v_now
+          'orphanedRunRecoveredAt',v_now
         )
-    where id=v_lease.sync_run_id
-      and user_id=new.user_id
-      and data_source_id=new.data_source_id
+    where id=v_running.id
       and status='running';
-
-    delete from private.source_sync_leases
-    where user_id=new.user_id
-      and data_source_id=new.data_source_id
-      and sync_purpose=v_purpose;
   end if;
 
   if exists (
@@ -117,7 +154,8 @@ begin
   ) then
     raise exception using
       errcode='P0001',
-      message='source_sync_already_completed';
+      message='source_sync_already_completed',
+      detail=jsonb_build_object('run_key',v_run_key)::text;
   end if;
 
   select count(*)::integer into v_attempt
@@ -204,6 +242,6 @@ after update of status on public.source_sync_runs
 for each row execute function private.release_source_sync_lease();
 
 revoke all on function private.guard_source_sync_run_insert()
-from public,anon,authenticated,service_role;
+from public, anon, authenticated, service_role;
 revoke all on function private.release_source_sync_lease()
-from public,anon,authenticated,service_role;
+from public, anon, authenticated, service_role;
