@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { drainHealthChanges } from "../apps/mobile/lib/health/drain-health-changes.ts";
+import { healthSyncScope } from "../apps/mobile/lib/health/health-sync-scope.ts";
 
 function reading(id, observedAt = "2026-09-30T00:00:00.000Z") {
   return {
@@ -17,6 +18,13 @@ function reading(id, observedAt = "2026-09-30T00:00:00.000Z") {
     },
   };
 }
+
+test("change-token scope isolates accounts and permission changes", () => {
+  const original = healthSyncScope("user-a", ["Steps", "HeartRate"]);
+  assert.equal(original, healthSyncScope("user-a", ["HeartRate", "Steps"]));
+  assert.notEqual(original, healthSyncScope("user-b", ["HeartRate", "Steps"]));
+  assert.notEqual(original, healthSyncScope("user-a", ["HeartRate"]));
+});
 
 test("drains pages and persists a token only after each upload succeeds", async () => {
   const events = [];
@@ -139,6 +147,7 @@ test("returns an expired result without advancing the stale token", async () => 
 });
 
 test("fails closed when pagination claims more data without advancing", async () => {
+  const saved = [];
   await assert.rejects(
     drainHealthChanges({
       initialToken: "token-1",
@@ -150,8 +159,9 @@ test("fails closed when pagination claims more data without advancing", async ()
         hasMore: true,
       }),
       uploadReadings: async () => {},
-      saveToken: async () => {},
+      saveToken: async (token) => saved.push(token),
     }),
     /did not advance/,
   );
+  assert.deepEqual(saved, []);
 });

@@ -6,19 +6,21 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "health-connect-auto-sync-0.3.2",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-30T00:33:58.937Z"
+  "branch": "feat/health-connect-auto-sync-0.3.2",
+  "pr": 38,
+  "status": "testing",
+  "last_verified_sha": "5287c40bc1e3614d3c93a87dcc1876e32ad017bb",
+  "next_step": "Verify the repaired incremental sync head in CI and the Android installer; validate a real phone upload before claiming device behavior.",
+  "updated_at": "2026-09-30T07:14:23Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## Health Connect correction and Android 0.3.1
+
+PR 38 now uses one foreground incremental collector. It checks on resume/sign-in and every minute while active, scopes cursors by user and granted record types, and routes manual Sync now through the same small-batch path. The first run or an expired cursor performs a one-time seven-day backfill. No background scheduler is present; Health Connect does not push changes to reader apps. Local tests/typecheck/web build passed on the working tree; GitHub checks, a verified 0.3.2 APK, and physical-device sync are still pending.
 
 - PR 37 is the release candidate; its GitHub checks and build provenance determine merge readiness. PR 17 collector work is historical and superseded.
 - User authorized correction, merge and web publication of the APK.

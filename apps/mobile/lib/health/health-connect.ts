@@ -41,7 +41,7 @@ export type HealthConnectScan = {
 export type HealthConnectPermissionState = {
   initialized: boolean;
   recordReadPermissionCount: number;
-  backgroundReadGranted: boolean;
+  recordReadTypes: HealthConnectRecordType[];
 };
 
 export type HealthConnectChanges = {
@@ -118,25 +118,23 @@ export async function getHealthConnectPermissionState(): Promise<HealthConnectPe
   }
 
   const grantedPermissions = await healthConnect.getGrantedPermissions();
-  const recordTypes = new Set<string>(HEALTH_CONNECT_RECORD_TYPES);
+  const grantedTypes = new Set(
+    grantedPermissions
+      .filter((permission) => permission.accessType === "read")
+      .map((permission) => String(permission.recordType)),
+  );
+  const recordReadTypes = HEALTH_CONNECT_RECORD_TYPES.filter((type) => grantedTypes.has(type));
 
   return {
     initialized,
-    recordReadPermissionCount: grantedPermissions.filter(
-      (permission) =>
-        permission.accessType === "read" &&
-        recordTypes.has(String(permission.recordType)),
-    ).length,
-    backgroundReadGranted: grantedPermissions.some(
-      (permission) =>
-        permission.accessType === "read" &&
-        permission.recordType === "BackgroundAccessPermission",
-    ),
+    recordReadPermissionCount: recordReadTypes.length,
+    recordReadTypes,
   };
 }
 
 export async function readHealthConnectChanges(
   changesToken?: string,
+  recordTypes: readonly HealthConnectRecordType[] = HEALTH_CONNECT_RECORD_TYPES,
 ): Promise<HealthConnectChanges> {
   assertAndroid();
   const healthConnect = await import("react-native-health-connect");
@@ -147,7 +145,7 @@ export async function readHealthConnectChanges(
   }
 
   const result = await healthConnect.getChanges({
-    recordTypes: [...HEALTH_CONNECT_RECORD_TYPES],
+    recordTypes: [...recordTypes],
     ...(changesToken ? { changesToken } : {}),
   } as never);
 
@@ -178,7 +176,10 @@ export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInv
   return (await scanHealthConnect(days)).inventory;
 }
 
-export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
+export async function scanHealthConnect(
+  days = 7,
+  recordTypes: readonly HealthConnectRecordType[] = HEALTH_CONNECT_RECORD_TYPES,
+): Promise<HealthConnectScan> {
   assertAndroid();
   const healthConnect = await import("react-native-health-connect");
   const initialized = await healthConnect.initialize();
@@ -197,7 +198,7 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
   };
 
   const results = await Promise.all(
-    HEALTH_CONNECT_RECORD_TYPES.map(async (recordType) => {
+    recordTypes.map(async (recordType) => {
       try {
         const records = await readAllRecords(healthConnect, recordType, timeRangeFilter);
         const dataOrigins = Array.from(

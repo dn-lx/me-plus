@@ -54,6 +54,10 @@ export async function drainHealthChanges(options: {
 
     deletionChangesSeen += page.deletionCount;
 
+    if (page.hasMore && page.nextChangesToken === token) {
+      throw new Error("Health Connect changes pagination did not advance.");
+    }
+
     // Persist only after every upsert in this page has been acknowledged by Me+.
     // A crash before this point safely replays the page because server ingestion is idempotent.
     await options.saveToken(page.nextChangesToken);
@@ -66,10 +70,6 @@ export async function drainHealthChanges(options: {
         finalToken: page.nextChangesToken,
         expired: false,
       };
-    }
-
-    if (page.nextChangesToken === token) {
-      throw new Error("Health Connect changes pagination did not advance.");
     }
 
     token = page.nextChangesToken;

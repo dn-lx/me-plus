@@ -7,8 +7,10 @@ import {
   getHealthConnectPermissionState,
   readHealthConnectChanges,
   scanHealthConnect,
+  type HealthConnectRecordType,
 } from "./health-connect";
 import { drainHealthChanges } from "./drain-health-changes";
+import { healthSyncScope } from "./health-sync-scope";
 import {
   syncHealthConnectReadings,
   type HealthSyncSummary,
@@ -17,9 +19,10 @@ import {
 export const HEALTH_FOREGROUND_POLL_INTERVAL_MS = 60 * 1000;
 
 const BOOTSTRAP_DAYS = 7;
-const CHANGES_TOKEN_KEY = "me-plus.health-connect.changes-token.v1";
-const LAST_ATTEMPT_KEY = "me-plus.health-connect.last-attempt-at.v1";
-const LAST_ERROR_KEY = "me-plus.health-connect.last-error.v1";
+const CHANGES_TOKEN_KEY = "me-plus.health-connect.changes-token.v2";
+const LAST_ATTEMPT_KEY = "me-plus.health-connect.last-attempt-at.v2";
+const LAST_SUCCESS_KEY = "me-plus.health-connect.last-success-at.v2";
+const LAST_ERROR_KEY = "me-plus.health-connect.last-error.v2";
 
 let inFlight: Promise<ForegroundHealthSyncResult> | null = null;
 
@@ -29,99 +32,86 @@ export type ForegroundHealthSyncResult = {
   recordsSeen: number;
   recordsCreated: number;
   recordsUpdated: number;
+  batchCount: number;
   pagesRead: number;
   deletionChangesSeen: number;
   detail?: string;
 };
 
-export async function runForegroundHealthSyncIfDue(force = false) {
-  const now = Date.now();
-  const previousAttempt = parseTimestamp(readLocal(LAST_ATTEMPT_KEY));
+// A single flight handles overlapping mount, resume, sign-in and timer events.
+export function runForegroundHealthSyncIfDue(force = false) {
+  if (inFlight) return inFlight;
 
-  if (
-    !force &&
-    previousAttempt !== null &&
-    now - previousAttempt < HEALTH_FOREGROUND_POLL_INTERVAL_MS
-  ) {
-    return skipped("foreground_throttle");
-  }
-
-  const result = await runForegroundHealthSync();
-  if (result.status === "synced") {
-    localStorage.setItem(LAST_ATTEMPT_KEY, new Date(now).toISOString());
-  }
-
-  return result;
-}
-
-export function runForegroundHealthSync() {
-  if (inFlight) {
-    return inFlight;
-  }
-
-  inFlight = runForegroundHealthSyncInternal().finally(() => {
+  inFlight = runForegroundHealthSyncInternal(force).finally(() => {
     inFlight = null;
   });
-
   return inFlight;
 }
 
-async function runForegroundHealthSyncInternal(): Promise<ForegroundHealthSyncResult> {
-  if (Platform.OS !== "android") {
-    return skipped("not_android");
-  }
+async function runForegroundHealthSyncInternal(force: boolean): Promise<ForegroundHealthSyncResult> {
+  if (Platform.OS !== "android") return skipped("not_android");
 
   const [{ data, error }, permissions] = await Promise.all([
     supabase.auth.getSession(),
     getHealthConnectPermissionState(),
   ]);
 
-  if (error) {
-    throw new Error(`Unable to read Me+ session: ${error.message}`);
+  if (error) throw new Error(`Unable to read Me+ session: ${error.message}`);
+  if (!data.session) return skipped("not_authenticated");
+  if (permissions.recordReadTypes.length === 0) return skipped("health_connect_read_permission_missing");
+
+  // A token is valid only for its account and exact set of granted record types.
+  // Changing account or revoking/granting a type starts a new one-time bootstrap.
+  const scope = healthSyncScope(data.session.user.id, permissions.recordReadTypes);
+  const attemptKey = `${LAST_ATTEMPT_KEY}:${scope}`;
+  const tokenKey = `${CHANGES_TOKEN_KEY}:${scope}`;
+  const successKey = `${LAST_SUCCESS_KEY}:${scope}`;
+  const errorKey = `${LAST_ERROR_KEY}:${scope}`;
+  const now = Date.now();
+  const previousAttempt = parseTimestamp(readLocal(attemptKey));
+
+  if (!force && previousAttempt !== null && now - previousAttempt < HEALTH_FOREGROUND_POLL_INTERVAL_MS) {
+    return skipped("foreground_throttle");
   }
 
-  if (!data.session) {
-    return skipped("not_authenticated");
-  }
-
-  if (permissions.recordReadPermissionCount === 0) {
-    return skipped("health_connect_read_permission_missing");
-  }
-
-  const savedToken = readLocal(CHANGES_TOKEN_KEY);
+  // A failed attempt is retried on the next poll, not on every rerender/resume.
+  localStorage.setItem(attemptKey, new Date(now).toISOString());
 
   try {
-    if (savedToken) {
-      return await syncFromChanges(savedToken);
-    }
-    return await bootstrapSync();
-  } catch (error) {
-    persistLastError(error);
-    throw error;
+    const token = readLocal(tokenKey);
+    const result = token
+      ? await syncFromChanges(token, tokenKey, permissions.recordReadTypes)
+      : await bootstrapSync(tokenKey, permissions.recordReadTypes);
+    localStorage.setItem(successKey, new Date().toISOString());
+    localStorage.removeItem(errorKey);
+    return result;
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Health sync failed";
+    localStorage.setItem(errorKey, message.slice(0, 240));
+    throw cause;
   }
 }
 
-async function syncFromChanges(initialToken: string): Promise<ForegroundHealthSyncResult> {
+async function syncFromChanges(
+  initialToken: string,
+  tokenKey: string,
+  recordTypes: readonly HealthConnectRecordType[],
+): Promise<ForegroundHealthSyncResult> {
   let totals = emptySummary();
-
   const drained = await drainHealthChanges({
     initialToken,
-    readPage: readHealthConnectChanges,
+    readPage: (token) => readHealthConnectChanges(token, recordTypes),
     uploadReadings: async (readings) => {
       const result = await syncHealthConnectReadings(readings);
       totals = mergeSummaries(totals, result);
     },
-    saveToken: (token) => {
-      localStorage.setItem(CHANGES_TOKEN_KEY, token);
-    },
+    saveToken: (token) => localStorage.setItem(tokenKey, token),
   });
 
   if (drained.expired) {
-    localStorage.removeItem(CHANGES_TOKEN_KEY);
-    return bootstrapSync();
+    localStorage.removeItem(tokenKey);
+    return bootstrapSync(tokenKey, recordTypes);
   }
-
-  localStorage.removeItem(LAST_ERROR_KEY);
 
   return {
     status: "synced",
@@ -129,25 +119,32 @@ async function syncFromChanges(initialToken: string): Promise<ForegroundHealthSy
     recordsSeen: totals.recordsSeen,
     recordsCreated: totals.recordsCreated,
     recordsUpdated: totals.recordsUpdated,
+    batchCount: totals.batchCount,
     pagesRead: drained.pagesRead,
     deletionChangesSeen: drained.deletionChangesSeen,
   };
 }
 
-async function bootstrapSync(): Promise<ForegroundHealthSyncResult> {
-  const cursorSeed = await readHealthConnectChanges();
-  const scan = await scanHealthConnect(BOOTSTRAP_DAYS);
+async function bootstrapSync(
+  tokenKey: string,
+  recordTypes: readonly HealthConnectRecordType[],
+): Promise<ForegroundHealthSyncResult> {
+  // Seed before scanning so changes during the one-time backfill are replayed.
+  const cursorSeed = await readHealthConnectChanges(undefined, recordTypes);
+  if (!cursorSeed.nextChangesToken) throw new Error("Health Connect returned an empty changes token.");
 
-  const result =
-    scan.readings.length > 0
-      ? await syncHealthConnectReadings(scan.readings, {
-          windowStart: scan.inventory.windowStart,
-          windowEnd: scan.inventory.windowEnd,
-        })
-      : emptySummary();
+  const scan = await scanHealthConnect(BOOTSTRAP_DAYS, recordTypes);
+  const failedType = scan.inventory.items.find((item) => item.error);
+  if (failedType) {
+    throw new Error(`Health Connect could not scan ${failedType.recordType}: ${failedType.error}`);
+  }
 
-  localStorage.setItem(CHANGES_TOKEN_KEY, cursorSeed.nextChangesToken);
-  localStorage.removeItem(LAST_ERROR_KEY);
+  const result = await syncHealthConnectReadings(scan.readings, {
+    windowStart: scan.inventory.windowStart,
+    windowEnd: scan.inventory.windowEnd,
+  });
+  // This is the only full-window upload. All later polls use the changes token.
+  localStorage.setItem(tokenKey, cursorSeed.nextChangesToken);
 
   return {
     status: "synced",
@@ -155,6 +152,7 @@ async function bootstrapSync(): Promise<ForegroundHealthSyncResult> {
     recordsSeen: result.recordsSeen,
     recordsCreated: result.recordsCreated,
     recordsUpdated: result.recordsUpdated,
+    batchCount: result.batchCount,
     pagesRead: 1,
     deletionChangesSeen: cursorSeed.deletionCount,
   };
@@ -191,15 +189,11 @@ function skipped(detail: string): ForegroundHealthSyncResult {
     recordsSeen: 0,
     recordsCreated: 0,
     recordsUpdated: 0,
+    batchCount: 0,
     pagesRead: 0,
     deletionChangesSeen: 0,
     detail,
   };
-}
-
-function persistLastError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Health sync failed";
-  localStorage.setItem(LAST_ERROR_KEY, message.slice(0, 240));
 }
 
 function readLocal(key: string) {
@@ -211,10 +205,7 @@ function readLocal(key: string) {
 }
 
 function parseTimestamp(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
+  if (!value) return null;
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? timestamp : null;
 }
