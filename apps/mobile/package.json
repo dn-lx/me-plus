@@ -13,7 +13,6 @@
   "dependencies": {
     "@me-plus/contracts": "workspace:*",
     "@me-plus/domain": "workspace:*",
-    "@me-plus/reasoning": "workspace:*",
     "@me-plus/ui": "workspace:*",
     "@supabase/supabase-js": "2.117.2",
     "expo": "57.0.26",

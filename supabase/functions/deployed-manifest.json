@@ -1,0 +1,31 @@
+{
+  "captured_at": "2026-10-01",
+  "source": "live Supabase production",
+  "functions": {
+    "me-plus-reasoning-worker": {
+      "version": 16,
+      "ezbr_sha256": "221a299a85e45086f07118c1c4439f2644ab818ed105f0e71b59c8702321f92c",
+      "verify_jwt": false,
+      "files": [
+        "index.ts"
+      ]
+    },
+    "me-plus-todoist-dispatcher": {
+      "version": 19,
+      "ezbr_sha256": "6e0195060dcdd068fec3ac9055fe4cf3d4f506f3111a6356890d24ac902340de",
+      "verify_jwt": false,
+      "files": [
+        "index.ts"
+      ]
+    },
+    "me-plus-healthsync-drive": {
+      "version": 14,
+      "ezbr_sha256": "83751c8304018798f374741496e06383b4c3afd42cbf82d7bd8ec406ff5a6453",
+      "verify_jwt": false,
+      "files": [
+        "index.ts",
+        "deno.json"
+      ]
+    }
+  }
+}
