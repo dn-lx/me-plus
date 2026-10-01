@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const migration = readFileSync(
-  new URL('../supabase/migrations/20261001013608_audit_unify_quality_state_signal_and_routine_lifecycle_v1.sql', import.meta.url),
-  'utf8',
+const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const migration = read(
+  'supabase/migrations/20261001013608_audit_unify_quality_state_signal_and_routine_lifecycle_v1.sql',
+);
+const viewSecurity = read(
+  'supabase/migrations/20261001014026_fix_personal_state_view_security_invoker_v1.sql',
 );
 
 test('health quality uses the canonical decision-rejection vocabulary end to end', () => {
@@ -25,6 +28,13 @@ test('Personal State v2 derives its summary and due-routine array from one as-of
   assert.doesNotMatch(
     migration.match(/create or replace function public\.get_due_routines[\s\S]*?\$\$;/)?.[0] ?? '',
     /me_scheduler_probe/,
+  );
+});
+
+test('Personal State compatibility view remains caller-RLS scoped', () => {
+  assert.match(
+    viewSecurity,
+    /alter view public\.current_personal_state_inputs set \(security_invoker = true\)/,
   );
 });
 
