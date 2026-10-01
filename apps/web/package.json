@@ -11,8 +11,6 @@
   "dependencies": {
     "@me-plus/contracts": "workspace:*",
     "@me-plus/domain": "workspace:*",
-    "@me-plus/reasoning": "workspace:*",
-    "@me-plus/ui": "workspace:*",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.2",
     "next": "16.3.6",
