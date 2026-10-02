@@ -5,7 +5,7 @@ import { authorizedSchedulerRequest } from "../lib/n26-scheduler-auth.mts";
 
 const SCHEDULER_KEY = "n26_provider_sync";
 const AUTOMATION_ID = "netlify:n26-provider-refresh";
-const CADENCE_MINUTES = 360;
+const CADENCE_MINUTES = 1440;
 const ALLOWED_LATENESS_MINUTES = 60;
 
 async function recordHeartbeat(
