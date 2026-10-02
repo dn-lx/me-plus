@@ -1,7 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
+import { authorizedSchedulerRequest } from "../lib/n26-scheduler-auth.mts";
 
 const VARIABLE_NAMES = [
-  "N26_SYNC_SCHEDULER_SECRET",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SECRET_KEY",
@@ -14,50 +13,24 @@ function hasText(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function authorized(request: Request, expected: string): boolean {
-  const actual = request.headers.get("x-me-plus-scheduler-secret");
-  if (!actual) {
-    return false;
-  }
-
-  const left = Buffer.from(expected);
-  const right = Buffer.from(actual);
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const schedulerSecret = Netlify.env.get("N26_SYNC_SCHEDULER_SECRET");
-  if (!schedulerSecret) {
-    return Response.json(
-      { ok: false, error: "scheduler_secret_unavailable" },
-      { status: 503 },
-    );
-  }
-
-  if (!authorized(request, schedulerSecret)) {
+  if (!authorizedSchedulerRequest(request)) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const variables = VARIABLE_NAMES.map((name) => {
-    const netlifyEnvPresent = hasText(Netlify.env.get(name));
-    const workerAccessorPresent =
-      name === "N26_SYNC_SCHEDULER_SECRET"
-        ? netlifyEnvPresent
-        : hasText(process.env[name]);
-
-    return {
-      name,
-      workerAccessorPresent,
-      netlifyEnvPresent,
-    };
-  });
+  const variables = VARIABLE_NAMES.map((name) => ({
+    name,
+    workerAccessorPresent: hasText(process.env[name]),
+    netlifyEnvPresent: hasText(Netlify.env.get(name)),
+  }));
 
   return Response.json({
     ok: true,
+    schedulerAuthentication: "supabase_vault_secret_sha256_verifier",
     allWorkerAccessorsPresent: variables.every(
       (item) => item.workerAccessorPresent,
     ),
