@@ -45,6 +45,80 @@ export interface EnableBankingSession {
   [key: string]: unknown;
 }
 
+interface EnableBankingSessionAccountData {
+  uid: string;
+  identification_hash?: string;
+  identification_hashes?: readonly string[];
+  [key: string]: unknown;
+}
+
+interface EnableBankingSessionResponse {
+  session_id?: string;
+  accounts?: readonly (EnableBankingAccount | string)[];
+  accounts_data?: readonly EnableBankingSessionAccountData[];
+  aspsp: {
+    name: string;
+    country: string;
+  };
+  psu_type?: string;
+  access?: {
+    valid_until?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+function normalizeEnableBankingSession(
+  response: EnableBankingSessionResponse,
+  fallbackSessionId?: string,
+): EnableBankingSession {
+  const accountData = Array.isArray(response.accounts_data)
+    ? response.accounts_data
+    : [];
+  const accountDataByUid = new Map(
+    accountData.map((account) => [account.uid, account] as const),
+  );
+  const accounts: EnableBankingAccount[] = [];
+
+  for (const account of response.accounts ?? []) {
+    if (typeof account === "string") {
+      const data = accountDataByUid.get(account);
+      accounts.push({
+        ...(data ?? {}),
+        uid: account,
+      });
+      continue;
+    }
+
+    if (account && typeof account.uid === "string") {
+      accounts.push(account);
+    }
+  }
+
+  if (accounts.length === 0) {
+    for (const data of accountData) {
+      if (typeof data.uid === "string" && data.uid.length > 0) {
+        accounts.push({ ...data });
+      }
+    }
+  }
+
+  const sessionId = response.session_id ?? fallbackSessionId;
+  if (!sessionId) {
+    throw new Error("Enable Banking session response is missing session_id");
+  }
+
+  if (accounts.length === 0) {
+    throw new Error("Enable Banking session response contains no usable account IDs");
+  }
+
+  return {
+    ...response,
+    session_id: sessionId,
+    accounts,
+  };
+}
+
 export interface EnableBankingBalance {
   name?: string;
   balance_amount: {
@@ -257,18 +331,25 @@ export async function startN26Authorization(
 export async function authorizeEnableBankingSession(
   code: string,
 ): Promise<EnableBankingSession> {
-  return enableBankingRequest<EnableBankingSession>("/sessions", {
-    method: "POST",
-    body: JSON.stringify({ code }),
-  });
+  const response = await enableBankingRequest<EnableBankingSessionResponse>(
+    "/sessions",
+    {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    },
+  );
+
+  return normalizeEnableBankingSession(response);
 }
 
 export async function getEnableBankingSession(
   sessionId: string,
 ): Promise<EnableBankingSession> {
-  return enableBankingRequest<EnableBankingSession>(
+  const response = await enableBankingRequest<EnableBankingSessionResponse>(
     `/sessions/${encodeURIComponent(sessionId)}`,
   );
+
+  return normalizeEnableBankingSession(response, sessionId);
 }
 
 export async function getEnableBankingAccountDetails(
