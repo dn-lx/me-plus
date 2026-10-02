@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { hasNextLauncher } from "../scripts/ensure-next-install.mjs";
+import { nextBuildInvocation } from "../scripts/build-web.mjs";
+import { hasNextLauncher, resolveNextBinary } from "../scripts/ensure-next-install.mjs";
 
 function writeFakeNextPackage(root) {
   const nextRoot = join(root, "node_modules", "next");
@@ -80,6 +81,23 @@ test("a readable pnpm shim does not hide a missing Next.js package CLI", () => {
 
     writeFakeNextPackage(root);
     assert.equal(hasNextLauncher(root), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("web build invokes the resolved Next.js CLI directly instead of a pnpm bin shim", () => {
+  const root = mkdtempSync(join(tmpdir(), "me-plus-next-direct-"));
+  try {
+    writeFakeNextPackage(root);
+
+    const expectedCli = join(root, "node_modules", "next", "dist", "bin", "next");
+    assert.equal(resolveNextBinary(root), expectedCli);
+
+    const invocation = nextBuildInvocation(root);
+    assert.equal(invocation.command, process.execPath);
+    assert.deepEqual(invocation.args, [expectedCli, "build"]);
+    assert.equal(invocation.cwd, join(root, "apps", "web"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

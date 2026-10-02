@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function resolvedNextBinary(root) {
+export function resolveNextBinary(root) {
   const webRequire = createRequire(join(root, "apps", "web", "package.json"));
   const nextPackageJson = webRequire.resolve("next/package.json");
   return join(dirname(nextPackageJson), "dist", "bin", "next");
@@ -15,8 +15,7 @@ export function hasNextLauncher(root) {
   const rootLauncher = join(root, "node_modules", ".bin", "next");
 
   // pnpm may link the executable in the workspace or at the hoisted root.
-  // A stale workspace launcher wins during `pnpm --filter @me-plus/web build`,
-  // even if the root launcher still looks healthy.
+  // A stale workspace launcher wins during filtered package scripts.
   let launcher = rootLauncher;
   try {
     lstatSync(workspaceLauncher);
@@ -26,10 +25,8 @@ export function hasNextLauncher(root) {
   }
 
   try {
-    // Checking only .bin/next is insufficient: pnpm can leave behind a readable
-    // shim while the actual package files in the virtual store are missing.
     accessSync(realpathSync(launcher), constants.R_OK);
-    accessSync(realpathSync(resolvedNextBinary(root)), constants.R_OK);
+    accessSync(realpathSync(resolveNextBinary(root)), constants.R_OK);
     return true;
   } catch {
     return false;
