@@ -1,35 +1,12 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { getEnableBankingSession } from "../../apps/web/lib/finance/enable-banking";
 import { syncN26Session } from "../../apps/web/lib/finance/n26-ingest";
 import { createAdminClient } from "../../apps/web/lib/supabase/admin";
+import { authorizedSchedulerRequest } from "../lib/n26-scheduler-auth.mts";
 
 const SCHEDULER_KEY = "n26_provider_sync";
 const AUTOMATION_ID = "netlify:n26-provider-refresh";
 const CADENCE_MINUTES = 360;
 const ALLOWED_LATENESS_MINUTES = 60;
-
-function schedulerSecret(): string {
-  const secret = Netlify.env.get("N26_SYNC_SCHEDULER_SECRET");
-  if (!secret) {
-    throw new Error("Missing N26_SYNC_SCHEDULER_SECRET");
-  }
-  return secret;
-}
-
-function authorized(request: Request): boolean {
-  const expected = schedulerSecret();
-  const actual = request.headers.get("x-me-plus-scheduler-secret");
-
-  if (!actual) {
-    return false;
-  }
-
-  const left = Buffer.from(expected);
-  const right = Buffer.from(actual);
-
-  return left.length === right.length && timingSafeEqual(left, right);
-}
 
 async function recordHeartbeat(
   admin: ReturnType<typeof createAdminClient>,
@@ -90,7 +67,7 @@ async function ensureFailureRun(
       ingestion: "me-plus-finance-v1",
       provider: "enable-banking",
       institution: "n26",
-      trigger: "netlify-recurring-provider-sync",
+      trigger: "supabase-pg-cron-provider-sync",
       failureStage: "provider_session_or_sync_start",
     },
   });
@@ -101,7 +78,7 @@ async function ensureFailureRun(
 }
 
 export default async function handler(request: Request) {
-  if (!authorized(request)) {
+  if (!authorizedSchedulerRequest(request)) {
     console.error("Rejected unauthorized N26 background sync invocation");
     return;
   }
