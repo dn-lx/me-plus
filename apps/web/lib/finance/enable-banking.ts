@@ -106,15 +106,22 @@ interface EnableBankingTransactionsResponse {
 }
 
 export class EnableBankingApiError extends Error {
+  readonly status: number;
+  readonly providerError: string | null;
+  readonly requestId: string | null;
+
   constructor(
-    readonly status: number,
-    readonly providerError: string | null,
-    readonly requestId: string | null,
+    status: number,
+    providerError: string | null,
+    requestId: string | null,
   ) {
     super(
       `Enable Banking request failed (${status})${providerError ? ` ${providerError}` : ""}${requestId ? ` [${requestId}]` : ""}`,
     );
     this.name = "EnableBankingApiError";
+    this.status = status;
+    this.providerError = providerError;
+    this.requestId = requestId;
   }
 }
 
