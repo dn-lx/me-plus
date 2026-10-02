@@ -45,6 +45,22 @@ export interface EnableBankingSession {
   [key: string]: unknown;
 }
 
+interface EnableBankingGetSessionResponse {
+  session_id?: string;
+  accounts: readonly (string | EnableBankingAccount)[];
+  accounts_data?: readonly EnableBankingAccount[];
+  aspsp: {
+    name: string;
+    country: string;
+  };
+  psu_type?: string;
+  access?: {
+    valid_until?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export interface EnableBankingBalance {
   name?: string;
   balance_amount: {
@@ -230,6 +246,31 @@ async function enableBankingRequest<T>(
   return (await response.json()) as T;
 }
 
+export function normalizeEnableBankingSession(
+  response: EnableBankingGetSessionResponse,
+  fallbackSessionId?: string,
+): EnableBankingSession {
+  const sessionId = response.session_id ?? fallbackSessionId;
+  if (!sessionId) {
+    throw new Error("Enable Banking session response is missing session_id");
+  }
+
+  const accountDataByUid = new Map(
+    (response.accounts_data ?? []).map((account) => [account.uid, account]),
+  );
+  const accounts = response.accounts.map((account) =>
+    typeof account === "string"
+      ? (accountDataByUid.get(account) ?? { uid: account })
+      : account,
+  );
+
+  return {
+    ...response,
+    session_id: sessionId,
+    accounts,
+  };
+}
+
 export async function startN26Authorization(
   state: string,
 ): Promise<{ url: string; authorization_id?: string }> {
@@ -266,9 +307,11 @@ export async function authorizeEnableBankingSession(
 export async function getEnableBankingSession(
   sessionId: string,
 ): Promise<EnableBankingSession> {
-  return enableBankingRequest<EnableBankingSession>(
+  const response = await enableBankingRequest<EnableBankingGetSessionResponse>(
     `/sessions/${encodeURIComponent(sessionId)}`,
   );
+
+  return normalizeEnableBankingSession(response, sessionId);
 }
 
 export async function getEnableBankingAccountDetails(
