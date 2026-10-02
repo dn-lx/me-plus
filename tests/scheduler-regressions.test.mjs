@@ -11,6 +11,7 @@ const typed = migration('20260929122615_fix_db_001_typed_action_execution_surfac
 const marker = migration('20260928140635_close_completion_reconciliation_acceptance_run.sql');
 const n26Daily = migration('20261002114500_n26_daily_provider_sync.sql');
 const n26Worker = read('netlify/functions/n26-sync-background.mts');
+const reducedCadences = migration('20261002100938_reduce_background_scheduler_cadences.sql');
 
 test('SCH-003: Todoist completion is reconciled into canonical action and routine state before surface cleanup', () => {
   assert.match(typed, /scheduler_reconcile_todoist_completion/);
@@ -53,4 +54,13 @@ test('N26 provider sync is daily and its watchdog cadence matches the clock', ()
   assert.match(n26Daily, /'expected_cadence_minutes', 1440/);
   assert.doesNotMatch(n26Daily, /\*\/6/);
   assert.match(n26Worker, /const CADENCE_MINUTES = 1440;/);
+});
+
+
+test('Background polling cadences stay reduced without removing their clocks', () => {
+  assert.ok(reducedCadences.includes("schedule := '0 */2 * * *'"));
+  assert.ok(reducedCadences.includes("schedule := '*/15 5-19 * * *'"));
+  assert.ok(reducedCadences.includes("schedule := '*/15 10-11,16-17,22-23 * * *'"));
+  assert.ok(reducedCadences.includes("'healthsync_drive_ingestion','invoked',null,null,120,10"));
+  assert.ok(reducedCadences.includes("interval '2 hours'"));
 });
