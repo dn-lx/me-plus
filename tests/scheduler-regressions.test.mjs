@@ -9,6 +9,8 @@ const runtime = migration('20260929115343_move_scheduler_runtime_state_to_privat
 const terminal = migration('20260928140549_fix_hourly_terminal_idempotency.sql');
 const typed = migration('20260929122615_fix_db_001_typed_action_execution_surface_state.sql');
 const marker = migration('20260928140635_close_completion_reconciliation_acceptance_run.sql');
+const n26Daily = migration('20261002114500_n26_daily_provider_sync.sql');
+const n26Worker = read('netlify/functions/n26-sync-background.mts');
 
 test('SCH-003: Todoist completion is reconciled into canonical action and routine state before surface cleanup', () => {
   assert.match(typed, /scheduler_reconcile_todoist_completion/);
@@ -41,4 +43,14 @@ test('SCH-005: historical production acceptance state is never replayed from Git
   assert.match(marker, /Dynamic user\/run state is intentionally not replayed from Git/);
   assert.doesNotMatch(marker, /insert\s+into\s+(public\.)?(actions|routine_events|scheduler_run_log)/i);
   assert.doesNotMatch(marker, /update\s+(public\.)?(actions|routine_events|scheduler_run_log)/i);
+});
+
+
+test('N26 provider sync is daily and its watchdog cadence matches the clock', () => {
+  assert.match(n26Daily, /schedule := '15 5 \* \* \*'/);
+  assert.match(n26Daily, /expected_cadence_minutes = 1440/);
+  assert.match(n26Daily, /'cadence', 'daily'/);
+  assert.match(n26Daily, /'expected_cadence_minutes', 1440/);
+  assert.doesNotMatch(n26Daily, /\*\/6/);
+  assert.match(n26Worker, /const CADENCE_MINUTES = 1440;/);
 });
