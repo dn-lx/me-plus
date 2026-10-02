@@ -12,6 +12,7 @@ const marker = migration('20260928140635_close_completion_reconciliation_accepta
 const n26Daily = migration('20261002114500_n26_daily_provider_sync.sql');
 const n26Worker = read('netlify/functions/n26-sync-background.mts');
 const reducedCadences = migration('20261002100938_reduce_background_scheduler_cadences.sql');
+const hourlyBackstops = migration('20261002101621_hourly_recovery_backstops.sql');
 
 test('SCH-003: Todoist completion is reconciled into canonical action and routine state before surface cleanup', () => {
   assert.match(typed, /scheduler_reconcile_todoist_completion/);
@@ -57,10 +58,25 @@ test('N26 provider sync is daily and its watchdog cadence matches the clock', ()
 });
 
 
-test('Background polling cadences stay reduced without removing their clocks', () => {
+test('Initial background polling reduction migration remains tracked', () => {
   assert.ok(reducedCadences.includes("schedule := '0 */2 * * *'"));
   assert.ok(reducedCadences.includes("schedule := '*/15 5-19 * * *'"));
   assert.ok(reducedCadences.includes("schedule := '*/15 10-11,16-17,22-23 * * *'"));
   assert.ok(reducedCadences.includes("'healthsync_drive_ingestion','invoked',null,null,120,10"));
   assert.ok(reducedCadences.includes("interval '2 hours'"));
+});
+
+
+test('Recovery backstops are hourly without removing their clocks', () => {
+  assert.ok(hourlyBackstops.includes("schedule := '30 5-19 * * *'"));
+  assert.ok(hourlyBackstops.includes("schedule := '30 10-11,16-17,22-23 * * *'"));
+  assert.ok(hourlyBackstops.includes("recovery cron runs once per hour at minute 30"));
+  assert.ok(hourlyBackstops.includes("Once per hour at minute 30"));
+});
+
+
+test('DST edge planner preserves hourly AI recovery and removes expired same-day edge jobs', () => {
+  assert.ok(hourlyBackstops.includes("when 'ai' then format('30 %s %s %s *'"));
+  assert.ok(hourlyBackstops.includes("where user_id=p_user_id and local_day <= v_day"));
+  assert.ok(hourlyBackstops.includes("v_tomorrow := private.meplus_ensure_edge_cron_day(p_user_id,v_day+1)"));
 });
