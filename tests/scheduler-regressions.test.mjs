@@ -73,3 +73,10 @@ test('Recovery backstops are hourly without removing their clocks', () => {
   assert.ok(hourlyBackstops.includes("recovery cron runs once per hour at minute 30"));
   assert.ok(hourlyBackstops.includes("Once per hour at minute 30"));
 });
+
+
+test('DST edge planner preserves hourly AI recovery and removes expired same-day edge jobs', () => {
+  assert.ok(hourlyBackstops.includes("when 'ai' then format('30 %s %s %s *'"));
+  assert.ok(hourlyBackstops.includes("where user_id=p_user_id and local_day <= v_day"));
+  assert.ok(hourlyBackstops.includes("v_tomorrow := private.meplus_ensure_edge_cron_day(p_user_id,v_day+1)"));
+});
