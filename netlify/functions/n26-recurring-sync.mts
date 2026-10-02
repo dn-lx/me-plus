@@ -3,7 +3,7 @@ export default async function handler() {
   const siteUrl = Netlify.env.get("URL");
 
   if (!secret || !siteUrl) {
-    throw new Error("Missing N26 scheduler configuration");
+    throw new Error("Missing recurring N26 scheduler configuration");
   }
 
   const response = await fetch(
@@ -16,11 +16,13 @@ export default async function handler() {
     },
   );
 
-  if (!response.ok) {
+  if (response.status !== 202) {
     throw new Error(`Unable to start N26 background sync (${response.status})`);
   }
 }
 
 export const config = {
-  schedule: "0 5 * * *",
+  // Netlify schedules are UTC. Six-hour refreshes keep the stored account state
+  // well inside Me+'s 36-hour freshness threshold without excessive provider traffic.
+  schedule: "15 */6 * * *",
 };
