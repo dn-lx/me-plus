@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-10-04",
+  "source": "live Supabase production",
+  "project_ref": "wbqnctrvxohxwiaignhg",
+  "functions": {
+    "me-plus-today": {
+      "version": 18,
+      "ezbr_sha256": "6dda8a3027bb1b056ad7fd9ea816c5c205357ffa56a4ae0b61a60b6d079c1725",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "retired_pending_delete"
+    },
+    "me-plus-complete-action": {
+      "version": 17,
+      "ezbr_sha256": "69fbab067e24baaddc5d13f577e200b74aab1c5aa9222ad91be6318e8c458548",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "retired_pending_delete"
+    },
+    "me-plus-weekly-review": {
+      "version": 17,
+      "ezbr_sha256": "48feef165d6eb5a483d21d7c026d63a580e511e34ddd4616442532cd0d34b358",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "retired_pending_delete"
+    },
+    "me-plus-reasoning-worker": {
+      "version": 28,
+      "ezbr_sha256": "6ed2ce32f45a28200740c02969d24ca4b716fee6e05e3826f9468d1c25ade5f2",
+      "verify_jwt": false,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    },
+    "me-plus-todoist-dispatcher": {
+      "version": 25,
+      "ezbr_sha256": "0792492ef88a7f86a7c80f95e310c788b6d111bbef7649de6037986ac80b48de",
+      "verify_jwt": false,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    },
+    "me-plus-healthsync-drive": {
+      "version": 21,
+      "ezbr_sha256": "ddadd6c1904b9368e6894fe72df148bc85183c0474a66b5f74fdc53180856163",
+      "verify_jwt": false,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    },
+    "meplus-google-calendar-sync": {
+      "version": 16,
+      "ezbr_sha256": "ce143c15dd604ccb4ad84134f7296a320450dcd5cb6917522683920fad32a4a3",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    },
+    "me-plus-routing-test": {
+      "version": 2,
+      "ezbr_sha256": "2444151b2caa77393e560e73a7f475a5f904ab0d80889c498d02b79b1201c89b",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "retired_pending_delete"
+    },
+    "me-plus-reasoning-worker-tiered-test": {
+      "version": 2,
+      "ezbr_sha256": "a1a72467043a8414fbf3acddbd84dccce79597eb30cba2fdc1a0bed714817629",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "retired_pending_delete"
+    },
+    "me-plus-gateway": {
+      "version": 15,
+      "ezbr_sha256": "cd947761eb57eee715371330fe9a50fddcfc83688d0dfe32eebeafdd7d2b4426",
+      "verify_jwt": false,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    },
+    "me-plus-retention-archive": {
+      "version": 1,
+      "ezbr_sha256": "901c1c9e4929bed57b897581c8028aa8cc4da7ac604f667989bb79fd5b329080",
+      "verify_jwt": true,
+      "status": "ACTIVE",
+      "expected_runtime": "active"
+    }
+  }
+}
