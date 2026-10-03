@@ -31,7 +31,25 @@ test('gateway source keeps Today read-only and bounded', async () => {
   assert.match(source, /server_authenticate_meplus_gateway/)
   assert.match(source, /server_gateway_build_personal_state/)
   assert.match(source, /source:"canonical_scheduler_state"/)
-  assert.match(source, /operations:\["capabilities","get_current_state","get_context","today","complete_action","weekly_review"\]/)
+  for (const operation of [
+    'capabilities',
+    'bootstrap_context',
+    'resolve_specs',
+    'get_latest_checkpoint',
+    'get_ai_routing_config',
+    'get_cross_domain_evidence_context',
+    'list_engineering_issues',
+    'upsert_engineering_issue',
+    'get_scheduler_policy',
+    'version_scheduler_policy',
+    'get_current_state',
+    'get_context',
+    'today',
+    'complete_action',
+    'weekly_review',
+  ]) {
+    assert.ok(source.includes(`"${operation}"`), `gateway capability missing ${operation}`)
+  }
 
   const todayStart = source.indexOf('async function today(')
   const todayEnd = source.indexOf('async function completeAction(', todayStart)
