@@ -14,7 +14,8 @@
     "check": "pnpm test:integration && pnpm typecheck",
     "test:finance": "node --experimental-strip-types --test tests/n26-account-identity.test.mjs",
     "test:health": "node --experimental-strip-types --test tests/health-freshness.test.mjs tests/health-ingestion-consistency.test.mjs tests/health-sync-transport.test.mjs",
-    "test:integration": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test:integration": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:gateway": "node --experimental-strip-types --test tests/meplus-gateway.test.mjs"
   },
   "devDependencies": {
     "typescript": "6.0.3",
