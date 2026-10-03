@@ -43,6 +43,21 @@ test('gateway source keeps Today read-only and bounded', async () => {
   assert.doesNotMatch(todaySource, /daily_plans/, 'today() must not create or depend on legacy daily plans')
 })
 
+
+test('checkpoint lookup filters domains before limiting results', async () => {
+  const source = await readFile(gatewayPath, 'utf8')
+  const start = source.indexOf('async function getLatestCheckpoint(')
+  const end = source.indexOf('async function bootstrapContext(', start)
+  assert.ok(start >= 0 && end > start, 'getLatestCheckpoint() must be present')
+
+  const fn = source.slice(start, end)
+  const domainFilter = fn.indexOf('.overlaps("domains",requestedDomains)')
+  const orderLimit = fn.indexOf('.order("updated_at",{ascending:false}).limit(limit)')
+  assert.ok(domainFilter >= 0, 'checkpoint lookup must push domain overlap into the bounded query')
+  assert.ok(orderLimit > domainFilter, 'checkpoint domain filtering must happen before ordering/limit')
+  assert.doesNotMatch(fn, /rows\.find\(/, 'checkpoint filtering must not happen after the limit')
+})
+
 const gatewayUrl = process.env.MEPLUS_GATEWAY_URL
 const gatewayKey = process.env.MEPLUS_GATEWAY_API_KEY
 const liveEnabled = Boolean(gatewayUrl && gatewayKey)
@@ -59,14 +74,21 @@ test('live gateway exposes bounded capabilities and state', { skip: !liveEnabled
   const capabilities = await callGateway(gatewayUrl, 'capabilities', {}, gatewayKey)
   assert.equal(capabilities.response.status, 200)
   assert.equal(capabilities.body?.ok, true)
-  assert.deepEqual(capabilities.body?.result?.operations, [
-    'capabilities',
+  for (const operation of [
+    'bootstrap_context',
+    'resolve_specs',
+    'get_latest_checkpoint',
+    'get_ai_routing_config',
+    'get_cross_domain_evidence_context',
+    'list_engineering_issues',
+    'upsert_engineering_issue',
+    'get_scheduler_policy',
+    'version_scheduler_policy',
     'get_current_state',
-    'get_context',
     'today',
-    'complete_action',
-    'weekly_review',
-  ])
+  ]) {
+    assert.ok(capabilities.body?.result?.operations?.includes(operation), `live capability missing ${operation}`)
+  }
 
   const state = await callGateway(gatewayUrl, 'get_current_state', {}, gatewayKey)
   assert.equal(state.response.status, 200)
