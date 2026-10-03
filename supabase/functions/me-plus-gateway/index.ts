@@ -1,6 +1,6 @@
 import { withSupabase } from "npm:@supabase/server@^1";
 
-const GATEWAY_VERSION = "gateway-v1.0.0";
+const GATEWAY_VERSION = "gateway-v1.8.1";
 const ALLOWED_CONTEXT_TOPICS = new Set(["state","goals","routines","actions","recommendations"]);
 
 function json(data: any, status = 200) {
@@ -225,6 +225,418 @@ async function completeAction(admin:any,userId:string,input:any) {
   return {action:updated,action_event:event,outcome};
 }
 
+function validIdempotencyKey(input:any) {
+  const key = typeof input?.idempotency_key === "string" ? input.idempotency_key.trim() : "";
+  return key.length > 0 && key.length <= 200;
+}
+function validScale(value:any) {
+  return value === undefined || value === null || (Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 5);
+}
+async function recordCheckin(admin:any,userId:string,input:any) {
+  if(!validIdempotencyKey(input)) {
+    return { __status:400, error:"invalid_request", message:"idempotency_key is required (1-200 chars)" };
+  }
+  const checkinType = String(input?.checkin_type ?? "ad_hoc");
+  if(!["morning","evening","ad_hoc"].includes(checkinType)) {
+    return { __status:400, error:"invalid_checkin_type" };
+  }
+  for (const key of ["mood","energy","stress","soreness","sleep_quality"]) {
+    if(!validScale(input?.[key])) {
+      return { __status:400, error:"invalid_checkin_scale", field:key, message:"check-in scales must be integers 1-5" };
+    }
+  }
+  const hasValue = ["mood","energy","stress","soreness","sleep_quality"].some(k => input?.[k] !== undefined && input?.[k] !== null)
+    || (typeof input?.note === "string" && input.note.trim().length > 0);
+  if(!hasValue) return { __status:400, error:"empty_checkin" };
+  if(input?.dry_run === true) {
+    return { dry_run:true, valid:true, normalized:{checkin_type:checkinType, observed_at:input?.observed_at ?? null} };
+  }
+  const {data,error} = await admin.rpc("server_gateway_record_checkin",{p_user_id:userId,p_input:input});
+  if(error) throw new Error("record_checkin: "+error.message);
+  return data;
+}
+async function logMeal(admin:any,userId:string,input:any) {
+  if(!validIdempotencyKey(input)) {
+    return { __status:400, error:"invalid_request", message:"idempotency_key is required (1-200 chars)" };
+  }
+  if(typeof input?.eaten_at !== "string" || !input.eaten_at.trim()) {
+    return { __status:400, error:"eaten_at_required" };
+  }
+  if(input?.items !== undefined && !Array.isArray(input.items)) {
+    return { __status:400, error:"items_must_be_array" };
+  }
+  if(Array.isArray(input?.items) && input.items.length > 50) {
+    return { __status:400, error:"too_many_meal_items" };
+  }
+  for (const item of (input?.items ?? [])) {
+    if(!item || typeof item !== "object" || typeof item.food_name !== "string" || !item.food_name.trim()) {
+      return { __status:400, error:"each_item_requires_food_name" };
+    }
+  }
+  if(input?.estimate !== undefined && (!input.estimate || typeof input.estimate !== "object" || Array.isArray(input.estimate) || !input.estimate.values || typeof input.estimate.values !== "object" || Array.isArray(input.estimate.values))) {
+    return { __status:400, error:"estimate_requires_values_object" };
+  }
+  if(input?.dry_run === true) {
+    return { dry_run:true, valid:true, normalized:{eaten_at:input.eaten_at, meal_type:input?.meal_type ?? null, item_count:(input?.items ?? []).length, has_estimate:!!input?.estimate} };
+  }
+  const {data,error} = await admin.rpc("server_gateway_log_meal",{p_user_id:userId,p_input:input});
+  if(error) throw new Error("log_meal: "+error.message);
+  return data;
+}
+
+function boundedLimit(input:any, fallback=20, max=50) {
+  const n=Number(input?.limit ?? fallback);
+  return Math.max(1,Math.min(max,Number.isFinite(n)?Math.floor(n):fallback));
+}
+async function getHealthContext(admin:any,userId:string,input:any) {
+  const asOf=typeof input?.as_of==="string"?input.as_of:new Date().toISOString();
+  const {data,error}=await admin.rpc("get_health_context",{p_user_id:userId,p_as_of:asOf});
+  if(error) throw new Error("get_health_context: "+error.message);
+  return data;
+}
+async function getCalendarContext(admin:any,userId:string,input:any) {
+  const now=new Date();
+  const from=typeof input?.from==="string"?input.from:new Date(now.getTime()-86400000).toISOString();
+  const to=typeof input?.to==="string"?input.to:new Date(now.getTime()+30*86400000).toISOString();
+  if(Date.parse(to)-Date.parse(from)>90*86400000) return {__status:400,error:"calendar_window_too_large"};
+  const {data,error}=await admin.from("calendar_events")
+    .select("id,external_event_id,calendar_name,title,starts_at,ends_at,timezone,location_text,event_type,status,busy,metadata")
+    .eq("user_id",userId).gte("ends_at",from).lte("starts_at",to).order("starts_at").limit(250);
+  if(error) throw error;
+  return {from,to,events:data||[]};
+}
+async function getCheckinContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,20,50);
+  const {data,error}=await admin.from("daily_checkins")
+    .select("id,checkin_type,observed_at,mood,energy,stress,soreness,sleep_quality,note")
+    .eq("user_id",userId).order("observed_at",{ascending:false}).limit(limit);
+  if(error) throw error;
+  return {checkins:data||[]};
+}
+async function getNutritionContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,15,40);
+  const [mealsRes,hydrationRes]=await Promise.all([
+    admin.from("meals").select("id,eaten_at,meal_type,title,capture_method,note,calories_kcal,protein_g,carbohydrate_g,fat_g,fibre_g,confidence,provenance")
+      .eq("user_id",userId).order("eaten_at",{ascending:false}).limit(limit),
+    admin.from("hydration_events").select("id,observed_at,beverage_type,amount_ml,calories_kcal,caffeine_mg,electrolytes,capture_method,confidence,action_id")
+      .eq("user_id",userId).order("observed_at",{ascending:false}).limit(Math.min(limit*2,50))
+  ]);
+  if(mealsRes.error) throw mealsRes.error;
+  if(hydrationRes.error) throw hydrationRes.error;
+  const mealIds=(mealsRes.data||[]).map((x:any)=>x.id);
+  let items:any[]=[];
+  if(mealIds.length){
+    const r=await admin.from("meal_items").select("id,meal_id,item_order,food_name,quantity,unit,grams,calories_kcal,protein_g,carbohydrate_g,fat_g,fibre_g,estimate_status,confidence")
+      .eq("user_id",userId).in("meal_id",mealIds).order("meal_id").order("item_order");
+    if(r.error) throw r.error; items=r.data||[];
+  }
+  return {meals:mealsRes.data||[],meal_items:items,hydration:hydrationRes.data||[]};
+}
+async function getTrainingContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,10,30);
+  const [workoutsRes,recoveryRes]=await Promise.all([
+    admin.from("workouts").select("id,started_at,ended_at,workout_type,title,duration_minutes,perceived_exertion,calories_burned_kcal,distance_m,note,metadata,provenance")
+      .eq("user_id",userId).order("started_at",{ascending:false}).limit(limit),
+    admin.from("recovery_sessions").select("id,recovery_type,started_at,ended_at,duration_minutes,before_state,after_state,capture_method,confidence,note,metadata,action_id,temperature_c")
+      .eq("user_id",userId).order("started_at",{ascending:false}).limit(limit)
+  ]);
+  if(workoutsRes.error) throw workoutsRes.error;
+  if(recoveryRes.error) throw recoveryRes.error;
+  const ids=(workoutsRes.data||[]).map((x:any)=>x.id);
+  let exercises:any[]=[], sets:any[]=[];
+  if(ids.length){
+    const e=await admin.from("workout_exercises").select("id,workout_id,exercise_order,exercise_name,canonical_exercise_ref,exercise_type,duration_seconds,distance_m,calories_burned_kcal,note,equipment_name,primary_muscles,secondary_muscles,identification_confidence")
+      .eq("user_id",userId).in("workout_id",ids).order("workout_id").order("exercise_order");
+    if(e.error) throw e.error; exercises=e.data||[];
+    const eids=exercises.map((x:any)=>x.id);
+    if(eids.length){
+      const s=await admin.from("exercise_sets").select("id,workout_exercise_id,set_order,set_type,reps,weight_kg,duration_seconds,distance_m,rest_seconds,rpe,rir,completed,note")
+        .eq("user_id",userId).in("workout_exercise_id",eids).order("workout_exercise_id").order("set_order");
+      if(s.error) throw s.error; sets=s.data||[];
+    }
+  }
+  return {workouts:workoutsRes.data||[],exercises,sets,recovery_sessions:recoveryRes.data||[]};
+}
+async function getSkillsContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,20,50);
+  const skills=await admin.from("skills").select("id,goal_id,name,domain,current_level,desired_outcome,active,metadata").eq("user_id",userId).eq("active",true).order("name");
+  if(skills.error) throw skills.error;
+  const skillIds=(skills.data||[]).map((x:any)=>x.id);
+  let subskills:any[]=[], drills:any[]=[], sessions:any[]=[];
+  if(skillIds.length){
+    const [ss,ps]=await Promise.all([
+      admin.from("subskills").select("id,skill_id,parent_subskill_id,name,description,current_level,priority,progression_criteria").eq("user_id",userId).in("skill_id",skillIds).order("priority").limit(100),
+      admin.from("practice_sessions").select("id,skill_id,started_at,ended_at,duration_minutes,perceived_difficulty,performance,note").eq("user_id",userId).in("skill_id",skillIds).order("started_at",{ascending:false}).limit(limit)
+    ]);
+    if(ss.error) throw ss.error; if(ps.error) throw ps.error;
+    subskills=ss.data||[]; sessions=ps.data||[];
+    const subIds=subskills.map((x:any)=>x.id);
+    if(subIds.length){
+      const d=await admin.from("skill_drills").select("id,subskill_id,title,instructions,difficulty,target_definition,normal_minutes,minimum_minutes,active").eq("user_id",userId).in("subskill_id",subIds).eq("active",true).limit(100);
+      if(d.error) throw d.error; drills=d.data||[];
+    }
+  }
+  let assessments:any[]=[];
+  if(skillIds.length){
+    const a=await admin.from("skill_assessments").select("id,skill_id,subskill_id,assessor_type,assessor_ref,assessed_at,level_text,level_number,scale,scale_version,confidence,evidence,note").eq("user_id",userId).in("skill_id",skillIds).order("assessed_at",{ascending:false}).limit(50);
+    if(a.error) throw a.error; assessments=a.data||[];
+  }
+  return {skills:skills.data||[],subskills,drills,recent_practice_sessions:sessions,recent_assessments:assessments};
+}
+async function getSpanishContext(admin:any,userId:string,input:any) {
+  const language=String(input?.language_code ?? "es").toLowerCase();
+  const p=await admin.from("language_profiles").select("id,skill_id,language_code,display_name,overall_cefr,target_cefr,support_language_code,display_mode,preferred_variant,settings")
+    .eq("user_id",userId).eq("language_code",language).eq("active",true).maybeSingle();
+  if(p.error) throw p.error; if(!p.data) return null;
+  const profile=p.data;
+  const [skill,subskills,states,mistakes,attempts,sessions]=await Promise.all([
+    admin.from("skills").select("id,name,current_level,desired_outcome,metadata").eq("user_id",userId).eq("id",profile.skill_id).maybeSingle(),
+    admin.from("subskills").select("id,name,current_level,priority,progression_criteria").eq("user_id",userId).eq("skill_id",profile.skill_id).order("priority"),
+    admin.from("language_item_state").select("item_id,learning_stage,mastery_score,times_tested,correct_count,incorrect_count,next_review_at,suspended").eq("user_id",userId).eq("language_profile_id",profile.id).eq("suspended",false).order("next_review_at",{ascending:true,nullsFirst:true}).limit(30),
+    admin.from("language_mistakes").select("id,subskill_id,error_type,error_key,description,example_incorrect,example_correct,occurrence_count,status,severity,confidence,next_review_at,last_seen_at").eq("user_id",userId).eq("language_profile_id",profile.id).in("status",["active","improving","monitor"]).order("last_seen_at",{ascending:false}).limit(20),
+    admin.from("language_attempts").select("id,subskill_id,item_id,attempt_type,response_text,corrected_response,is_correct,score,feedback,attempted_at").eq("user_id",userId).eq("language_profile_id",profile.id).order("attempted_at",{ascending:false}).limit(30),
+    admin.from("practice_sessions").select("id,started_at,ended_at,duration_minutes,perceived_difficulty,performance,note").eq("user_id",userId).eq("skill_id",profile.skill_id).order("started_at",{ascending:false}).limit(10)
+  ]);
+  for(const r of [skill,subskills,states,mistakes,attempts,sessions]) if(r.error) throw r.error;
+  const itemIds=(states.data||[]).map((x:any)=>x.item_id);
+  let items:any[]=[];
+  if(itemIds.length){
+    const r=await admin.from("language_items").select("id,item_type,content,meaning,cefr_level,topic,tags").eq("user_id",userId).in("id",itemIds);
+    if(r.error) throw r.error; items=r.data||[];
+  }
+  return {profile,skill:skill.data,subskills:subskills.data||[],item_states:states.data||[],items,active_mistakes:mistakes.data||[],recent_attempts:attempts.data||[],recent_sessions:sessions.data||[]};
+}
+async function getFinanceContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,30,100);
+  const [accounts,transactions,debts,commitments,snapshot]=await Promise.all([
+    admin.from("financial_accounts").select("id,provider,account_type,display_name,currency,current_balance,available_balance,balance_as_of,active,metadata").eq("user_id",userId).eq("active",true).order("display_name"),
+    admin.from("financial_transactions").select("id,financial_account_id,booked_at,value_at,amount,currency,merchant,description,category,transaction_type,recurring_candidate").eq("user_id",userId).order("booked_at",{ascending:false}).limit(limit),
+    admin.from("debts").select("id,lender,debt_type,display_name,currency,original_principal,current_balance,interest_rate,minimum_payment,next_payment_on,status,metadata").eq("user_id",userId).order("display_name"),
+    admin.from("recurring_financial_commitments").select("id,title,category,amount,currency,cadence,next_due_on,essential,active,source_refs,metadata").eq("user_id",userId).eq("active",true).order("next_due_on",{ascending:true,nullsFirst:false}),
+    admin.from("financial_snapshots").select("id,as_of,currency,total_assets,total_liabilities,cash_available,monthly_income,monthly_committed_expenses,monthly_variable_expenses,snapshot").eq("user_id",userId).order("as_of",{ascending:false}).limit(1)
+  ]);
+  for(const r of [accounts,transactions,debts,commitments,snapshot]) if(r.error) throw r.error;
+  return {accounts:accounts.data||[],recent_transactions:transactions.data||[],debts:debts.data||[],recurring_commitments:commitments.data||[],latest_snapshot:(snapshot.data||[])[0]??null};
+}
+async function getReflectionContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,20,50);
+  const [journal,relationships,spiritual]=await Promise.all([
+    admin.from("journal_entries").select("id,entry_type,occurred_at,title,content,mood,tags,metadata").eq("user_id",userId).order("occurred_at",{ascending:false}).limit(limit),
+    admin.from("relationship_reflections").select("id,interaction_id,reflection_type,occurred_at,what_worked,what_to_try,connection_learning,mutual_interest_notes,boundary_or_consent_notes,next_step,metadata").eq("user_id",userId).order("occurred_at",{ascending:false}).limit(limit),
+    admin.from("spiritual_sessions").select("id,spiritual_practice_id,started_at,ended_at,duration_minutes,intention,experience,before_state,after_state,insight,metadata").eq("user_id",userId).order("started_at",{ascending:false}).limit(limit)
+  ]);
+  for(const r of [journal,relationships,spiritual]) if(r.error) throw r.error;
+  return {journal_entries:journal.data||[],relationship_reflections:relationships.data||[],spiritual_sessions:spiritual.data||[]};
+}
+async function getSettingsContext(admin:any,userId:string,input:any) {
+  const {data,error}=await admin.from("preferences").select("id,key,value,scope,updated_at")
+    .eq("user_id",userId).order("scope").order("key").limit(200);
+  if(error) throw error;
+  return {preferences:data||[]};
+}
+async function getSocialContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,30,100);
+  const [people,interactions,reflections]=await Promise.all([
+    admin.from("people").select("id,display_name,relationship_context,status,notes,metadata,updated_at").eq("user_id",userId).order("updated_at",{ascending:false}).limit(limit),
+    admin.from("interactions").select("id,person_id,interaction_type,occurred_at,context,summary,connection_quality,comfort_level,mutuality_level,follow_up_intention,observations").eq("user_id",userId).order("occurred_at",{ascending:false}).limit(limit),
+    admin.from("relationship_reflections").select("id,interaction_id,reflection_type,occurred_at,what_worked,what_to_try,connection_learning,mutual_interest_notes,boundary_or_consent_notes,next_step,metadata").eq("user_id",userId).order("occurred_at",{ascending:false}).limit(limit)
+  ]);
+  for(const r of [people,interactions,reflections]) if(r.error) throw r.error;
+  return {people:people.data||[],interactions:interactions.data||[],relationship_reflections:reflections.data||[]};
+}
+
+async function getDailyPlanContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,7,30);
+  const plans=await admin.from("daily_plans").select("id,personal_state_snapshot_id,plan_date,timezone,engine_version,status,summary,created_at,updated_at").eq("user_id",userId).order("plan_date",{ascending:false}).limit(limit);
+  if(plans.error) throw plans.error;
+  const ids=(plans.data||[]).map((x:any)=>x.id);
+  let actions:any[]=[];
+  if(ids.length){
+    const r=await admin.from("actions").select("id,daily_plan_id,domain,title,priority,version,status,estimated_minutes,planned_start,planned_end,due_at,reason").eq("user_id",userId).in("daily_plan_id",ids).order("planned_start",{ascending:true,nullsFirst:false});
+    if(r.error) throw r.error; actions=r.data||[];
+  }
+  return {plans:plans.data||[],actions};
+}
+async function getFeedbackContext(admin:any,userId:string,input:any) {
+  const limit=boundedLimit(input,30,100);
+  const [feedback,outcomes]=await Promise.all([
+    admin.from("recommendation_feedback").select("id,recommendation_id,decision,helpfulness,reason_code,note,recorded_at").eq("user_id",userId).order("recorded_at",{ascending:false}).limit(limit),
+    admin.from("outcomes").select("id,action_id,recommendation_id,outcome_type,observed_at,subjective_value,objective_refs,summary").eq("user_id",userId).order("observed_at",{ascending:false}).limit(limit)
+  ]);
+  if(feedback.error) throw feedback.error; if(outcomes.error) throw outcomes.error;
+  return {recommendation_feedback:feedback.data||[],outcomes:outcomes.data||[]};
+}
+function mutationRequiredFields(operation:string) {
+  const m:any={
+    log_hydration:["amount_ml"],
+    log_workout:["started_at"],
+    log_recovery_session:["recovery_type","started_at"],
+    log_practice_session:["skill_id","started_at"],
+    upsert_goal:[],
+    upsert_routine:[],
+    upsert_action:[],
+    record_spanish_learning:[],
+    upsert_financial_account:[],
+    upsert_debt:[],
+    upsert_recurring_commitment:[],
+    record_financial_snapshot:[],
+    record_financial_transaction:["financial_account_id","booked_at","amount"],
+    log_journal_entry:["content"],
+    log_relationship_reflection:[],
+    log_spiritual_session:["started_at"],
+    record_recommendation_feedback:["recommendation_id"],
+    record_outcome:["outcome_type"],
+    persist_daily_plan:["plan_date"],
+    upsert_preference:["key"],
+    upsert_person:[],
+    log_interaction:["interaction_type"],
+    upsert_skill:[],
+    upsert_subskill:[],
+    upsert_skill_drill:[],
+    record_skill_assessment:["skill_id","assessor_type","scale"],
+    upsert_spiritual_practice:[],
+    record_health_observation:["observation_type"]
+  };
+  return m[operation]??[];
+}
+async function mutateOperation(admin:any,userId:string,operation:string,input:any) {
+  if(!validIdempotencyKey(input)) return {__status:400,error:"invalid_request",message:"idempotency_key is required (1-200 chars)"};
+  for(const field of mutationRequiredFields(operation)) {
+    if(input?.[field]===undefined || input?.[field]===null || String(input[field]).trim()==="") return {__status:400,error:"missing_required_field",field};
+  }
+  if(input?.dry_run===true) return {dry_run:true,valid:true,operation};
+  if(operation==="record_health_observation"){
+    const {data,error}=await admin.rpc("server_gateway_record_health_observation",{p_user_id:userId,p_input:input});
+    if(error) throw new Error(operation+": "+error.message); return data;
+  }
+  if(["upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_spiritual_practice"].includes(operation)){
+    const {data,error}=await admin.rpc("server_gateway_mutate_aux",{p_user_id:userId,p_operation:operation,p_input:input});
+    if(error) throw new Error(operation+": "+error.message); return data;
+  }
+  const {data,error}=await admin.rpc("server_gateway_mutate",{p_user_id:userId,p_operation:operation,p_input:input});
+  if(error) throw new Error(operation+": "+error.message);
+  return data;
+}
+
+
+function normalizeTextList(value:any) {
+  if(!Array.isArray(value)) return [];
+  return [...new Set(value.map((x:any)=>String(x ?? "").trim()).filter((x:string)=>x.length>0))].slice(0,50);
+}
+
+async function resolveSpecs(admin:any,input:any) {
+  const topics=normalizeTextList(input?.topics ?? input?.domains ?? []);
+  const {data,error}=await admin.rpc("server_gateway_resolve_specs",{p_topics:topics});
+  if(error) throw new Error("resolve_specs: "+error.message);
+  return {topics,specs:Array.isArray(data)?data:(data??[])};
+}
+
+async function getLatestCheckpoint(admin:any,userId:string,input:any) {
+  const requestedDomains=normalizeTextList(input?.domains);
+  const statuses=normalizeTextList(input?.statuses);
+  const limit=Math.max(1,Math.min(50,Number(input?.scan_limit ?? 20)));
+  let q=admin.from("interaction_sessions")
+    .select("id,interface,external_session_ref,session_type,started_at,ended_at,status,domains,summary,decisions,new_facts,corrections,open_loops,next_actions,entity_refs,document_refs,source_refs,personal_state_snapshot_id,supersedes_id,checkpoint_version,model_provider,model_name,model_version,prompt_contract_version,metadata,created_at,updated_at")
+    .eq("user_id",userId);
+  if(statuses.length) q=q.in("status",statuses);
+  if(requestedDomains.length) q=q.overlaps("domains",requestedDomains);
+  q=q.order("updated_at",{ascending:false}).limit(limit);
+  const {data,error}=await q;
+  if(error) throw error;
+  const rows=data||[];
+  return {requested_domains:requestedDomains,checkpoint:rows[0]??null};
+}
+
+
+async function bootstrapContext(admin:any,userId:string,input:any) {
+  const topics=normalizeTextList(input?.topics ?? input?.domains ?? []);
+  const checkpointDomains=normalizeTextList(input?.checkpoint_domains ?? topics);
+  const asOf=typeof input?.as_of==="string" ? input.as_of : new Date().toISOString();
+  const [specResult, checkpointResult, stateResult] = await Promise.all([
+    resolveSpecs(admin,{topics}),
+    getLatestCheckpoint(admin,userId,{domains:checkpointDomains,statuses:["active","closed"],scan_limit:20}),
+    getCurrentState(admin,userId,{as_of:asOf})
+  ]);
+  return {
+    contract_version:"bootstrap-context-v1",
+    as_of:asOf,
+    topics,
+    specs:specResult.specs,
+    checkpoint:checkpointResult.checkpoint,
+    state:stateResult.state
+  };
+}
+
+
+async function getCrossDomainEvidenceContext(admin:any,userId:string,input:any) {
+  const asOf=typeof input?.as_of==="string"?input.as_of:new Date().toISOString();
+  const {data,error}=await admin.rpc("get_cross_domain_evidence_context",{p_user_id:userId,p_as_of:asOf});
+  if(error) throw new Error("get_cross_domain_evidence_context: "+error.message);
+  return data;
+}
+
+async function getAiRoutingConfig(admin:any) {
+  const {data,error}=await admin.rpc("server_gateway_get_ai_routing_config");
+  if(error) throw new Error("server_gateway_get_ai_routing_config: "+error.message);
+  return data ?? {routing_policy_version:"meplus-ai-routing-v1",routes:[],models:[]};
+}
+
+async function getEngineeringIssue(admin:any,input:any) {
+  const issueKey=String(input?.issue_key ?? "").trim();
+  if(!issueKey) return {__status:400,error:"issue_key_required"};
+  const {data,error}=await admin.rpc("server_gateway_get_engineering_issue",{p_issue_key:issueKey});
+  if(error) throw new Error("server_gateway_get_engineering_issue: "+error.message);
+  return {issue:data??null};
+}
+
+async function getSchedulerPolicy(admin:any,userId:string,input:any) {
+  const policyKey=String(input?.policy_key ?? "").trim();
+  if(!policyKey) return {__status:400,error:"policy_key_required"};
+  const {data,error}=await admin.rpc("server_gateway_get_scheduler_policy",{
+    p_user_id:userId,
+    p_policy_key:policyKey
+  });
+  if(error) throw new Error("server_gateway_get_scheduler_policy: "+error.message);
+  return {policy:data??null};
+}
+
+async function versionSchedulerPolicy(admin:any,userId:string,input:any) {
+  const policyKey=String(input?.policy_key ?? "").trim();
+  const expected=String(input?.expected_current_version ?? "").trim();
+  const newVersion=String(input?.new_version ?? "").trim();
+  const newPolicy=input?.policy;
+  if(!policyKey || !newVersion || !newPolicy || typeof newPolicy!=="object") {
+    return {__status:400,error:"policy_key_new_version_and_policy_required"};
+  }
+  const {data,error}=await admin.rpc("server_gateway_version_scheduler_policy",{
+    p_user_id:userId,
+    p_policy_key:policyKey,
+    p_expected_current_version:expected || null,
+    p_new_version:newVersion,
+    p_new_policy:newPolicy
+  });
+  if(error) throw new Error("server_gateway_version_scheduler_policy: "+error.message);
+  return {policy:data};
+}
+
+async function listEngineeringIssues(admin:any,input:any) {
+  const statuses=normalizeTextList(input?.lifecycle_statuses);
+  const limit=Math.max(1,Math.min(500,Number(input?.limit ?? 200)));
+  const {data,error}=await admin.rpc("server_gateway_list_engineering_issues",{
+    p_lifecycle_status:statuses.length?statuses:null,
+    p_limit:limit
+  });
+  if(error) throw new Error("server_gateway_list_engineering_issues: "+error.message);
+  return {issues:Array.isArray(data)?data:(data??[])};
+}
+
+async function upsertEngineeringIssue(admin:any,input:any) {
+  const payload=input?.issue && typeof input.issue==="object" ? input.issue : input;
+  const {data,error}=await admin.rpc("server_gateway_upsert_engineering_issue",{p_input:payload});
+  if(error) throw new Error("server_gateway_upsert_engineering_issue: "+error.message);
+  return data;
+}
+
 async function weeklyReview(admin:any,userId:string) {
   const from=startOfWindow(7), now=new Date().toISOString();
   const [actionsRes,checkinsRes,goalsRes,feedbackRes] = await Promise.all([
@@ -310,19 +722,127 @@ export default {
       if(operation==="capabilities"){
         result={
           gateway_version:GATEWAY_VERSION,
-          operations:["capabilities","get_current_state","get_context","today","complete_action","weekly_review"],
+          operations:["capabilities","bootstrap_context","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","upsert_engineering_issue","get_scheduler_policy","version_scheduler_policy","get_current_state","get_context","today","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
+          read_operations:["bootstrap_context","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","get_scheduler_policy","get_current_state","get_context","today","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context"],
+          write_operations:["upsert_engineering_issue","version_scheduler_policy","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
           context_topics:[...ALLOWED_CONTEXT_TOPICS],
           max_context_limit:50,
           complete_action_supports_dry_run:true
         };
+      } else if(operation==="bootstrap_context"){
+        result=await bootstrapContext(admin,String(userId),input);
+      } else if(operation==="resolve_specs"){
+        result=await resolveSpecs(admin,input);
+      } else if(operation==="get_latest_checkpoint"){
+        result=await getLatestCheckpoint(admin,String(userId),input);
+      } else if(operation==="get_engineering_issue"){
+        result=await getEngineeringIssue(admin,input);
+      } else if(operation==="list_engineering_issues"){
+        result=await listEngineeringIssues(admin,input);
+      } else if(operation==="upsert_engineering_issue"){
+        result=await upsertEngineeringIssue(admin,input);
+      } else if(operation==="get_scheduler_policy"){
+        result=await getSchedulerPolicy(admin,String(userId),input);
+      } else if(operation==="version_scheduler_policy"){
+        result=await versionSchedulerPolicy(admin,String(userId),input);
+      } else if(operation==="get_ai_routing_config"){
+        result=await getAiRoutingConfig(admin);
+      } else if(operation==="get_cross_domain_evidence_context"){
+        result=await getCrossDomainEvidenceContext(admin,String(userId),input);
       } else if(operation==="get_current_state"){
         result=await getCurrentState(admin,String(userId),input);
       } else if(operation==="get_context"){
         result=await getContext(admin,String(userId),input);
       } else if(operation==="today"){
         result=await today(admin,String(userId));
+      } else if(operation==="get_health_context"){
+        result=await getHealthContext(admin,String(userId),input);
+      } else if(operation==="get_calendar_context"){
+        result=await getCalendarContext(admin,String(userId),input);
+      } else if(operation==="get_checkin_context"){
+        result=await getCheckinContext(admin,String(userId),input);
+      } else if(operation==="get_nutrition_context"){
+        result=await getNutritionContext(admin,String(userId),input);
+      } else if(operation==="get_training_context"){
+        result=await getTrainingContext(admin,String(userId),input);
+      } else if(operation==="get_skills_context"){
+        result=await getSkillsContext(admin,String(userId),input);
+      } else if(operation==="get_spanish_context"){
+        result=await getSpanishContext(admin,String(userId),input);
+      } else if(operation==="get_finance_context"){
+        result=await getFinanceContext(admin,String(userId),input);
+      } else if(operation==="get_reflection_context"){
+        result=await getReflectionContext(admin,String(userId),input);
+      } else if(operation==="get_settings_context"){
+        result=await getSettingsContext(admin,String(userId),input);
+      } else if(operation==="get_social_context"){
+        result=await getSocialContext(admin,String(userId),input);
+      } else if(operation==="get_daily_plan_context"){
+        result=await getDailyPlanContext(admin,String(userId),input);
+      } else if(operation==="get_feedback_context"){
+        result=await getFeedbackContext(admin,String(userId),input);
       } else if(operation==="complete_action"){
         result=await completeAction(admin,String(userId),input);
+      } else if(operation==="record_checkin"){
+        result=await recordCheckin(admin,String(userId),input);
+      } else if(operation==="log_meal"){
+        result=await logMeal(admin,String(userId),input);
+      } else if(operation==="record_health_observation"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_hydration"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_workout"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_recovery_session"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_practice_session"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_goal"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_routine"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_action"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_spanish_learning"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_financial_account"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_debt"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_recurring_commitment"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_financial_snapshot"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_financial_transaction"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_journal_entry"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_relationship_reflection"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_spiritual_session"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_recommendation_feedback"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_outcome"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="persist_daily_plan"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_preference"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_person"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="log_interaction"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_skill"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_subskill"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_skill_drill"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_skill_assessment"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_spiritual_practice"){
+        result=await mutateOperation(admin,String(userId),operation,input);
       } else if(operation==="weekly_review"){
         result=await weeklyReview(admin,String(userId));
       } else {

@@ -17,3 +17,11 @@ minimumReleaseAgeExclude:
   - expo-modules-core@57.0.20
   - expo-router@57.0.24
   - expo@57.0.26
+
+# Temporary, narrowly scoped exceptions for upstream advisories with no patched release.
+# See docs/SECURITY-ADVISORY-EXCEPTIONS.md. Remove each GHSA as soon as the upstream
+# dependency chain no longer contains the affected package/version.
+audit:
+  ignore:
+    - GHSA-86w9-cpqp-85rv
+    - GHSA-vfj7-8cjw-p6xm
