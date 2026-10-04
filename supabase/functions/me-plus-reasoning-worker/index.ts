@@ -81,6 +81,10 @@ Rules for this scheduler decision:
 - Before emitting a mutation, verify from the dispatch time, occurrence date, and surfaced action state that the referenced occurrence is still current/eligible. If the occurrence has expired or the referenced children are already unsurfaced by a cutoff, emit no mutation. If the comment appears to express a durable preference, you may return a non-executing recommendation explaining that the future routine configuration needs a separate durable update.
 - The scheduler may create/update/remove a current task without separately asking when the comment itself is explicit user authorization and the mutation is low-risk. Record a concise rationale.
 - Prefer noop when there is no specific, useful, evidence-supported, non-duplicate action.
+- User-facing Guidance is a CURRENT decision surface, not a historical feed. Never repeat an older recommendation merely because it still exists in recommendation_history.
+- Once newer evidence resolves an input gap, or a newer reasoning pass finds no useful action, treat the older prompt as stale.
+- System/operator health findings belong in runtime observability and engineering issue handling; do not emit them as personal user Guidance unless the user must take a concrete action that cannot be handled by the system.
+- When meaningful personal state changed, consider whether the new evidence supports a specific continue/change/review/investigate/monitor recommendation across relevant domains. If it does not, noop is correct.
 - Only create_action=true for low-risk, reversible personal productivity actions.
 - Never create or execute purchases, transfers, bookings, messages to third parties, credential/security changes, destructive changes, medical diagnosis/treatment decisions, legal decisions, or other high-impact actions.
 - Never choose dates, due dates, calendar times or recurrence; deterministic systems own those.
@@ -311,8 +315,33 @@ function hasMaterialUncertainty(context:any) {
   return false;
 }
 
-function collectAuthenticatedAttachmentImages(context:any) {
-  const urls:string[]=[];
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg","image/png","image/gif","image/webp"]);
+const MAX_ATTACHMENT_IMAGE_BYTES = 12 * 1024 * 1024;
+
+function detectedImageType(bytes:Uint8Array):string|null {
+  if(bytes.length>=3 && bytes[0]===0xff && bytes[1]===0xd8 && bytes[2]===0xff) return "image/jpeg";
+  if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4e && bytes[3]===0x47 && bytes[4]===0x0d && bytes[5]===0x0a && bytes[6]===0x1a && bytes[7]===0x0a) return "image/png";
+  if(bytes.length>=6) {
+    const h=String.fromCharCode(...bytes.slice(0,6));
+    if(h==="GIF87a" || h==="GIF89a") return "image/gif";
+  }
+  if(bytes.length>=12) {
+    const riff=String.fromCharCode(...bytes.slice(0,4));
+    const webp=String.fromCharCode(...bytes.slice(8,12));
+    if(riff==="RIFF" && webp==="WEBP") return "image/webp";
+  }
+  return null;
+}
+
+function bytesToBase64(bytes:Uint8Array):string {
+  let binary="";
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+  return btoa(binary);
+}
+
+async function collectAuthenticatedAttachmentImages(context:any) {
+  const refs:{url:string;declaredType:string}[]=[];
   const seen=new Set<string>();
   const candidates:any[]=[];
   const addSignals=(value:any)=>{ if(Array.isArray(value)) candidates.push(...value); };
@@ -324,27 +353,39 @@ function collectAuthenticatedAttachmentImages(context:any) {
     if(!["todoist_routine_comment_intent","todoist_routine_attachment_evidence"].includes(type)) continue;
     const payload=signal?.payload ?? {};
     if(payload?.authenticated_user!==true) continue;
-
     const attachments:any[]=[];
     if(payload?.attachment) attachments.push(payload.attachment);
-    for(const x of (Array.isArray(payload?.related_attachments)?payload.related_attachments:[])) {
-      if(x?.attachment) attachments.push(x.attachment);
-    }
-
+    for(const x of (Array.isArray(payload?.related_attachments)?payload.related_attachments:[])) if(x?.attachment) attachments.push(x.attachment);
     for(const attachment of attachments) {
-      const fileType=String(attachment?.file_type ?? "").toLowerCase();
+      const declaredType=String(attachment?.file_type ?? "").toLowerCase().split(";")[0].trim();
       const url=String(attachment?.file_url ?? "").trim();
       const uploadState=String(attachment?.upload_state ?? "").toLowerCase();
-      if(!fileType.startsWith("image/")) continue;
-      if(!/^https:\/\//i.test(url)) continue;
+      if(!SUPPORTED_IMAGE_TYPES.has(declaredType) || !/^https:\/\//i.test(url)) continue;
       if(uploadState && uploadState!=="completed") continue;
       if(seen.has(url)) continue;
-      seen.add(url);
-      urls.push(url);
-      if(urls.length>=4) return urls;
+      seen.add(url); refs.push({url,declaredType});
+      if(refs.length>=4) break;
+    }
+    if(refs.length>=4) break;
+  }
+
+  const images:string[]=[];
+  for(const ref of refs) {
+    try {
+      const res=await fetch(ref.url,{redirect:"follow",headers:{"Accept":"image/jpeg,image/png,image/gif,image/webp"}});
+      if(!res.ok) continue;
+      const len=Number(res.headers.get("content-length") ?? "0");
+      if(Number.isFinite(len) && len>MAX_ATTACHMENT_IMAGE_BYTES) continue;
+      const bytes=new Uint8Array(await res.arrayBuffer());
+      if(bytes.length===0 || bytes.length>MAX_ATTACHMENT_IMAGE_BYTES) continue;
+      const detected=detectedImageType(bytes);
+      if(!detected || !SUPPORTED_IMAGE_TYPES.has(detected)) continue;
+      images.push(`data:${detected};base64,${bytesToBase64(bytes)}`);
+    } catch {
+      // Attachment evidence is optional: preserve text reasoning instead of failing the dispatch.
     }
   }
-  return urls;
+  return images;
 }
 
 function isSimpleAuthenticatedRoutineComment(context:any) {
@@ -485,7 +526,7 @@ export default {
           capability_tier:routing.model.capability_tier
         };
 
-        const attachmentImages=collectAuthenticatedAttachmentImages(boundedContext);
+        const attachmentImages=await collectAuthenticatedAttachmentImages(boundedContext);
         const userContent:any[]=[
           { type:"input_text", text:`Evaluate this bounded Me+ scheduler context and return the decision object only.\n\n${JSON.stringify(boundedContext)}` },
           ...attachmentImages.map((imageUrl:string)=>({type:"input_image",image_url:imageUrl,detail:"low"}))
