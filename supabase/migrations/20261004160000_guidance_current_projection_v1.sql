@@ -36,6 +36,18 @@ begin
     'type',r.recommendation_type,
     'title',r.title,
     'domain',r.domain,
+    'feedback',coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'decision',f.decision,
+        'helpfulness',f.helpfulness,
+        'reason_code',f.reason_code,
+        'note',f.note,
+        'recorded_at',f.recorded_at
+      ) order by f.recorded_at desc)
+      from public.recommendation_feedback f
+      where f.user_id=r.user_id
+        and f.recommendation_id=r.id
+    ),'[]'::jsonb),
     'priority',r.priority,
     'rationale',r.rationale,
     'confidence',r.confidence,
