@@ -21,6 +21,49 @@ function isRetryable(error: unknown) {
   return true;
 }
 
+async function enforceDailyPlannerSurfacePolicy(admin:any,userId:string,rows:any[]) {
+  if(!Array.isArray(rows) || rows.length===0) return rows;
+  const ids=[...new Set(rows.map((r:any)=>String(r?.action_id ?? "")).filter(Boolean))];
+  if(!ids.length) return rows;
+
+  const {data,error}=await admin.from("actions")
+    .select("id,priority,status,constraint_flags,surface_external_id,surface_must_remain_open,surface_continuous_required")
+    .eq("user_id",userId).in("id",ids);
+  if(error) throw new Error("daily_planner_surface_policy_read_failed: "+error.message);
+
+  const byId=new Map((data??[]).map((a:any)=>[String(a.id),a]));
+  const nowMs=Date.now();
+
+  return rows.map((row:any)=>{
+    const action=byId.get(String(row?.action_id ?? ""));
+    const planner=action?.constraint_flags?.daily_planner;
+    if(!planner || typeof planner!=="object") return row;
+
+    const validUntil=Date.parse(String(planner?.valid_until_utc ?? ""));
+    if(!Number.isFinite(validUntil) || validUntil<=nowMs) return row;
+
+    const decision=String(planner?.decision ?? "");
+    const protectedAction=action?.priority==="must"
+      || action?.status==="in_progress"
+      || action?.surface_must_remain_open===true
+      || action?.surface_continuous_required===true;
+
+    if(!protectedAction && (decision==="defer" || decision==="omit_today")){
+      if(String(row?.operation ?? "")==="remove") return {...row,planner_enforced:true,planner_decision:decision};
+      const taskId=String(row?.todoist_task_id ?? action?.surface_external_id ?? "").trim();
+      return {
+        ...row,
+        operation:taskId?"remove":"noop",
+        todoist_task_id:taskId || row?.todoist_task_id || null,
+        planner_enforced:true,
+        planner_decision:decision,
+        planner_plan_id:planner?.plan_id ?? null
+      };
+    }
+    return row;
+  });
+}
+
 async function deterministicUuid(seed: string) {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed)));
   const b = digest.slice(0, 16);
@@ -30,25 +73,89 @@ async function deterministicUuid(seed: string) {
   return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
 }
 
+function retryAfterMs(res: Response, attempt: number) {
+  const raw = res.headers.get("retry-after");
+  if (raw) {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(5000, Math.round(seconds * 1000));
+    const when = Date.parse(raw);
+    if (Number.isFinite(when)) return Math.min(5000, Math.max(0, when - Date.now()));
+  }
+  return Math.min(2000, 300 * Math.pow(2, attempt));
+}
+
+function todoistRequestIsRetrySafe(url: string, init: RequestInit = {}) {
+  const method = String(init.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "DELETE") return true;
+  if (method !== "POST") return false;
+
+  let path = "";
+  try { path = new URL(url).pathname; } catch { return false; }
+
+  // Sync commands carry deterministic UUIDs. Task updates/moves/reopen/close
+  // target an existing task and are safe to repeat. Plain POST /tasks creates
+  // a new task and is intentionally NOT retried here.
+  return /\/sync$/.test(path)
+    || /\/tasks\/[^/]+(?:\/(?:move|reopen|close))?$/.test(path);
+}
+
+function todoistRetryDelayMs(response: Response, attempt: number) {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(250, Math.min(5000, seconds * 1000));
+    const at = Date.parse(retryAfter);
+    if (Number.isFinite(at)) return Math.max(250, Math.min(5000, at - Date.now()));
+  }
+  return attempt === 1 ? 500 : 1500;
+}
+
 async function todoistRequest(token: string, url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers ?? {});
   headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const res = await fetch(url, { ...init, headers });
-  const text = await res.text();
-  let body: any = null;
-  if (text) {
-    try { body = JSON.parse(text); } catch { body = text; }
-  }
-  if (!res.ok) {
+
+  const retrySafe = todoistRequestIsRetrySafe(url, init);
+  const maxAttempts = retrySafe ? 3 : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, { ...init, headers });
+    const text = await res.text();
+    let body: any = null;
+    if (text) {
+      try { body = JSON.parse(text); } catch { body = text; }
+    }
+    if (res.ok) return body;
+
+    const transient = res.status === 429 || res.status >= 500;
+    if (transient && attempt < maxAttempts) {
+      const delayMs = todoistRetryDelayMs(res, attempt);
+      console.warn(JSON.stringify({
+        event: "todoist_transient_retry",
+        status: res.status,
+        attempt,
+        nextAttempt: attempt + 1,
+        delayMs,
+        method: String(init.method ?? "GET").toUpperCase(),
+        path: (() => { try { return new URL(url).pathname; } catch { return "invalid_url"; } })()
+      }));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      continue;
+    }
+
     const err = new Error(`Todoist API ${res.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`) as TodoistFailure;
     err.name = "todoist_api_error";
     err.status = res.status;
-    err.retryable = res.status === 429 || res.status >= 500;
-    err.details = typeof body === "object" ? body : null;
+    err.retryable = transient;
+    err.details = {
+      body: typeof body === "object" ? body : null,
+      attempts: attempt,
+      retry_safe: retrySafe
+    };
     throw err;
   }
-  return body;
+
+  throw new Error("Todoist request exhausted without response");
 }
 
 async function resolveProjectId(token: string, baseUrl: string, projectName: string) {
@@ -1152,7 +1259,8 @@ export default {
         const { data: actions, error: actionsError } = await admin.rpc("get_todoist_dispatch_actions", { p_dispatch_id: dispatchId });
         if (actionsError) throw new Error(`todoist_action_batch_failed: ${actionsError.message}`);
 
-        const actionRows = Array.isArray(actions) ? actions : [];
+        let actionRows = Array.isArray(actions) ? actions : [];
+        actionRows = await enforceDailyPlannerSurfacePolicy(admin,userId,actionRows);
         if (cleanupOnly) {
           const unsafe = actionRows.filter((a: any) => {
             const op = String(a?.operation ?? "noop");
