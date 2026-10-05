@@ -808,6 +808,205 @@ async function removeTask(token: string, baseUrl: string, taskId: string) {
   }
 }
 
+function readGuidanceSurfaceKey(task: any) {
+  const description = String(task?.description ?? "");
+  const match = description.match(/\*\*Me\+ Guidance key:\*\*\s*([^\r\n]+)/i);
+  return match?.[1] ? String(match[1]).trim() : null;
+}
+
+function guidanceTypeLabel(sectionKey: string) {
+  if (sectionKey === "goal_guidance") return "Goal guidance";
+  if (sectionKey === "watch_notice") return "Watch & notice";
+  return "Everyday guidance";
+}
+
+function titleCaseGuidanceConfidence(value: unknown) {
+  const raw = String(value ?? "insufficient_data").trim().replace(/_/g, " ");
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Insufficient data";
+}
+
+function guidanceTaskDescription(item: any) {
+  const lines = [
+    "**Type:** " + guidanceTypeLabel(String(item?.section_key ?? "")),
+    "**Confidence:** " + titleCaseGuidanceConfidence(item?.confidence),
+    "**Why:** " + String(item?.rationale ?? "").trim(),
+  ];
+  const next = String(item?.minimum_action ?? item?.instructions ?? "").trim();
+  if (next) lines.push("**Next step:** " + next);
+  lines.push("**Canonical recommendation ID:** " + String(item?.id ?? "").trim());
+  lines.push("**Me+ Guidance key:** " + String(item?.surface_key ?? "").trim());
+  lines.push("");
+  lines.push("Advisory only — no due date. Supabase remains canonical.");
+  return lines.join("\n");
+}
+
+async function createGuidanceTask(
+  token: string,
+  baseUrl: string,
+  projectId: string,
+  item: any
+) {
+  const body: Record<string, unknown> = {
+    content: String(item?.title ?? "").trim(),
+    description: guidanceTaskDescription(item),
+    project_id: projectId
+  };
+  const sectionId = String(item?.section_id ?? "").trim();
+  if (sectionId) body.section_id = sectionId;
+  const created = await todoistRequest(token, baseUrl + "/tasks", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+  const id = String(created?.id ?? "").trim();
+  if (!id) {
+    const err = new Error("Todoist Guidance create succeeded but task id was missing") as TodoistFailure;
+    err.name = "todoist_guidance_create_mapping_missing";
+    err.retryable = true;
+    throw err;
+  }
+  return id;
+}
+
+async function updateGuidanceTask(
+  token: string,
+  baseUrl: string,
+  task: any,
+  item: any
+) {
+  const taskId = String(task?.id ?? "").trim();
+  if (!taskId) throw new Error("Todoist Guidance task id missing");
+
+  await todoistRequest(token, baseUrl + "/tasks/" + encodeURIComponent(taskId), {
+    method: "POST",
+    body: JSON.stringify({
+      content: String(item?.title ?? "").trim(),
+      description: guidanceTaskDescription(item)
+    })
+  });
+
+  const desiredSectionId = String(item?.section_id ?? "").trim();
+  const currentSectionId = String(task?.section_id ?? task?.sectionId ?? "").trim();
+  if (desiredSectionId && desiredSectionId !== currentSectionId) {
+    await todoistRequest(token, baseUrl + "/tasks/" + encodeURIComponent(taskId) + "/move", {
+      method: "POST",
+      body: JSON.stringify({ section_id: desiredSectionId })
+    });
+  }
+  return taskId;
+}
+
+async function reconcileGuidanceSurface(
+  admin: any,
+  token: string,
+  baseUrl: string,
+  userId: string
+) {
+  const { data: context, error: contextError } = await admin.rpc(
+    "server_get_todoist_guidance_surface_context",
+    { p_user_id: userId, p_as_of: new Date().toISOString() }
+  );
+  if (contextError) throw new Error("guidance_surface_context_failed: " + contextError.message);
+  if (context?.enabled !== true) {
+    return { status: "skipped", reason: "guidance_surface_disabled" };
+  }
+
+  const projectName = String(context?.project_name ?? "Me+ Guidance").trim();
+  let projectId = String(context?.project_id ?? "").trim();
+  if (!projectId) projectId = await resolveProjectId(token, baseUrl, projectName);
+  if (!projectId) throw new Error("Todoist Guidance project id unavailable");
+
+  const desired = Array.isArray(context?.recommendations) ? context.recommendations : [];
+  const legacyIds = new Set(
+    (Array.isArray(context?.legacy_seed_task_ids) ? context.legacy_seed_task_ids : [])
+      .map((x: any) => String(x).trim())
+      .filter(Boolean)
+  );
+
+  const tasks = await listAllProjectTasks(token, baseUrl, projectId);
+  const managedByKey = new Map<string, any[]>();
+  for (const task of tasks) {
+    const key = readGuidanceSurfaceKey(task);
+    if (!key) continue;
+    const rows = managedByKey.get(key) ?? [];
+    rows.push(task);
+    managedByKey.set(key, rows);
+  }
+
+  const desiredKeys = new Set<string>();
+  const recommendationIds: string[] = [];
+  const activeTaskIds: string[] = [];
+  let created = 0;
+  let updated = 0;
+  let removed = 0;
+
+  for (const item of desired) {
+    const key = String(item?.surface_key ?? "").trim();
+    const recommendationId = String(item?.id ?? "").trim();
+    if (!key || !recommendationId) continue;
+    desiredKeys.add(key);
+    recommendationIds.push(recommendationId);
+
+    const matches = managedByKey.get(key) ?? [];
+    let taskId: string;
+    if (matches.length > 0) {
+      taskId = await updateGuidanceTask(token, baseUrl, matches[0], item);
+      updated += 1;
+      for (const duplicate of matches.slice(1)) {
+        const duplicateId = String(duplicate?.id ?? "").trim();
+        if (duplicateId) {
+          await removeTask(token, baseUrl, duplicateId);
+          removed += 1;
+        }
+      }
+    } else {
+      taskId = await createGuidanceTask(token, baseUrl, projectId, item);
+      created += 1;
+    }
+    activeTaskIds.push(taskId);
+  }
+
+  for (const [key, rows] of managedByKey.entries()) {
+    if (desiredKeys.has(key)) continue;
+    for (const task of rows) {
+      const taskId = String(task?.id ?? "").trim();
+      if (taskId) {
+        await removeTask(token, baseUrl, taskId);
+        removed += 1;
+      }
+    }
+  }
+
+  for (const task of tasks) {
+    const taskId = String(task?.id ?? "").trim();
+    if (!taskId || !legacyIds.has(taskId)) continue;
+    if (activeTaskIds.includes(taskId)) continue;
+    await removeTask(token, baseUrl, taskId);
+    removed += 1;
+  }
+
+  const { error: stateError } = await admin.rpc("server_record_todoist_guidance_surface_sync", {
+    p_user_id: userId,
+    p_project_id: projectId,
+    p_status: "completed",
+    p_recommendation_ids: recommendationIds,
+    p_todoist_task_ids: activeTaskIds,
+    p_error: null
+  });
+  if (stateError) throw new Error("guidance_surface_state_write_failed: " + stateError.message);
+
+  return {
+    status: "completed",
+    project_id: projectId,
+    project_name: projectName,
+    desired_count: desired.length,
+    created,
+    updated,
+    removed,
+    recommendation_ids: recommendationIds,
+    todoist_task_ids: activeTaskIds
+  };
+}
+
 export default {
   fetch: withSupabase({ auth: "none" }, async (req: Request, ctx: any) => {
     if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
@@ -855,6 +1054,38 @@ export default {
       const safe = safeError(error);
       await admin.rpc("record_todoist_dispatcher_wake", { p_status: "failed", p_error: safe });
       return Response.json({ error: safe.error_type }, { status: 502 });
+    }
+
+    let guidanceSync: any = { status: "not_checked" };
+    if (!cleanupOnly) {
+      try {
+        guidanceSync = await reconcileGuidanceSurface(admin, token, baseUrl, userId);
+      } catch (error) {
+        const safe = safeError(error);
+        guidanceSync = { status: "failed", error: safe };
+        console.error("Todoist Guidance reconciliation failed", safe);
+        try {
+          const guidanceContext = await admin.rpc("server_get_todoist_guidance_surface_context", {
+            p_user_id: userId,
+            p_as_of: new Date().toISOString()
+          });
+          const guidanceProjectId = String(guidanceContext?.data?.project_id ?? "").trim();
+          if (guidanceProjectId) {
+            await admin.rpc("server_record_todoist_guidance_surface_sync", {
+              p_user_id: userId,
+              p_project_id: guidanceProjectId,
+              p_status: "failed",
+              p_recommendation_ids: [],
+              p_todoist_task_ids: [],
+              p_error: safe
+            });
+          }
+        } catch (stateError) {
+          console.error("Todoist Guidance failure-state write failed", safeError(stateError));
+        }
+      }
+    } else {
+      guidanceSync = { status: "skipped", reason: "surface_cutoff_cleanup" };
     }
 
     let commentIntentSync: any = { status: "not_checked" };
@@ -1045,6 +1276,6 @@ export default {
     }
 
     await admin.rpc("record_todoist_dispatcher_wake", { p_status: "completed", p_error: null });
-    return Response.json({ ok: true, project_id: projectId, comment_intent_sync: commentIntentSync, completion_sync: completionSync, catalog_sync: catalogSync, results });
+    return Response.json({ ok: true, project_id: projectId, guidance_sync: guidanceSync, comment_intent_sync: commentIntentSync, completion_sync: completionSync, catalog_sync: catalogSync, results });
   })
 };
