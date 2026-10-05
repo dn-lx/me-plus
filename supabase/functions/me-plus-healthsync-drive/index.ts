@@ -179,7 +179,11 @@ async function readingsFromCsv(
     if (!maxObservedAt || observedAt > maxObservedAt) maxObservedAt = observedAt;
 
     const observedMs = Date.parse(observedAt);
-    if (!Number.isFinite(observedMs) || observedMs < chunkStartMs || observedMs >= chunkEndMs) continue;
+    if (!Number.isFinite(observedMs)) continue;
+    // Reconcile every valid row in a changed Health Sync file. Health Sync can
+    // append or backfill observations after their original two-hour window.
+    // Stable external IDs plus revision hashes make full-file reconciliation
+    // idempotent in server_ingest_healthsync_batch_v2.
 
     const sourceRow = rowObject(headers, values);
     for (let c = 0; c < headers.length; c++) {
@@ -309,6 +313,60 @@ function runKeyForChunk(startMs: number) {
   return `healthsync_drive:v2:${new Date(startMs).toISOString().slice(0,16)}Z`;
 }
 
+const HEALTHSYNC_BATCH_SIZE = 100;
+const HEALTHSYNC_MIN_SPLIT_SIZE = 20;
+
+function healthsyncStatementTimeout(error: any) {
+  const code = String(error?.code ?? "");
+  const message = String(error?.message ?? "");
+  return code === "57014" || /statement timeout|canceling statement due to statement timeout/i.test(message);
+}
+
+async function ingestHealthsyncBatchAdaptive(
+  supabase: any,
+  userId: string,
+  runId: string,
+  batch: any[]
+): Promise<void> {
+  const { error } = await supabase.rpc("server_ingest_healthsync_batch_v2", {
+    p_user_id: userId,
+    p_sync_run_id: runId,
+    p_readings: batch
+  });
+  if (!error) return;
+
+  if (healthsyncStatementTimeout(error) && batch.length > HEALTHSYNC_MIN_SPLIT_SIZE) {
+    const mid = Math.ceil(batch.length / 2);
+    console.warn(JSON.stringify({
+      event: "healthsync_batch_timeout_split",
+      batchSize: batch.length,
+      leftSize: mid,
+      rightSize: batch.length - mid
+    }));
+    await ingestHealthsyncBatchAdaptive(supabase, userId, runId, batch.slice(0, mid));
+    await ingestHealthsyncBatchAdaptive(supabase, userId, runId, batch.slice(mid));
+    return;
+  }
+
+  throw new Error(`ingest_batch:${error.message}`);
+}
+
+async function ingestHealthsyncReadingsAdaptive(
+  supabase: any,
+  userId: string,
+  runId: string,
+  readings: any[]
+): Promise<void> {
+  for (let i = 0; i < readings.length; i += HEALTHSYNC_BATCH_SIZE) {
+    await ingestHealthsyncBatchAdaptive(
+      supabase,
+      userId,
+      runId,
+      readings.slice(i, i + HEALTHSYNC_BATCH_SIZE)
+    );
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -414,16 +472,19 @@ Deno.serve(async (req: Request) => {
           if (!file.name.toLowerCase().endsWith(".csv")) continue;
           filesScanned++;
           const old: any = state.get(file.id);
-          const processedThroughMs = old?.metadata?.processedThrough
-            ? Date.parse(String(old.metadata.processedThrough))
+          const oldModifiedMs = old?.provider_modified_at
+            ? Date.parse(String(old.provider_modified_at))
             : NaN;
-          const sameMeta = old &&
+          const fileModifiedMs = file.modifiedTime
+            ? Date.parse(String(file.modifiedTime))
+            : NaN;
+          const unchangedFile = old &&
             old.processing_status === "processed" &&
-            old.provider_modified_at === file.modifiedTime &&
-            String(old.provider_size_bytes ?? "") === String(file.size ?? "") &&
-            Number.isFinite(processedThroughMs) &&
-            processedThroughMs >= chunk.endMs;
-          if (sameMeta) continue;
+            Number.isFinite(oldModifiedMs) &&
+            Number.isFinite(fileModifiedMs) &&
+            oldModifiedMs === fileModifiedMs &&
+            String(old.provider_size_bytes ?? "") === String(file.size ?? "");
+          if (unchangedFile) continue;
 
           filesChanged++;
           try {
@@ -433,15 +494,12 @@ Deno.serve(async (req: Request) => {
             rowsParsed += parsed.rowCount;
             readingsParsed += parsed.readings.length;
 
-            for (let i = 0; i < parsed.readings.length; i += 250) {
-              const batch = parsed.readings.slice(i, i + 250);
-              const { error } = await supabase.rpc("server_ingest_healthsync_batch_v2", {
-                p_user_id: source.user_id,
-                p_sync_run_id: runId,
-                p_readings: batch
-              });
-              if (error) throw new Error(`ingest_batch:${error.message}`);
-            }
+            await ingestHealthsyncReadingsAdaptive(
+              supabase,
+              source.user_id,
+              runId,
+              parsed.readings
+            );
 
             const { error: fileStateError } = await supabase.rpc("server_record_healthsync_file", {
               p_user_id: source.user_id, p_sync_run_id: runId,
