@@ -1,7 +1,7 @@
 # Requirements, Issues & Execution Plan
 
 **Status:** Active  
-**Last updated:** YYYY-MM-DD  
+**Last updated:** 2026-10-06  
 **Primary branch:** `dev`
 
 Use this document as the project-level, checkable source of truth for requested features, known issues, planned improvements and completion evidence.
@@ -73,6 +73,35 @@ _Add PR/commit, test/build result, screenshots/device verification or other proo
 ---
 
 # Known issues
+
+## [ ] ISSUE-ENG-007 — Canonical Me+ request routing is too slow
+
+**Priority:** P0
+
+**Observed behavior**  
+Known Me+ intents can still trigger repeated specification, Drive, database, connector or entity discovery even when canonical identifiers already exist. This increases latency, tool usage and inconsistency across cold and resumed chats.
+
+**Expected behavior**  
+Known intents use a deterministic fast path: intent/aliases → canonical specification(s) → latest relevant checkpoint → compact current state → purpose-specific context/execution surface. Broad discovery is only a bounded fallback.
+
+**Acceptance criteria**
+- [x] Root cause identified: routing components existed but were not enforced as one system-wide default path.
+- [x] Private intent-routing registry and service-only deterministic resolver deployed.
+- [x] One-roundtrip bootstrap v2 deployed with compact state for known routes.
+- [x] Live gateway v1.15.0 routes a known intent and rejects unauthenticated calls.
+- [x] Representative route tests cover meditation, steps/health, Spanish, Romantic Connection and unknown fallback.
+- [x] Known-route compact bootstrap materially reduces database work/payload versus full Personal State.
+- [ ] Repository checks / independent review complete.
+- [ ] Task PR merged to `dev` and post-merge state reverified.
+
+**Performance budget**
+- Known intent: one gateway bootstrap operation; one gateway→database RPC for route + specs + checkpoint + compact state.
+- No broad Drive/database/plugin discovery to identify a registered known route.
+- Default maximum follow-up calls after bootstrap: 2 (for example one exact Drive spec fetch plus one purpose-specific context/action call).
+
+**Completion evidence**  
+PR #67. Live gateway v1.15.0 / Supabase Edge Function version 23. Database benchmark on the meditation route: compact summary ~180.6 ms vs full Personal State ~4306.2 ms; payload 10,003 bytes vs 44,368 bytes. Warm live gateway acceptance returned route `meditation_start` with one DB roundtrip; another returned `health_current`. Security boundary: missing credential returned HTTP 401; new RPCs are executable by `service_role` and not by `anon` / `authenticated`.
+
 
 ## [ ] ISSUE-001 — Short issue title
 
