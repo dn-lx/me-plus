@@ -1,7 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@^1";
 
-const GATEWAY_VERSION = "gateway-v1.8.1";
-const ALLOWED_CONTEXT_TOPICS = new Set(["state","goals","routines","actions","recommendations"]);
+const GATEWAY_VERSION = "gateway-v1.15.0";
+const ALLOWED_CONTEXT_TOPICS = new Set(["state","goals","routines","actions","recommendations","guidance"]);
 
 function json(data: any, status = 200) {
   return Response.json(data, {
@@ -97,6 +97,7 @@ async function getContext(admin:any,userId:string,input:any) {
     if (topic==="routines") tasks.push(admin.rpc("server_gateway_get_due_routines",{p_user_id:userId,p_as_of:asOf}));
     if (topic==="actions") tasks.push(admin.rpc("server_gateway_get_recent_actions",{p_user_id:userId,p_limit:limit}));
     if (topic==="recommendations") tasks.push(admin.rpc("server_gateway_get_recommendation_history",{p_user_id:userId,p_limit:limit}));
+    if (topic==="guidance") tasks.push(admin.rpc("server_gateway_get_current_guidance",{p_user_id:userId,p_as_of:asOf}));
   }
   const results = await Promise.all(tasks);
   const context:any = {};
@@ -125,8 +126,14 @@ async function today(admin:any,userId:string) {
   });
   if(stateError) throw new Error("today_state: "+stateError.message);
 
+  const {data:guidance,error:guidanceError}=await admin.rpc("server_gateway_get_current_guidance",{
+    p_user_id:userId,
+    p_as_of:now.toISOString()
+  });
+  if(guidanceError) throw new Error("today_guidance: "+guidanceError.message);
+
   const {data:actions,error:actionsError}=await admin.from("actions")
-    .select("id,goal_id,routine_event_id,recommendation_id,domain,origin,title,instructions,priority,version,status,estimated_minutes,available_from,due_at,planned_start,planned_end,reason,constraint_flags,surface_provider,surface_external_id,surface_state,surface_source,surface_policy,updated_at")
+    .select("id,goal_id,routine_event_id,recommendation_id,daily_plan_id,domain,origin,title,instructions,priority,version,status,estimated_minutes,available_from,due_at,planned_start,planned_end,reason,constraint_flags,surface_provider,surface_external_id,surface_state,surface_source,surface_policy,surface_must_remain_open,surface_continuous_required,updated_at")
     .eq("user_id",userId)
     .in("status",["proposed","planned","available","in_progress","partial"])
     .order("priority")
@@ -137,11 +144,28 @@ async function today(admin:any,userId:string) {
   const localDayStart=zonedToUtc(planDate,"00:00:00",timeZone);
   const localDayEnd=zonedToUtc(planDate,"23:59:59",timeZone);
 
+  const plannerAllowsToday=(a:any)=>{
+    const planner=a?.constraint_flags?.daily_planner;
+    if(!planner || typeof planner!=="object") return true;
+    const validUntil=Date.parse(String(planner?.valid_until_utc ?? ""));
+    if(!Number.isFinite(validUntil) || validUntil<=now.getTime()) return true;
+    const protectedAction=a?.priority==="must" || a?.status==="in_progress" || a?.surface_must_remain_open===true || a?.surface_continuous_required===true;
+    if(protectedAction) return true;
+    return !["defer","omit_today"].includes(String(planner?.decision ?? ""));
+  };
+
   const todayActions=(actions||[]).filter((a:any)=>{
+    if(!plannerAllowsToday(a)) return false;
     const refs=[a.planned_start,a.available_from,a.due_at].filter(Boolean).map((x:string)=>Date.parse(x));
     if(!refs.length) return true;
     return refs.some((ms:number)=>ms>=localDayStart.getTime() && ms<=localDayEnd.getTime());
   });
+
+  const {data:activePlan,error:activePlanError}=await admin.from("daily_plans")
+    .select("id,personal_state_snapshot_id,plan_date,timezone,engine_version,status,summary,created_at,updated_at")
+    .eq("user_id",userId).eq("plan_date",planDate).eq("status","active")
+    .order("updated_at",{ascending:false}).limit(1).maybeSingle();
+  if(activePlanError) throw activePlanError;
 
   const grouped={must:[] as any[],should:[] as any[],bonus:[] as any[]};
   for(const a of todayActions){
@@ -155,6 +179,8 @@ async function today(admin:any,userId:string) {
     generated_at:now.toISOString(),
     source:"canonical_scheduler_state",
     state,
+    guidance,
+    daily_plan:activePlan??null,
     actions:todayActions,
     priorities:grouped,
     counts:{
@@ -345,7 +371,7 @@ async function getTrainingContext(admin:any,userId:string,input:any) {
   const ids=(workoutsRes.data||[]).map((x:any)=>x.id);
   let exercises:any[]=[], sets:any[]=[];
   if(ids.length){
-    const e=await admin.from("workout_exercises").select("id,workout_id,exercise_order,exercise_name,canonical_exercise_ref,exercise_type,duration_seconds,distance_m,calories_burned_kcal,note,equipment_name,primary_muscles,secondary_muscles,identification_confidence")
+    const e=await admin.from("workout_exercises").select("id,workout_id,exercise_order,exercise_name,canonical_exercise_ref,exercise_type,duration_seconds,distance_m,calories_burned_kcal,note,equipment_name,max_weight_kg,primary_muscles,secondary_muscles,identification_confidence")
       .eq("user_id",userId).in("workout_id",ids).order("workout_id").order("exercise_order");
     if(e.error) throw e.error; exercises=e.data||[];
     const eids=exercises.map((x:any)=>x.id);
@@ -359,29 +385,45 @@ async function getTrainingContext(admin:any,userId:string,input:any) {
 }
 async function getSkillsContext(admin:any,userId:string,input:any) {
   const limit=boundedLimit(input,20,50);
-  const skills=await admin.from("skills").select("id,goal_id,name,domain,current_level,desired_outcome,active,metadata").eq("user_id",userId).eq("active",true).order("name");
-  if(skills.error) throw skills.error;
-  const skillIds=(skills.data||[]).map((x:any)=>x.id);
-  let subskills:any[]=[], drills:any[]=[], sessions:any[]=[];
-  if(skillIds.length){
-    const [ss,ps]=await Promise.all([
-      admin.from("subskills").select("id,skill_id,parent_subskill_id,name,description,current_level,priority,progression_criteria").eq("user_id",userId).in("skill_id",skillIds).order("priority").limit(100),
-      admin.from("practice_sessions").select("id,skill_id,started_at,ended_at,duration_minutes,perceived_difficulty,performance,note").eq("user_id",userId).in("skill_id",skillIds).order("started_at",{ascending:false}).limit(limit)
-    ]);
-    if(ss.error) throw ss.error; if(ps.error) throw ps.error;
-    subskills=ss.data||[]; sessions=ps.data||[];
-    const subIds=subskills.map((x:any)=>x.id);
-    if(subIds.length){
-      const d=await admin.from("skill_drills").select("id,subskill_id,title,instructions,difficulty,target_definition,normal_minutes,minimum_minutes,active").eq("user_id",userId).in("subskill_id",subIds).eq("active",true).limit(100);
-      if(d.error) throw d.error; drills=d.data||[];
-    }
+  const {data,error}=await admin.rpc("server_gateway_get_skills_context",{p_user_id:userId,p_limit:limit});
+  if(error) throw new Error("get_skills_context: "+error.message);
+  return data ?? {skills:[],subskills:[],drills:[],recent_practice_sessions:[],recent_assessments:[],resources:[],recent_progress_evidence:[]};
+}
+async function recordLearningCheckpoint(admin:any,userId:string,input:any) {
+  if(!validIdempotencyKey(input)) return {__status:400,error:"invalid_request",message:"idempotency_key is required (1-200 chars)"};
+  const {data,error}=await admin.rpc("server_gateway_record_learning_checkpoint",{p_user_id:userId,p_input:input});
+  if(error) throw new Error("record_learning_checkpoint: "+error.message);
+  return data;
+}
+async function resolveLearningUnit(admin:any,userId:string,input:any) {
+  const courseKey=String(input?.course_key ?? "art_of_seduction_complete").trim() || "art_of_seduction_complete";
+  const query=String(input?.query ?? input?.requested_unit ?? "").trim();
+  if(!query) return {__status:400,error:"query_required"};
+  const {data,error}=await admin.rpc("server_gateway_resolve_learning_unit",{
+    p_user_id:userId,p_course_key:courseKey,p_query:query,p_limit:boundedLimit(input,5,10)
+  });
+  if(error) throw new Error("resolve_learning_unit: "+error.message);
+  return data ?? {query,matches:[]};
+}
+async function getLearningContext(admin:any,userId:string,input:any) {
+  const courseKey=String(input?.course_key ?? "art_of_seduction_complete").trim() || "art_of_seduction_complete";
+  let requestedUnit=typeof input?.requested_unit==="string" && input.requested_unit.trim() ? input.requested_unit.trim() : null;
+  const limit=boundedLimit(input,20,50);
+  if(requestedUnit && !/^AOS-/i.test(requestedUnit)){
+    const resolved=await resolveLearningUnit(admin,userId,{course_key:courseKey,query:requestedUnit,limit:5});
+    const matches=Array.isArray(resolved?.matches)?resolved.matches:[];
+    if(matches.length===0) return {__status:404,error:"learning_unit_not_found",query:requestedUnit};
+    if(matches.length>1 && Number(matches[0]?.score)===Number(matches[1]?.score)) return {__status:409,error:"learning_unit_ambiguous",query:requestedUnit,matches};
+    requestedUnit=String(matches[0].unit_key);
   }
-  let assessments:any[]=[];
-  if(skillIds.length){
-    const a=await admin.from("skill_assessments").select("id,skill_id,subskill_id,assessor_type,assessor_ref,assessed_at,level_text,level_number,scale,scale_version,confidence,evidence,note").eq("user_id",userId).in("skill_id",skillIds).order("assessed_at",{ascending:false}).limit(50);
-    if(a.error) throw a.error; assessments=a.data||[];
-  }
-  return {skills:skills.data||[],subskills,drills,recent_practice_sessions:sessions,recent_assessments:assessments};
+  const {data,error}=await admin.rpc("server_gateway_get_learning_context",{
+    p_user_id:userId,
+    p_course_key:courseKey,
+    p_requested_unit:requestedUnit,
+    p_limit:limit
+  });
+  if(error) throw new Error("get_learning_context: "+error.message);
+  return data ?? {found:false,course_key:courseKey};
 }
 async function getSpanishContext(admin:any,userId:string,input:any) {
   const language=String(input?.language_code ?? "es").toLowerCase();
@@ -494,6 +536,14 @@ function mutationRequiredFields(operation:string) {
     upsert_subskill:[],
     upsert_skill_drill:[],
     record_skill_assessment:["skill_id","assessor_type","scale"],
+    upsert_skill_resource:["skill_id","resource_type","title"],
+    record_skill_progress_evidence:["skill_id","evidence_type"],
+    upsert_learning_unit:["skill_id","unit_key","name"],
+    upsert_learning_lesson:["skill_id","unit_key","lesson_key","title","instructions"],
+    upsert_learning_question:["skill_id","unit_key","question_key","dimension","prompt","rubric"],
+    upsert_learning_state:["skill_id","course_key","course_version"],
+    record_learning_exposure:["skill_id","unit_key"],
+    record_learning_attempt:["skill_id","attempt_type"],
     upsert_spiritual_practice:[],
     record_health_observation:["observation_type"]
   };
@@ -507,6 +557,14 @@ async function mutateOperation(admin:any,userId:string,operation:string,input:an
   if(input?.dry_run===true) return {dry_run:true,valid:true,operation};
   if(operation==="record_health_observation"){
     const {data,error}=await admin.rpc("server_gateway_record_health_observation",{p_user_id:userId,p_input:input});
+    if(error) throw new Error(operation+": "+error.message); return data;
+  }
+  if(operation==="log_workout"){
+    const {data,error}=await admin.rpc("server_gateway_log_workout",{p_user_id:userId,p_input:input});
+    if(error) throw new Error(operation+": "+error.message); return data;
+  }
+  if(["upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt"].includes(operation)){
+    const {data,error}=await admin.rpc("server_gateway_mutate_learning",{p_user_id:userId,p_operation:operation,p_input:input});
     if(error) throw new Error(operation+": "+error.message); return data;
   }
   if(["upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_spiritual_practice"].includes(operation)){
@@ -548,22 +606,51 @@ async function getLatestCheckpoint(admin:any,userId:string,input:any) {
 }
 
 
-async function bootstrapContext(admin:any,userId:string,input:any) {
+async function resolveIntent(admin:any,input:any) {
+  const intent=typeof input?.intent==="string" ? input.intent.trim() : "";
   const topics=normalizeTextList(input?.topics ?? input?.domains ?? []);
-  const checkpointDomains=normalizeTextList(input?.checkpoint_domains ?? topics);
+  const limit=Math.max(1,Math.min(10,Number(input?.limit ?? 5)));
+  const {data,error}=await admin.rpc("server_gateway_resolve_intent",{
+    p_intent:intent || null,
+    p_topics:topics,
+    p_limit:limit
+  });
+  if(error) throw new Error("resolve_intent: "+error.message);
+  return data ?? {intent,topics,selected:null,matches:[],fallback_required:true};
+}
+
+async function bootstrapContext(admin:any,userId:string,input:any) {
+  const intent=typeof input?.intent==="string" ? input.intent.trim() : "";
+  const topics=normalizeTextList(input?.topics ?? input?.domains ?? []);
+  const checkpointDomains=normalizeTextList(input?.checkpoint_domains ?? []);
   const asOf=typeof input?.as_of==="string" ? input.as_of : new Date().toISOString();
-  const [specResult, checkpointResult, stateResult] = await Promise.all([
-    resolveSpecs(admin,{topics}),
-    getLatestCheckpoint(admin,userId,{domains:checkpointDomains,statuses:["active","closed"],scan_limit:20}),
-    getCurrentState(admin,userId,{as_of:asOf})
-  ]);
-  return {
-    contract_version:"bootstrap-context-v1",
+  const dbStarted=performance.now();
+  const {data,error}=await admin.rpc("server_gateway_bootstrap_context_v2",{
+    p_user_id:userId,
+    p_intent:intent || null,
+    p_topics:topics,
+    p_checkpoint_domains:checkpointDomains,
+    p_as_of:asOf
+  });
+  if(error) throw new Error("bootstrap_context_v2: "+error.message);
+  const dbElapsedMs=Math.round((performance.now()-dbStarted)*100)/100;
+  const result=data ?? {
+    contract_version:"bootstrap-context-v2",
     as_of:asOf,
+    intent,
     topics,
-    specs:specResult.specs,
-    checkpoint:checkpointResult.checkpoint,
-    state:stateResult.state
+    routing:{selected_route:null,candidates:[],fast_path:false,fallback_required:true,db_roundtrips:1},
+    specs:[],
+    checkpoint:null,
+    state:null
+  };
+  return {
+    ...result,
+    telemetry:{
+      ...(result?.telemetry ?? {}),
+      gateway_db_elapsed_ms:dbElapsedMs,
+      db_roundtrips:1
+    }
   };
 }
 
@@ -700,6 +787,7 @@ export default {
     if(req.method!=="POST") return json({error:"method_not_allowed"},405);
 
     const requestId=crypto.randomUUID();
+    const requestStarted=performance.now();
     const contentLength=Number(req.headers.get("content-length") ?? "0");
     if(Number.isFinite(contentLength) && contentLength > 65536) return json({error:"payload_too_large",request_id:requestId},413);
 
@@ -722,15 +810,17 @@ export default {
       if(operation==="capabilities"){
         result={
           gateway_version:GATEWAY_VERSION,
-          operations:["capabilities","bootstrap_context","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","upsert_engineering_issue","get_scheduler_policy","version_scheduler_policy","get_current_state","get_context","today","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
-          read_operations:["bootstrap_context","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","get_scheduler_policy","get_current_state","get_context","today","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context"],
-          write_operations:["upsert_engineering_issue","version_scheduler_policy","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
+          operations:["capabilities","bootstrap_context","resolve_intent","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","upsert_engineering_issue","get_scheduler_policy","version_scheduler_policy","get_current_state","get_context","today","get_current_guidance","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","resolve_learning_unit","get_learning_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
+          read_operations:["bootstrap_context","resolve_intent","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","get_scheduler_policy","get_current_state","get_context","today","get_current_guidance","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","resolve_learning_unit","get_learning_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context"],
+          write_operations:["upsert_engineering_issue","version_scheduler_policy","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
           context_topics:[...ALLOWED_CONTEXT_TOPICS],
           max_context_limit:50,
           complete_action_supports_dry_run:true
         };
       } else if(operation==="bootstrap_context"){
         result=await bootstrapContext(admin,String(userId),input);
+      } else if(operation==="resolve_intent"){
+        result=await resolveIntent(admin,input);
       } else if(operation==="resolve_specs"){
         result=await resolveSpecs(admin,input);
       } else if(operation==="get_latest_checkpoint"){
@@ -755,6 +845,11 @@ export default {
         result=await getContext(admin,String(userId),input);
       } else if(operation==="today"){
         result=await today(admin,String(userId));
+      } else if(operation==="get_current_guidance"){
+        const asOf = typeof input?.as_of === "string" ? input.as_of : new Date().toISOString();
+        const {data,error}=await admin.rpc("server_gateway_get_current_guidance",{p_user_id:String(userId),p_as_of:asOf});
+        if(error) throw new Error("get_current_guidance: "+error.message);
+        result=data;
       } else if(operation==="get_health_context"){
         result=await getHealthContext(admin,String(userId),input);
       } else if(operation==="get_calendar_context"){
@@ -767,6 +862,10 @@ export default {
         result=await getTrainingContext(admin,String(userId),input);
       } else if(operation==="get_skills_context"){
         result=await getSkillsContext(admin,String(userId),input);
+      } else if(operation==="resolve_learning_unit"){
+        result=await resolveLearningUnit(admin,String(userId),input);
+      } else if(operation==="get_learning_context"){
+        result=await getLearningContext(admin,String(userId),input);
       } else if(operation==="get_spanish_context"){
         result=await getSpanishContext(admin,String(userId),input);
       } else if(operation==="get_finance_context"){
@@ -841,6 +940,14 @@ export default {
         result=await mutateOperation(admin,String(userId),operation,input);
       } else if(operation==="record_skill_assessment"){
         result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="upsert_skill_resource"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_skill_progress_evidence"){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(["upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt"].includes(operation)){
+        result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_learning_checkpoint"){
+        result=await recordLearningCheckpoint(admin,String(userId),input);
       } else if(operation==="upsert_spiritual_practice"){
         result=await mutateOperation(admin,String(userId),operation,input);
       } else if(operation==="weekly_review"){
@@ -857,11 +964,21 @@ export default {
         return json({...copy,request_id:requestId},status);
       }
 
-      await safeAudit(admin,String(userId),operation,requestId,"completed");
-      return json({ok:true,operation,gateway_version:GATEWAY_VERSION,request_id:requestId,result});
+      const durationMs=Math.round((performance.now()-requestStarted)*100)/100;
+      const selectedRoute=operation==="bootstrap_context" ? (result?.routing?.selected_route?.route_key ?? null) : null;
+      await safeAudit(admin,String(userId),operation,requestId,"completed",{
+        duration_ms:durationMs,
+        route_key:selectedRoute,
+        fallback_used:operation==="bootstrap_context" ? Boolean(result?.routing?.fallback_required) : null,
+        db_roundtrips:operation==="bootstrap_context" ? 1 : null
+      });
+      return json({ok:true,operation,gateway_version:GATEWAY_VERSION,request_id:requestId,duration_ms:durationMs,result});
     } catch (error:any) {
       console.error(JSON.stringify({event:"meplus_gateway_error",request_id:requestId,operation,error_type:error?.name ?? "Error",message:String(error?.message ?? error).slice(0,800)}));
-      await safeAudit(admin,String(userId),operation,requestId,"failed",{error_type:error?.name ?? "Error"});
+      await safeAudit(admin,String(userId),operation,requestId,"failed",{
+        error_type:error?.name ?? "Error",
+        duration_ms:Math.round((performance.now()-requestStarted)*100)/100
+      });
       return json({error:"gateway_operation_failed",operation,request_id:requestId},500);
     }
   })
