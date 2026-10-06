@@ -11,7 +11,7 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
   "base": "dev",
   "branch": "fix/eng-007-routing-fast-path",
   "pr": 67,
-  "status": "in_progress",
+  "status": "implementing",
   "last_verified_sha": "50bf9155ff8432bab32f1beec1fc4694965f3201",
   "next_step": "Run PR checks/review, update canonical Drive specs, then merge to dev and reverify live routing.",
   "updated_at": "2026-10-06T13:02:00Z"
