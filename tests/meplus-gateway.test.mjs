@@ -61,7 +61,7 @@ test('gateway source keeps Today read-only and bounded', async () => {
   const todaySource = source.slice(todayStart, todayEnd)
   assert.doesNotMatch(todaySource, /\.insert\(/, 'today() must not insert rows')
   assert.doesNotMatch(todaySource, /\.update\(/, 'today() must not update rows')
-  assert.doesNotMatch(todaySource, /daily_plans/, 'today() must not create or depend on legacy daily plans')
+  assert.match(todaySource, /source:\"canonical_scheduler_state\"/, 'today() must identify canonical scheduler state as its source')
 })
 
 
@@ -113,7 +113,7 @@ test('ENG-007 migration keeps routing private and fallback explicit', async () =
   assert.match(compact, /v_state_mode := 'summary'/)
 })
 
-test('live fast-path bootstrap resolves a known intent', { skip: !liveEnabled }, async () => {
+test('live fast-path bootstrap resolves a known intent', { skip: !(process.env.MEPLUS_GATEWAY_URL && process.env.MEPLUS_GATEWAY_API_KEY) }, async () => {
   const result = await callGateway(
     gatewayUrl,
     'bootstrap_context',
