@@ -624,13 +624,16 @@ async function bootstrapContext(admin:any,userId:string,input:any) {
   const topics=normalizeTextList(input?.topics ?? input?.domains ?? []);
   const checkpointDomains=normalizeTextList(input?.checkpoint_domains ?? []);
   const asOf=typeof input?.as_of==="string" ? input.as_of : new Date().toISOString();
+  const requestedStateMode=typeof input?.state_mode==="string" ? input.state_mode.trim().toLowerCase() : "auto";
+  const stateMode=["auto","summary","full"].includes(requestedStateMode) ? requestedStateMode : "auto";
   const dbStarted=performance.now();
   const {data,error}=await admin.rpc("server_gateway_bootstrap_context_v2",{
     p_user_id:userId,
     p_intent:intent || null,
     p_topics:topics,
     p_checkpoint_domains:checkpointDomains,
-    p_as_of:asOf
+    p_as_of:asOf,
+    p_state_mode:stateMode
   });
   if(error) throw new Error("bootstrap_context_v2: "+error.message);
   const dbElapsedMs=Math.round((performance.now()-dbStarted)*100)/100;
@@ -649,7 +652,8 @@ async function bootstrapContext(admin:any,userId:string,input:any) {
     telemetry:{
       ...(result?.telemetry ?? {}),
       gateway_db_elapsed_ms:dbElapsedMs,
-      db_roundtrips:1
+      db_roundtrips:1,
+      state_scope:result?.state_scope ?? stateMode
     }
   };
 }
