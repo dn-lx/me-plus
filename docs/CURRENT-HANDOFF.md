@@ -1,20 +1,20 @@
 # Current Handoff
 
-**Last updated:** 2026-09-30
+**Last updated:** 2026-10-06
 
 Canonical specifications are in Me+ Google Drive, operational state/checkpoints in Supabase, and implementation/test/release evidence in GitHub. Read source before trusting historical handoffs.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ISSUE-ENG-007",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-09-30T00:33:58.937Z"
+  "branch": "fix/eng-007-routing-fast-path",
+  "pr": 67,
+  "status": "in_progress",
+  "last_verified_sha": "50bf9155ff8432bab32f1beec1fc4694965f3201",
+  "next_step": "Run PR checks/review, update canonical Drive specs, then merge to dev and reverify live routing.",
+  "updated_at": "2026-10-06T13:02:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -47,3 +47,16 @@ Production path: focused fix → dev → approved dev-to-prod PR. Never bypass t
 ## Service boundaries
 
 Use native GitHub, Supabase, Google Drive and Netlify connectors for service operations. Desktop Commander is Android-host troubleshooting only. Credentials and sensitive provider payloads stay out of Git and logs. The current Netlify connector cannot select a dev revision; verify the dev API/web deployment before claiming it is published.
+
+
+## ENG-007 routing fast path
+
+- User authorized execution on 2026-10-06. Work is tracked in PR #67 from `fix/eng-007-routing-fast-path` into `dev`.
+- Live Supabase now has a private intent-routing registry, service-only `server_gateway_resolve_intent`, and one-roundtrip `server_gateway_bootstrap_context_v2`.
+- Live `me-plus-gateway` is v1.15.0 / Edge Function version 23 and preserves the previously deployed v1.14 feature set while adding `resolve_intent` and bootstrap v2.
+- Known routes default to compact Personal State summary; unknown routes retain the full-state fallback.
+- Measured database benchmark (meditation route): compact ~180.6 ms vs full ~4306.2 ms; payload 10,003 bytes vs 44,368 bytes.
+- Live authenticated acceptance: HTTP 200, route `meditation_start`, spec `meditation_six_phase`, summary state, one DB roundtrip. Warm route checks also resolved `health_current`. Missing credential returned HTTP 401.
+- New service RPCs have EXECUTE only for `service_role`; `anon` and `authenticated` are denied. The private routing table has RLS enabled and no public grants.
+- Supabase advisors show no new warning/error attributable to ENG-007. Existing informational RLS-no-policy notices on private/server-only tables and pre-existing unrelated advisor findings remain.
+- Remaining before closure: repository checks/independent review, canonical Drive specification update, merge PR #67 into `dev`, post-merge revalidation, then close ENG-007 and write final checkpoint.
