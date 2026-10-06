@@ -11,6 +11,9 @@ catalog:
   react-dom: 19.2.3
   typescript: 6.0.3
 
+overrides:
+  "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
+
 minimumReleaseAgeExclude:
   - '@expo/ui@57.0.21'
   - expo-constants@57.0.20
