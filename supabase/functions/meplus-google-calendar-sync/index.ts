@@ -14,7 +14,15 @@ async function accessToken(){
     headers:{"content-type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams({client_id:id,client_secret:sec,refresh_token:ref,grant_type:"refresh_token"})
   });
-  if(!r.ok) throw new Error("calendar_token_refresh_"+r.status);
+  if(!r.ok){
+    let googleError="unknown", googleDescription="";
+    try{
+      const err=await r.json();
+      googleError=String(err?.error||"unknown").replace(/[^a-zA-Z0-9_.-]/g,"_").slice(0,80);
+      googleDescription=String(err?.error_description||"").replace(/[\r\n]+/g," ").slice(0,240);
+    }catch{}
+    throw new Error("calendar_token_refresh_"+r.status+":"+googleError+(googleDescription?":"+googleDescription:""));
+  }
   const p=await r.json();
   if(!p.access_token) throw new Error("calendar_access_token_missing");
   return p.access_token as string;
@@ -143,6 +151,8 @@ Deno.serve(async(req)=>{
           syncMode:"recurring_bounded_snapshot",
           authConfigured:true,
           authScope:"calendar.events",
+          lastAuthError:null,
+          lastAuthCheckedAt:now.toISOString(),
           expectedCadenceMinutes:15,
           lastCalendarApiCheckAt:now.toISOString(),
           lastCalendarCounts:counts,
@@ -161,6 +171,20 @@ Deno.serve(async(req)=>{
       results.push({status:"completed",eventCount:all.length,calendarCounts:counts,syncRunId:ing?.sync_run_id||null});
     }catch(e){
       const message=String(e).slice(0,700);
+      if(
+        message.includes("calendar_token_refresh_")
+        || message.includes("calendar_auth_unconfigured")
+        || message.includes("calendar_access_token_missing")
+      ){
+        await db.from("data_sources").update({
+          metadata:{
+            ...((source.metadata as any)||{}),
+            authConfigured:false,
+            lastAuthError:message,
+            lastAuthCheckedAt:new Date().toISOString()
+          }
+        }).eq("id",source.id);
+      }
       await db.rpc("record_scheduler_heartbeat",{
         p_user_id:source.user_id,p_scheduler_key:SCHED,p_status:"failed",
         p_error:{error_code:"calendar_sync_failed",message},
