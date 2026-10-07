@@ -13,6 +13,7 @@ catalog:
 
 overrides:
   "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
+  "shell-quote@>=1.8.4 <1.11.0": ">=1.11.0"
 
 minimumReleaseAgeExclude:
   - '@expo/ui@57.0.21'
