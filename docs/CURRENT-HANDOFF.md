@@ -11,25 +11,23 @@ Canonical specifications are in Me+ Google Drive, operational state/checkpoints 
   "base": "dev",
   "branch": "fix/eng-007-routing-fast-path",
   "pr": 67,
-  "status": "verified_for_dev_merge",
+  "status": "ready_to_merge",
   "last_verified_sha": "48d2b2cc4ab43eed27712d69333f2ecfc56e2e17",
-  "next_step": "Merge PR #67 to dev after current required checks remain green. Production guardrail deployment still requires a generated migration, explicit reviewed dev-to-prod approval, shared-runtime acceptance, and representative v1.17 cold/resumed telemetry.",
-  "updated_at": "2026-10-07T08:00:00Z"
+  "next_step": "Merge PR #67 to dev after current-head policy checks pass; production still needs a generated guardrail migration, explicit reviewed dev-to-prod approval, and v1.17 end-to-end telemetry.",
+  "updated_at": "2026-10-07T08:03:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## ENG-007 current follow-up
 
-- PR #67 remains the sole task branch and targets `dev`; it is mergeable and no competing branch was created.
-- The critical `shell-quote` audit blocker is resolved with a narrow workspace/lockfile override to patched `shell-quote >=1.11.0`. Current Security checks are green; the advisory was not suppressed.
-- Repository source is reconciled to the actual shared runtime: `me-plus-gateway` Edge Function version 25 / internal `gateway-v1.17.0`, bootstrap contract `bootstrap-context-v3`, and exact applied ENG-007 migration versions `20261006124722`, `20261006125132`, `20261006125650`, `20261006211800`, and `20261006211903`. No applied migration was replayed.
-- The staged guardrail patch now preserves the live v3 bootstrap contract while adding intent/topic precedence, whole-word and real-whitespace matching, direct engineering-issue lookup, compact candidates, registration validity/revalidation checks, bounded ambiguity/fallback, and fallback diagnostics propagated through bootstrap. Broken/stale registrations stay scoped to their registered specs instead of triggering broad discovery.
-- Isolated PostgreSQL 17.6 CI run `37590204039` passed **64/64** behavioral, fallback and denied-role assertions with replacement replay and `production_access=false`. Current Security, Runtime, Version and Agent Stack workflows are green. CodeRabbit combined status is green; no formal GitHub review object is recorded.
-- Current live system-wide read-only verification found DB reachable, 12/12 live routing regression green, zero invalid indexes, zero blocked backends and zero >5-minute idle transactions. Canonical scheduler health is healthy / healthy-idle / healthy-waiting / healthy-unmetered across enabled runtimes.
-- The last 24-hour gateway audit sample still contains only four `gateway-v1.15.0` requests and no `response_bytes` samples. Therefore no v1.17 end-to-end p50/p95 or observed-call reduction is claimed. Earlier 81.07% payload and 42.72% DB-time reductions remain single-scope measured evidence, not user-visible end-to-end latency.
-- System-wide advisors exposed separate pre-existing security follow-ups outside ENG-007: `server_gateway_record_medication_supplement_adherence` is a SECURITY DEFINER RPC executable by anon/authenticated, and `get_health_context` is SECURITY DEFINER executable by authenticated while accepting a caller-supplied user id. These must not be misclassified as ENG-007 regressions.
-- The merged read-only observer is `Me+ System Health & Improvements`; the former standalone Improvement Watch is disabled. Me+ Doc Drift Watch remains separate.
-- No new ENG-007 guardrail migration was applied to shared Supabase and no production branch/release was performed in this follow-up. Production remains gated by the repository's explicit dev→prod approval contract.
+- PR #67 targets `dev`. Live/source provenance is reconciled to Edge Function 25 / `gateway-v1.17.0`, bootstrap v3 and the five applied ENG-007 migration versions. No live migration was replayed.
+- `shell-quote` is forced to patched `>=1.11.0`; Security CI is green and the advisory is not suppressed.
+- The staged guardrail adds specific-intent precedence, whole-word/whitespace matching, direct issue lookup, compact candidates, registration validity/revalidation and bounded fallback diagnostics while preserving bootstrap v3 and known-route `state_scope=none`.
+- Code head `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`: isolated PostgreSQL **64/64**, Security/Runtime/Version/Agent Stack green, CodeRabbit status green. Later docs commits must pass current-head policy checks before merge.
+- Live read-only acceptance: routing regression 12/12; no invalid indexes, blocked backends or >5-minute idle transactions; enabled schedulers currently healthy/idle/waiting/unmetered.
+- No v1.17 traffic exists in the inspected 24h gateway audit sample, so no current end-to-end p50/p95 claim. Earlier -81.07% payload and -42.72% single-run DB time remain scoped evidence only.
+- Separate advisor findings, not ENG-007 regressions: medication adherence SECURITY DEFINER RPC is callable by anon/authenticated; `get_health_context` SECURITY DEFINER is callable by authenticated. Track separately.
+- Guardrail is **not deployed**. Shared-runtime application requires a real CLI-generated migration plus explicit approval for the reviewed `dev → prod` release.
 
 ## Health Connect correction and Android 0.3.1 — historical context
 
