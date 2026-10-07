@@ -390,7 +390,11 @@ Deno.serve(async (req: Request) => {
     await supabase.from("data_sources")
       .update({ metadata: { authConfigured: false, lastAuthError: google.error, lastAuthCheckedAt: new Date().toISOString() } })
       .eq("provider", "google-drive-healthsync");
-    return json({ status: google.error, configured: false });
+    return json({
+      status: "failed",
+      error: "healthsync_drive_auth_failed",
+      configured: false
+    }, 502);
   }
 
   const { data: sources, error: sourcesError } = await supabase.from("data_sources")
@@ -419,7 +423,7 @@ Deno.serve(async (req: Request) => {
         p_scheduler_key: "healthsync_drive_ingestion",
         p_status: "failed",
         p_error: { error_code: "healthsync_begin_failed", message: beginError.message },
-        p_expected_cadence_minutes: 120,
+        p_expected_cadence_minutes: 30,
         p_allowed_lateness_minutes: 10,
         p_automation_id: "supabase:healthsync_drive_ingestion"
       });
@@ -440,7 +444,7 @@ Deno.serve(async (req: Request) => {
         p_error: heartbeatStatus === "failed"
           ? { error_code: "healthsync_run_not_started", begin_status: beginStatus, sync_run_id: begin?.syncRunId ?? null }
           : null,
-        p_expected_cadence_minutes: 120,
+        p_expected_cadence_minutes: 30,
         p_allowed_lateness_minutes: 10,
         p_automation_id: "supabase:healthsync_drive_ingestion"
       });
