@@ -51,12 +51,20 @@ select pg_temp.check_it('candidate cap',jsonb_array_length(public.server_gateway
 select pg_temp.check_it('no remote verification claim',public.server_gateway_resolve_intent('meditation')->'selected'->'registration'->>'verification_scope'='registry_only_not_remote_connector');
 select pg_temp.check_it('auth failure stops',public.server_gateway_resolve_intent('meditation')->'fallback_policy'->>'auth_failure'='stop_and_report_no_permission_bypass');
 select pg_temp.check_it('safe mutation retry contract',public.server_gateway_resolve_intent('meditation')->'fallback_policy'->>'mutation_failure'='reconcile_before_retry');
+select pg_temp.check_it('known bootstrap stays state-free',public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->>'state_scope'='none');
+select pg_temp.check_it('known bootstrap stays fast',not (public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->'routing'->>'fallback_required')::boolean);
+select pg_temp.check_it('bootstrap exposes resolver contract',public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->'routing'->>'resolver_contract_version'='intent-routing-v3');
+select pg_temp.check_it('ambiguous bootstrap keeps reason',public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'show my calendar and bank balance','{}','{}',statement_timestamp(),'auto')->'routing'->>'fallback_reason'='multiple_matching_intents');
+select pg_temp.check_it('fallback discovery remains bounded',(public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'quantum banana zzz','{}','{}',statement_timestamp(),'auto')->'routing'->>'recommended_max_followup_calls')::int<=2);
 update private.spec_registry set status='inactive' where spec_key='meditation_six_phase';
 select pg_temp.check_it('inactive spec blocks fast path',public.server_gateway_resolve_intent('meditation')->>'fallback_reason'='broken_registration');
+select pg_temp.check_it('inactive bootstrap keeps reason',public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->'routing'->>'fallback_reason'='broken_registration');
 update private.spec_registry set status='active',drive_url='https://example.invalid/not-a-canonical-spec' where spec_key='meditation_six_phase';
 select pg_temp.check_it('bad reference blocks fast path',public.server_gateway_resolve_intent('meditation')->>'fallback_reason'='broken_registration');
 update private.spec_registry set drive_url='https://docs.google.com/document/d/'||drive_file_id||'/edit',last_verified_at=statement_timestamp()-interval '31 days' where spec_key='meditation_six_phase';
 select pg_temp.check_it('stale asks revalidation',public.server_gateway_resolve_intent('meditation')->>'fallback_reason'='needs_revalidation');
+select pg_temp.check_it('stale bootstrap keeps exact spec',jsonb_array_length(public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->'specs')=1);
+select pg_temp.check_it('stale bootstrap keeps reason',public.server_gateway_bootstrap_context_v2('00000000-0000-0000-0000-000000000001'::uuid,'meditation','{}','{}',statement_timestamp(),'auto')->'routing'->>'fallback_reason'='needs_revalidation');
 update private.spec_registry set last_verified_at=statement_timestamp() where spec_key='meditation_six_phase';
 update private.intent_routing_registry set spec_keys=array['absent_spec'] where route_key='meditation_start';
 select pg_temp.check_it('missing spec blocks fast path',public.server_gateway_resolve_intent('meditation')->>'fallback_reason'='broken_registration');
@@ -66,6 +74,8 @@ select pg_temp.check_it('recovery sees fresh registry',public.server_gateway_res
 select pg_temp.check_it('anon ACL denied',not has_function_privilege('anon','public.server_gateway_resolve_intent(text,text[],integer)','EXECUTE'));
 select pg_temp.check_it('authenticated ACL denied',not has_function_privilege('authenticated','public.server_gateway_resolve_intent(text,text[],integer)','EXECUTE'));
 select pg_temp.check_it('service ACL allowed',has_function_privilege('service_role','public.server_gateway_resolve_intent(text,text[],integer)','EXECUTE'));
+select pg_temp.check_it('bootstrap anon ACL denied',not has_function_privilege('anon','public.server_gateway_bootstrap_context_v2(uuid,text,text[],text[],timestamptz,text)','EXECUTE'));
+select pg_temp.check_it('bootstrap service ACL allowed',has_function_privilege('service_role','public.server_gateway_bootstrap_context_v2(uuid,text,text[],text[],timestamptz,text)','EXECUTE'));
 do $$ begin
  begin perform public.server_gateway_resolve_intent(repeat('x',2001)); raise exception 'oversized intent accepted';
  exception when invalid_parameter_value then perform pg_temp.check_it('intent length bound',true); end;

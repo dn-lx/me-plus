@@ -4,12 +4,13 @@ create role authenticated nologin;
 create role service_role nologin bypassrls;
 create schema private;
 grant usage on schema private to service_role;
-create table private.spec_registry(spec_key text primary key,status text,drive_file_id text,drive_url text,last_verified_at timestamptz);
+create table private.spec_registry(spec_key text primary key,title text,domains text[],authoritative_for text[],priority smallint default 100,status text,drive_file_id text,drive_url text,last_verified_at timestamptz,metadata jsonb default '{}'::jsonb);
 create table private.intent_routing_registry(route_key text primary key,aliases text[],topics text[],spec_keys text[],checkpoint_domains text[],context_operation text,context_input jsonb default '{}'::jsonb,execution_surface text default 'me-plus-gateway',stable_refs jsonb default '{}'::jsonb,priority smallint,status text default 'active',route_version text default '1.0',metadata jsonb default '{"bootstrap_state_mode":"none","max_followup_calls":2}'::jsonb);
 alter table private.spec_registry enable row level security;
 alter table private.intent_routing_registry enable row level security;
 revoke all on all tables in schema private from public,anon,authenticated;
-insert into private.spec_registry select k,'active','fixture-'||k,'https://docs.google.com/document/d/fixture-'||k||'/edit',statement_timestamp()
+insert into private.spec_registry(spec_key,title,domains,authoritative_for,priority,status,drive_file_id,drive_url,last_verified_at)
+select k,k,array[k],array[k],100,'active','fixture-'||k,'https://docs.google.com/document/d/fixture-'||k||'/edit',statement_timestamp()
 from unnest(array['daily_action_engine','data_foundation','intelligence_contract','master_blueprint','meditation_six_phase','romantic_connection_learning','scheduler_automation','seduction_learning','spanish_learning','supabase_schema']) k;
 insert into private.intent_routing_registry(route_key,aliases,topics,spec_keys,checkpoint_domains,context_operation,priority)
 select k,string_to_array(a,'|'),string_to_array(t,'|'),string_to_array(s,'|'),string_to_array(t,'|'),op,pri from (values
@@ -31,3 +32,12 @@ select k,string_to_array(a,'|'),string_to_array(t,'|'),string_to_array(s,'|'),st
 ('scheduler_runtime','scheduler|automation|watchdog|runtime health','scheduler|automation|runtime','scheduler_automation',null,30),
 ('meplus_architecture','me+ architecture|me plus architecture|me+ system|me plus system|architecture','architecture|system|integration','master_blueprint|intelligence_contract|supabase_schema',null,40)
 ) v(k,a,t,s,op,pri);
+
+
+-- Minimal bootstrap-v3 dependencies for disposable guardrail testing.
+create table public.profiles(id uuid primary key,timezone text,locale text);
+insert into public.profiles values('00000000-0000-0000-0000-000000000001','Europe/Berlin','en');
+create or replace function public.server_gateway_resolve_specs(p_topics text[]) returns jsonb language sql stable as $$ select '[]'::jsonb $$;
+create or replace function private.get_latest_checkpoint_compact(p_user_id uuid,p_domains text[]) returns jsonb language sql stable as $$ select null::jsonb $$;
+create or replace function public.server_gateway_build_personal_state(p_user_id uuid,p_as_of timestamptz) returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+create or replace function public.get_personal_state_summary(p_user_id uuid,p_as_of timestamptz) returns jsonb language sql stable as $$ select '{}'::jsonb $$;

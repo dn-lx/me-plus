@@ -108,3 +108,178 @@ grant execute on function private.normalize_meplus_route_text(text) to service_r
 grant execute on function private.meplus_route_phrase_present(text,text) to service_role;
 grant execute on function private.check_meplus_route_specs(text[],timestamptz) to service_role;
 grant execute on function public.server_gateway_resolve_intent(text,text[],integer) to service_role;
+
+-- Preserve the live bootstrap-context-v3 contract while forwarding bounded fallback diagnostics.
+CREATE OR REPLACE FUNCTION public.server_gateway_bootstrap_context_v2(p_user_id uuid, p_intent text DEFAULT NULL::text, p_topics text[] DEFAULT '{}'::text[], p_checkpoint_domains text[] DEFAULT '{}'::text[], p_as_of timestamp with time zone DEFAULT clock_timestamp(), p_state_mode text DEFAULT 'auto'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_route_result jsonb;
+  v_route jsonb;
+  v_candidate jsonb;
+  v_route_topics text[] := '{}'::text[];
+  v_spec_keys text[] := '{}'::text[];
+  v_route_checkpoint_domains text[] := '{}'::text[];
+  v_checkpoint_domains text[] := '{}'::text[];
+  v_topics text[] := '{}'::text[];
+  v_specs jsonb := '[]'::jsonb;
+  v_checkpoint jsonb;
+  v_state jsonb;
+  v_requested_state_mode text := lower(btrim(coalesce(p_state_mode,'auto')));
+  v_effective_state_mode text;
+  v_has_route boolean := false;
+begin
+  if p_user_id is null then
+    raise exception 'user_id_required' using errcode='22023';
+  end if;
+
+  if v_requested_state_mode not in ('auto','none','summary','full') then
+    raise exception 'invalid_state_mode' using errcode='22023';
+  end if;
+
+  v_route_result := public.server_gateway_resolve_intent(p_intent,p_topics,5);
+  v_route := v_route_result->'selected';
+  v_candidate := v_route_result->'matches'->0;
+  v_has_route := v_route is not null
+                 and jsonb_typeof(v_route)='object'
+                 and coalesce(v_route->>'route_key','') <> '';
+
+  if v_has_route then
+    select coalesce(array_agg(distinct lower(btrim(x))) filter (where btrim(x)<>''),'{}'::text[])
+      into v_route_topics
+      from jsonb_array_elements_text(coalesce(v_route->'topics','[]'::jsonb)) x;
+
+    select coalesce(array_agg(distinct btrim(x)) filter (where btrim(x)<>''),'{}'::text[])
+      into v_spec_keys
+      from jsonb_array_elements_text(coalesce(v_route->'spec_keys','[]'::jsonb)) x;
+
+    select coalesce(array_agg(distinct lower(btrim(x))) filter (where btrim(x)<>''),'{}'::text[])
+      into v_route_checkpoint_domains
+      from jsonb_array_elements_text(coalesce(v_route->'checkpoint_domains','[]'::jsonb)) x;
+  elsif v_candidate is not null
+        and jsonb_typeof(v_candidate)='object'
+        and coalesce(v_route_result->>'fallback_reason','') in ('broken_registration','needs_revalidation') then
+    -- Keep a broken/stale route scoped to its registered specs instead of broad discovery.
+    select coalesce(array_agg(distinct btrim(x)) filter (where btrim(x)<>''),'{}'::text[])
+      into v_spec_keys
+      from jsonb_array_elements_text(coalesce(v_candidate->'spec_keys','[]'::jsonb)) x;
+  end if;
+
+  select coalesce(array_agg(distinct x) filter (where x<>''),'{}'::text[])
+    into v_topics
+  from (
+    select lower(btrim(t)) x from unnest(coalesce(p_topics,'{}'::text[])) t
+    union all
+    select unnest(v_route_topics)
+  ) q;
+
+  -- A known route owns checkpoint scope. Generic topics are used only on fallback,
+  -- avoiding unrelated "latest" checkpoints caused by broad topic overlap.
+  select coalesce(array_agg(distinct x) filter (where x<>''),'{}'::text[])
+    into v_checkpoint_domains
+  from (
+    select lower(btrim(t)) x from unnest(coalesce(p_checkpoint_domains,'{}'::text[])) t
+    union all
+    select unnest(v_route_checkpoint_domains) where v_has_route
+    union all
+    select unnest(v_topics) where not v_has_route
+  ) q;
+
+  if cardinality(v_spec_keys) > 0 then
+    select coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'spec_key',s.spec_key,
+          'title',s.title,
+          'drive_file_id',s.drive_file_id,
+          'drive_url',s.drive_url,
+          'domains',s.domains,
+          'authoritative_for',s.authoritative_for,
+          'priority',s.priority,
+          'last_verified_at',s.last_verified_at,
+          'metadata',s.metadata
+        )
+        order by array_position(v_spec_keys,s.spec_key),s.priority,s.spec_key
+      ),
+      '[]'::jsonb
+    )
+    into v_specs
+    from private.spec_registry s
+    where s.status='active' and s.spec_key=any(v_spec_keys);
+  else
+    v_specs := public.server_gateway_resolve_specs(v_topics);
+  end if;
+
+  v_checkpoint := private.get_latest_checkpoint_compact(p_user_id,v_checkpoint_domains);
+
+  if v_requested_state_mode='auto' then
+    if v_has_route then
+      v_effective_state_mode := lower(
+        coalesce(nullif(v_route->'metadata'->>'bootstrap_state_mode',''),'none')
+      );
+      if v_effective_state_mode not in ('none','summary','full') then
+        v_effective_state_mode := 'none';
+      end if;
+    else
+      v_effective_state_mode := 'summary';
+    end if;
+  else
+    v_effective_state_mode := v_requested_state_mode;
+  end if;
+
+  if v_effective_state_mode='full' then
+    v_state := public.server_gateway_build_personal_state(p_user_id,p_as_of);
+  elsif v_effective_state_mode='summary' then
+    v_state := jsonb_build_object(
+      'schema_version','bootstrap-summary-v1',
+      'as_of',p_as_of,
+      'profile',(
+        select jsonb_build_object('timezone',p.timezone,'locale',p.locale)
+        from public.profiles p where p.id=p_user_id
+      ),
+      'summary',public.get_personal_state_summary(p_user_id,p_as_of)
+    );
+  else
+    v_state := null;
+  end if;
+
+  return jsonb_build_object(
+    'contract_version','bootstrap-context-v3',
+    'as_of',p_as_of,
+    'intent',coalesce(p_intent,''),
+    'topics',v_topics,
+    'state_scope',v_effective_state_mode,
+    'routing',jsonb_build_object(
+      'selected_route',case when v_has_route then v_route else null end,
+      'candidates',coalesce(v_route_result->'matches','[]'::jsonb),
+      'fast_path',v_has_route,
+      'fallback_required',coalesce((v_route_result->>'fallback_required')::boolean,not v_has_route),
+      'fallback_reason',case when v_has_route then null else v_route_result->>'fallback_reason' end,
+      'fallback_policy',coalesce(v_route_result->'fallback_policy','{}'::jsonb),
+      'resolver_contract_version',v_route_result->>'contract_version',
+      'context_operation',case when v_has_route then v_route->>'context_operation' else null end,
+      'context_input',case when v_has_route then coalesce(v_route->'context_input','{}'::jsonb) else '{}'::jsonb end,
+      'execution_surface',case when v_has_route then v_route->>'execution_surface' else null end,
+      'stable_refs',case when v_has_route then coalesce(v_route->'stable_refs','{}'::jsonb) else '{}'::jsonb end,
+      'checkpoint_domains',v_checkpoint_domains,
+      'db_roundtrips',1,
+      'checkpoint_compact',true,
+      'recommended_max_followup_calls',
+        case
+          when not v_has_route then greatest(1,least(coalesce((v_route_result->'fallback_policy'->>'max_discovery_calls')::int,2),2))
+          when coalesce(v_route->>'context_operation','')='' then 1
+          else greatest(1,least(coalesce((v_route->'metadata'->>'max_followup_calls')::int,2),3))
+        end
+    ),
+    'specs',v_specs,
+    'checkpoint',v_checkpoint,
+    'state',v_state
+  );
+end;
+$function$;
+
+revoke all on function public.server_gateway_bootstrap_context_v2(uuid,text,text[],text[],timestamptz,text) from public, anon, authenticated;
+grant execute on function public.server_gateway_bootstrap_context_v2(uuid,text,text[],text[],timestamptz,text) to service_role;
