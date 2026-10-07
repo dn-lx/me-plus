@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
+- Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
