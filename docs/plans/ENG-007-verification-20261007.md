@@ -1,32 +1,38 @@
 # ENG-007 verification evidence — 2026-10-07
 
-## Scope and version
+## Scope and current head
 
-Code commit: `68e0af5162b329e94c0b3c53552a002d0a0ed109`.
-PR: https://github.com/dn-lx/me-plus/pull/67 (draft, target dev).
-Tested merge ref: `7437f59c1e308b3e33ad892635c7ac72cd4fe76e` (code commit above plus dev `a5a60a8dc5822c0b182107fae09dd756b0615a61`).
-Patch: `supabase/patches/eng_007_routing_guardrails.sql`.
-Deployment status: NOT applied to shared Supabase; NOT released to prod.
+PR: https://github.com/dn-lx/me-plus/pull/67 → `dev`  
+Current verified head: `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`  
+Patch candidate: `supabase/patches/eng_007_routing_guardrails.sql`  
+Shared-runtime deployment status: **candidate NOT applied**; current live core remains Edge Function 25 / `gateway-v1.17.0` with bootstrap `v3`.
 
-## Verified
+## Fixed and verified
 
-- https://github.com/dn-lx/me-plus/actions/runs/37584524679 — routing / isolated PostgreSQL: success. Log output reports `passed: 54, failed: 0, production_access: false` twice, after initial application and replacement replay.
-- Behavioral scope: 17 registered-domain fixtures, aliases/case/whitespace/punctuation, explicit intent beating broad topics, word-boundary rejection, specific engineering issue lookup, compact alternatives, ambiguity preserved despite result limit, missing/inactive/invalid/stale registry references, recovery after revalidation, input limits, function ACLs and an actual denied anonymous invocation.
-- https://github.com/dn-lx/me-plus/actions/runs/37584524593 — runtime / workspace: success.
-- Agent-stack and version validation passed for the code commit. Security Semgrep and Gitleaks passed.
-- Tests use disposable PostgreSQL 17.6 with synthetic route/spec fixtures and no user records or live credentials. No production failure fixture was installed.
+- Dependency gate: the prior critical `shell-quote` GHSA-pqg4-j6r4-53mv failure is fixed via a narrow override to patched `>=1.11.0`; current Security workflow is green. The advisory is not ignored.
+- Provenance: repository gateway source now matches the live v1.17.0 contract. Repository migration filenames/content now match the five actually applied ENG-007 migrations; no applied migration was replayed.
+- Guardrail behavior: explicit language beats broad topic hints; matching uses normalized whitespace and word boundaries; explicit ENG issue keys route to exact lookup; candidates are compact; missing/inactive/invalid/stale spec registrations cannot falsely claim a fast path; ambiguity and connector/retry policies are bounded.
+- Bootstrap compatibility: staged patch is based on live `bootstrap-context-v3`, keeps known routes state-free by default, forwards resolver `fallback_reason` / `fallback_policy`, keeps stale/broken routes scoped, and caps fallback discovery to two calls.
+- Isolated PostgreSQL run https://github.com/dn-lx/me-plus/actions/runs/37590204039: **64 passed, 0 failed**, replacement replay passes, production access false.
+- Current-head Security, Runtime, Version and Agent Stack workflows pass. CodeRabbit combined status is success; no formal GitHub review object is recorded.
 
-## Release blockers and unverified areas
+## System-wide read-only acceptance
 
-- https://github.com/dn-lx/me-plus/actions/runs/37584524573 — dependency-audit failed. The audit reported critical `shell-quote` advisory GHSA-pqg4-j6r4-53mv through the React Native / react-devtools dependency tree; output reports affected versions >=1.8.4 <1.11.0, fixed >=1.11.0. This is an observed audit result, not a claim of exploitability in Me+. No dependency/lockfile changes were made by this follow-up. Resolve and verify separately; do not silence the audit.
-- Android builder was queued at inspection, not verified. The new SQL patch has no Android code changes.
-- Deployed gateway/migration history is newer than this PR's older gateway source. Reconcile before generating/applying the next migration or deploying the branch.
-- The existing bootstrap consumer must preserve/forward actionable fallback reasons and avoid unnecessary broad/full context when registration revalidation is required. Isolated resolver tests do not prove complete bootstrap, network or connector recovery.
-- Registration validation covers local canonical references, not remote Drive availability/permissions. The 30-day rule requests revalidation; it does not declare remote failure.
-- Connector-failure fields express bounded caller policy; no external execution/authorization/retry behavior is claimed to have changed.
-- No representative new-version gateway samples were found in the inspected last-24-hour audit window. No user-visible cold/resumed latency improvement, p95 reduction or measured tool-call reduction is claimed.
-- Independent review, current-head CI, dev merge, approved dev-to-prod release and shared-runtime acceptance remain open. Do not conflate the earlier live bootstrap work with this staged follow-up.
+At 2026-10-07 07:54 UTC:
+- database reachable;
+- live routing regression **12/12**;
+- zero invalid/unready indexes;
+- zero blocked backends;
+- zero transactions idle in transaction for more than five minutes;
+- enabled scheduler health is entirely healthy / healthy-idle / healthy-waiting / healthy-unmetered.
 
-## Improvement watch
+All currently referenced fast-path specs are active, have valid Drive references and are within the staged 30-day revalidation window.
 
-The user-requested read-only Me+ Improvement Watch is enabled for daily review around 09:00 Europe/Berlin, meaningful-change notifications and a Monday digest. It complements the operational-health and document-drift watches. It reports at most three actionable recommendations, with evidence, benefit, smallest safe change, dependencies/risks, acceptance tests and one next-session instruction. Canonical observer policy is `improvement-watch-v1.0` in the existing Scheduler specification; compact source/policy references are stored on ENG-007. Creation/enabled state does not prove a future execution or notification receipt.
+Advisors also exposed separate, pre-existing security work outside ENG-007: the medication/supplement adherence SECURITY DEFINER RPC is callable by anon/authenticated, and `get_health_context` is SECURITY DEFINER callable by authenticated while accepting a caller-supplied user id. These findings are not caused by the ENG-007 patch and must be handled separately.
+
+## Still unverified / release gates
+
+- The current audit window contains four gateway requests, all `gateway-v1.15.0`; it contains no v1.17 `response_bytes` samples. No v1.17 end-to-end p50/p95 or observed tool-call reduction is claimed.
+- The guardrail patch is not a generated migration because this agent environment does not have the Supabase CLI. Generate it with the installed CLI in the approved release workflow; never invent a timestamp or ad-hoc apply it to shared production.
+- Merge to `dev` is authorized separately. Production still requires explicit approval for the specific reviewed `dev → prod` release.
+- Remote connector availability is not proven by local registry validity. Connector failure behavior remains bounded policy plus isolated contract tests until exercised through the reviewed runtime.

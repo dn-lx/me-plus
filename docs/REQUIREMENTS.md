@@ -79,28 +79,33 @@ _Add PR/commit, test/build result, screenshots/device verification or other proo
 **Priority:** P0
 
 **Observed behavior**  
-Known Me+ intents can still trigger repeated specification, Drive, database, connector or entity discovery even when canonical identifiers already exist. This increases latency, tool usage and inconsistency across cold and resumed chats.
+Known Me+ intents can trigger repeated specification, Drive, database, connector or entity discovery even when canonical identifiers already exist. This increases latency, tool usage and inconsistency across cold and resumed chats.
 
 **Expected behavior**  
-Known intents use a deterministic fast path: intent/aliases → canonical specification(s) → latest relevant checkpoint → compact current state → purpose-specific context/execution surface. Broad discovery is only a bounded fallback.
+Known intents use a deterministic fast path: intent/aliases → canonical specification(s) → latest relevant checkpoint → no generic Personal State by default → purpose-specific context/execution surface. Missing/stale registrations and ambiguous intents use an explicit, bounded and diagnosable fallback.
 
 **Acceptance criteria**
 - [x] Root cause identified: routing components existed but were not enforced as one system-wide default path.
 - [x] Private intent-routing registry and service-only deterministic resolver deployed.
-- [x] One-roundtrip bootstrap v2 deployed with compact state for known routes.
-- [x] Live gateway v1.15.0 routes a known intent and rejects unauthenticated calls.
-- [x] Representative route tests cover meditation, steps/health, Spanish, Romantic Connection and unknown fallback.
-- [x] Known-route compact bootstrap materially reduces database work/payload versus full Personal State.
-- [ ] Repository checks / independent review complete.
+- [x] Live bootstrap v3 uses compact checkpoints and `state_scope=none` by default for known routes.
+- [x] Live gateway source provenance reconciled to Edge Function 25 / `gateway-v1.17.0`.
+- [x] Applied ENG-007 migration provenance reconciled exactly into repository source.
+- [x] Critical `shell-quote` dependency audit blocker fixed without suppressing the advisory; current Security checks pass.
+- [x] Staged guardrail covers intent/topic precedence, whole-word whitespace matching, direct issue lookup, registration validity/revalidation, bounded ambiguity and bootstrap fallback diagnostics.
+- [x] Disposable PostgreSQL regression suite passes 64/64 assertions with denied-role and replay checks.
+- [x] Current live routing regression remains 12/12 and system-wide read-only health shows no ENG-007 regression.
 - [ ] Task PR merged to `dev` and post-merge state reverified.
+- [ ] Guardrail migration generated through the approved Supabase CLI/release workflow and deployed only after explicit reviewed dev→prod approval.
+- [ ] Representative v1.17 cold/resumed interactions provide comparable p50/p95, payload-byte and observed-call evidence.
 
 **Performance budget**
-- Known intent: one gateway bootstrap operation; one gateway→database RPC for route + specs + checkpoint + compact state.
-- No broad Drive/database/plugin discovery to identify a registered known route.
-- Default maximum follow-up calls after bootstrap: 2 (for example one exact Drive spec fetch plus one purpose-specific context/action call).
+- Known intent: one gateway bootstrap operation and one gateway→database RPC for route + specs + checkpoint + state decision.
+- Registered known routes default to no generic Personal State and no broad Drive/database/plugin discovery.
+- Fallback discovery is explicit and bounded to at most two follow-up discovery calls.
+- Database-only timings must never be reported as end-to-end user latency.
 
 **Completion evidence**  
-PR #67. Live gateway v1.15.0 / Supabase Edge Function version 23. Database benchmark on the meditation route: compact summary ~180.6 ms vs full Personal State ~4306.2 ms; payload 10,003 bytes vs 44,368 bytes. Warm live gateway acceptance returned route `meditation_start` with one DB roundtrip; another returned `health_current`. Security boundary: missing credential returned HTTP 401; new RPCs are executable by `service_role` and not by `anon` / `authenticated`.
+PR #67, current head `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`. Live gateway is Edge Function 25 / `gateway-v1.17.0` with `bootstrap-context-v3`. Isolated routing run `37590204039` reports 64 passed / 0 failed and no production access; current Security, Runtime, Version and Agent Stack workflows are green. Live routing regression remains 12/12. Earlier comparable core measurement: `get_me_context` payload 35,704 → 6,758 bytes (-81.07%) and single-run DB execution 19.673 → 11.268 ms (-42.72%). The inspected 24-hour audit window still lacks v1.17 traffic, so end-to-end p50/p95 remains unverified.
 
 
 ## [ ] ISSUE-001 — Short issue title
