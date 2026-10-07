@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const gatewayPath = resolve(root, 'supabase/functions/me-plus-gateway/index.ts')
-const routingMigrationPath = resolve(root, 'supabase/migrations/20261006124500_eng_007_routing_fast_path_v1.sql')
-const compactMigrationPath = resolve(root, 'supabase/migrations/20261006125500_eng_007_bootstrap_compact_state_v1.sql')
+const routingMigrationPath = resolve(root, 'supabase/migrations/20261006124722_eng_007_routing_fast_path_v1.sql')
+const compactMigrationPath = resolve(root, 'supabase/migrations/20261006125132_eng_007_bootstrap_compact_state_v1.sql')
+const scopedBootstrapMigrationPath = resolve(root, 'supabase/migrations/20261006211800_eng_007_route_scoped_bootstrap_v2.sql')
+const multiTopicMigrationPath = resolve(root, 'supabase/migrations/20261006211903_eng_007_multi_topic_routing_v1.sql')
 
 async function callGateway(url, operation, input = {}, key = null) {
   const headers = { 'content-type': 'application/json' }
@@ -113,6 +115,20 @@ test('ENG-007 migration keeps routing private and fallback explicit', async () =
   assert.match(compact, /v_state_mode := 'summary'/)
 })
 
+test('ENG-007 live v3 provenance keeps route-scoped state and multi-topic routing', async () => {
+  const [scoped, multi] = await Promise.all([
+    readFile(scopedBootstrapMigrationPath, 'utf8'),
+    readFile(multiTopicMigrationPath, 'utf8'),
+  ])
+
+  assert.match(scoped, /private\.get_latest_checkpoint_compact/)
+  assert.match(scoped, /bootstrap-context-v3/)
+  assert.match(scoped, /v_effective_state_mode[\s\S]*'none'/)
+  assert.match(scoped, /checkpoint_compact/)
+  assert.match(multi, /topic_set/)
+  assert.match(multi, /routing-fast-path-regression-v2/)
+})
+
 test('live fast-path bootstrap resolves a known intent', { skip: !(process.env.MEPLUS_GATEWAY_URL && process.env.MEPLUS_GATEWAY_API_KEY) }, async () => {
   const result = await callGateway(
     gatewayUrl,
@@ -122,12 +138,13 @@ test('live fast-path bootstrap resolves a known intent', { skip: !(process.env.M
   )
   assert.equal(result.response.status, 200)
   assert.equal(result.body?.ok, true)
-  assert.equal(result.body?.gateway_version, 'gateway-v1.15.0')
-  assert.equal(result.body?.result?.contract_version, 'bootstrap-context-v2')
+  assert.equal(result.body?.gateway_version, 'gateway-v1.17.0')
+  assert.equal(result.body?.result?.contract_version, 'bootstrap-context-v3')
   assert.equal(result.body?.result?.state_scope, 'summary')
   assert.equal(result.body?.result?.routing?.selected_route?.route_key, 'meditation_start')
   assert.equal(result.body?.result?.routing?.fallback_required, false)
   assert.equal(result.body?.result?.telemetry?.db_roundtrips, 1)
+  assert.ok(result.body?.result?.telemetry?.response_bytes > 0)
   assert.ok(result.body?.duration_ms >= 0)
 })
 

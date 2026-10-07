@@ -1,6 +1,6 @@
 import { withSupabase } from "npm:@supabase/server@^1";
 
-const GATEWAY_VERSION = "gateway-v1.15.0";
+const GATEWAY_VERSION = "gateway-v1.17.0";
 const ALLOWED_CONTEXT_TOPICS = new Set(["state","goals","routines","actions","recommendations","guidance"]);
 
 function json(data: any, status = 200) {
@@ -511,6 +511,7 @@ async function getFeedbackContext(admin:any,userId:string,input:any) {
 function mutationRequiredFields(operation:string) {
   const m:any={
     log_hydration:["amount_ml"],
+    record_medication_supplement_adherence:["item_id"],
     log_workout:["started_at"],
     log_recovery_session:["recovery_type","started_at"],
     log_practice_session:["skill_id","started_at"],
@@ -625,7 +626,7 @@ async function bootstrapContext(admin:any,userId:string,input:any) {
   const checkpointDomains=normalizeTextList(input?.checkpoint_domains ?? []);
   const asOf=typeof input?.as_of==="string" ? input.as_of : new Date().toISOString();
   const requestedStateMode=typeof input?.state_mode==="string" ? input.state_mode.trim().toLowerCase() : "auto";
-  const stateMode=["auto","summary","full"].includes(requestedStateMode) ? requestedStateMode : "auto";
+  const stateMode=["auto","none","summary","full"].includes(requestedStateMode) ? requestedStateMode : "auto";
   const dbStarted=performance.now();
   const {data,error}=await admin.rpc("server_gateway_bootstrap_context_v2",{
     p_user_id:userId,
@@ -638,7 +639,7 @@ async function bootstrapContext(admin:any,userId:string,input:any) {
   if(error) throw new Error("bootstrap_context_v2: "+error.message);
   const dbElapsedMs=Math.round((performance.now()-dbStarted)*100)/100;
   const result=data ?? {
-    contract_version:"bootstrap-context-v2",
+    contract_version:"bootstrap-context-v3",
     as_of:asOf,
     intent,
     topics,
@@ -647,13 +648,18 @@ async function bootstrapContext(admin:any,userId:string,input:any) {
     checkpoint:null,
     state:null
   };
+  const responseBytes=new TextEncoder().encode(JSON.stringify(result)).byteLength;
   return {
     ...result,
     telemetry:{
       ...(result?.telemetry ?? {}),
       gateway_db_elapsed_ms:dbElapsedMs,
       db_roundtrips:1,
-      state_scope:result?.state_scope ?? stateMode
+      state_scope:result?.state_scope ?? stateMode,
+      response_bytes:responseBytes,
+      fast_path:Boolean(result?.routing?.fast_path),
+      fallback_required:Boolean(result?.routing?.fallback_required),
+      recommended_max_followup_calls:result?.routing?.recommended_max_followup_calls ?? null
     }
   };
 }
@@ -814,9 +820,9 @@ export default {
       if(operation==="capabilities"){
         result={
           gateway_version:GATEWAY_VERSION,
-          operations:["capabilities","bootstrap_context","resolve_intent","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","upsert_engineering_issue","get_scheduler_policy","version_scheduler_policy","get_current_state","get_context","today","get_current_guidance","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","resolve_learning_unit","get_learning_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
+          operations:["capabilities","bootstrap_context","resolve_intent","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","upsert_engineering_issue","get_scheduler_policy","version_scheduler_policy","get_current_state","get_context","today","get_current_guidance","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","resolve_learning_unit","get_learning_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","record_medication_supplement_adherence","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
           read_operations:["bootstrap_context","resolve_intent","resolve_specs","get_latest_checkpoint","get_ai_routing_config","get_cross_domain_evidence_context","get_engineering_issue","list_engineering_issues","get_scheduler_policy","get_current_state","get_context","today","get_current_guidance","get_health_context","get_calendar_context","get_checkin_context","get_nutrition_context","get_training_context","get_skills_context","resolve_learning_unit","get_learning_context","get_spanish_context","get_finance_context","get_reflection_context","get_settings_context","get_social_context","get_daily_plan_context","get_feedback_context"],
-          write_operations:["upsert_engineering_issue","version_scheduler_policy","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
+          write_operations:["upsert_engineering_issue","version_scheduler_policy","complete_action","record_checkin","log_meal","record_health_observation","log_hydration","record_medication_supplement_adherence","log_workout","log_recovery_session","log_practice_session","upsert_goal","upsert_routine","upsert_action","record_spanish_learning","upsert_financial_account","upsert_debt","upsert_recurring_commitment","record_financial_snapshot","record_financial_transaction","log_journal_entry","log_relationship_reflection","log_spiritual_session","upsert_spiritual_practice","upsert_preference","upsert_person","log_interaction","upsert_skill","upsert_subskill","upsert_skill_drill","record_skill_assessment","upsert_skill_resource","record_skill_progress_evidence","upsert_learning_unit","upsert_learning_lesson","upsert_learning_question","upsert_learning_state","record_learning_exposure","record_learning_attempt","record_learning_checkpoint","record_recommendation_feedback","record_outcome","persist_daily_plan","weekly_review"],
           context_topics:[...ALLOWED_CONTEXT_TOPICS],
           max_context_limit:50,
           complete_action_supports_dry_run:true
@@ -894,6 +900,10 @@ export default {
         result=await mutateOperation(admin,String(userId),operation,input);
       } else if(operation==="log_hydration"){
         result=await mutateOperation(admin,String(userId),operation,input);
+      } else if(operation==="record_medication_supplement_adherence"){
+        const {data,error}=await admin.rpc("server_gateway_record_medication_supplement_adherence",{p_user_id:String(userId),p_input:input});
+        if(error) throw new Error("record_medication_supplement_adherence: "+error.message);
+        result=data;
       } else if(operation==="log_workout"){
         result=await mutateOperation(admin,String(userId),operation,input);
       } else if(operation==="log_recovery_session"){
@@ -974,7 +984,12 @@ export default {
         duration_ms:durationMs,
         route_key:selectedRoute,
         fallback_used:operation==="bootstrap_context" ? Boolean(result?.routing?.fallback_required) : null,
-        db_roundtrips:operation==="bootstrap_context" ? 1 : null
+        db_roundtrips:operation==="bootstrap_context" ? 1 : null,
+        gateway_db_elapsed_ms:operation==="bootstrap_context" ? (result?.telemetry?.gateway_db_elapsed_ms ?? null) : null,
+        response_bytes:operation==="bootstrap_context" ? (result?.telemetry?.response_bytes ?? null) : null,
+        state_scope:operation==="bootstrap_context" ? (result?.state_scope ?? null) : null,
+        context_operation:operation==="bootstrap_context" ? (result?.routing?.context_operation ?? null) : null,
+        recommended_max_followup_calls:operation==="bootstrap_context" ? (result?.routing?.recommended_max_followup_calls ?? null) : null
       });
       return json({ok:true,operation,gateway_version:GATEWAY_VERSION,request_id:requestId,duration_ms:durationMs,result});
     } catch (error:any) {
