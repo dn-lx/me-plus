@@ -18,7 +18,7 @@ export default async function TodayPage() {
       .eq("user_id", auth.user.id).in("status", ["available", "planned", "in_progress", "partial"])
       .order("due_at", { ascending: true, nullsFirst: false }).limit(40),
     supabase.from("recommendations").select("id,title,rationale,confidence,generated_at")
-      .eq("user_id", auth.user.id).order("generated_at", { ascending: false }).limit(3)
+      .eq("user_id", auth.user.id).gte("generated_at", new Date(Date.now() - 86400000).toISOString()).order("generated_at", { ascending: false }).limit(3)
   ]);
 
   const error = actionsResult.error || guidanceResult.error;
