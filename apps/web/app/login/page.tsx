@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "../../lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,10 +11,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   async function signIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setBusy(true); setError("");
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) { setError("Sign-in is not configured."); setBusy(false); return; }
-    const client = createBrowserClient(url, key);
+    const client = createClient();
     const { error: authError } = await client.auth.signInWithPassword({ email, password });
     if (authError) { setError("Sign-in failed. Check your credentials."); setBusy(false); return; }
     router.replace("/today"); router.refresh();
