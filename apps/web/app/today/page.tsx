@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RecommendationRating } from "./rating";
+import { ActionControls } from "./action-controls";
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 
@@ -26,6 +27,7 @@ export default async function TodayPage() {
   const actions = (actionsResult.data ?? []) as Action[];
   const guidance = (guidanceResult.data ?? []) as Recommendation[];
   const groups = ["must", "should", "bonus"] as const;
+  const now = [...actions].sort((a,b) => ({must:0,should:1,bonus:2}[a.priority as "must"|"should"|"bonus"] ?? 3) - ({must:0,should:1,bonus:2}[b.priority as "must"|"should"|"bonus"] ?? 3))[0];
 
   return (
     <main style={{ maxWidth: 850, margin: "0 auto", padding: "clamp(20px,5vw,48px)", fontFamily: "system-ui", lineHeight: 1.5 }}>
@@ -44,8 +46,10 @@ export default async function TodayPage() {
           <section aria-labelledby="now-heading" style={{ padding: 24, border: "1px solid #7775", borderRadius: 16, marginTop: 28 }}>
             <h2 id="now-heading">What matters now</h2>
             {actions.length ? (
-              <p><strong>{actions.find(a => a.priority === "must")?.title ?? actions[0]?.title ?? "No next action"}</strong></p>
-            ) : <p>No active actions are currently available.</p>}
+              <p><strong>{now?.title ?? "No next action"}</strong></p>
+             ) : <p>No active actions are currently available.</p>}
+            {now?.estimated_minutes ? <p>{now.estimated_minutes} minutes · {now.priority}</p> : null}
+            {now?.instructions ? <p>{now.instructions}</p> : null}
           </section>
           {groups.map(priority => {
             const items = actions.filter(a => a.priority === priority);
@@ -58,6 +62,7 @@ export default async function TodayPage() {
                       <strong>{a.title}</strong>
                       <div style={{ opacity: 0.75, fontSize: 13 }}>{a.status}{a.estimated_minutes ? ` · ${a.estimated_minutes} min` : ""}</div>
                       {a.instructions ? <p style={{ marginBottom: 0 }}>{a.instructions}</p> : null}
+                      <ActionControls id={a.id} />
                     </li>)}
                   </ul>}
               </section>
