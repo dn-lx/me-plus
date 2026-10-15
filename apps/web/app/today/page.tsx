@@ -54,9 +54,8 @@ export default async function TodayPage() {
         <>
           <section aria-labelledby="now-heading" style={{ padding: 24, border: "1px solid #7775", borderRadius: 16, marginTop: 28 }}>
             <h2 id="now-heading">What matters now</h2>
-            {actions.length ? (
-              <p><strong>{now?.title ?? "No next action"}</strong></p>
-             ) : <p>No active actions are currently available.</p>}
+            {now ? <p><strong>{now.title}</strong></p> : <p>{busyNow ? "You are in a calendar commitment." : actions.length ? "No ready action fits your current calendar window." : "No active actions are currently available."}</p>}
+            {available !== null && !busyNow ? <small>{available} minutes until your next commitment</small> : null}
             {now?.estimated_minutes ? <p>{now.estimated_minutes} minutes · {now.priority}</p> : null}
             {now?.instructions ? <p>{now.instructions}</p> : null}
           </section>
