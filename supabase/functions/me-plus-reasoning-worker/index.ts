@@ -1381,6 +1381,17 @@ export default {
           error: err
         });
         if (failedUsage.error) console.error("failed usage telemetry write", failedUsage.error);
+        // A trace export failure must never prevent scheduler retry handling.
+        try {
+          await exportLangfuseTrace({
+            dispatchId,attempt,startedAt,completedAt:new Date().toISOString(),
+            route:selectedRouting?.route_key ?? "unknown",
+            model:selectedRouting?.model?.api_model ?? FALLBACK_MODEL,
+            status:"failed"
+          },LANGFUSE_CONFIG);
+        } catch {
+          console.warn("langfuse_trace_unavailable_nonblocking");
+        }
         const retry = await admin.rpc("reschedule_ai_scheduler_dispatch", { p_dispatch_id: dispatchId, p_error: err });
         if (retry.error) console.error("reschedule failed", retry.error);
         results.push({ dispatch_id: dispatchId, status: "failed", attempt, error_type: err.error_type });
