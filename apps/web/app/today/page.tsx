@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RecommendationRating } from "./rating";
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 
@@ -30,10 +31,10 @@ export default async function TodayPage() {
     <main style={{ maxWidth: 850, margin: "0 auto", padding: "clamp(20px,5vw,48px)", fontFamily: "system-ui", lineHeight: 1.5 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Link href="/" aria-label="Me+ home" style={{ fontWeight: 800, fontSize: 22 }}>Me+</Link>
-        <span style={{ fontSize: 13, opacity: 0.7 }}>Private · Read-only preview</span>
+        <span style={{ fontSize: 13, opacity: 0.7 }}>Private · Feedback enabled</span>
       </header>
       <h1 style={{ fontSize: "clamp(32px,7vw,52px)", marginBottom: 4 }}>Today</h1>
-      <p style={{ opacity: 0.75 }}>Your current priorities from Me+. No changes are made from this screen.</p>
+      <p style={{ opacity: 0.75 }}>Your current priorities from Me+. Your ratings help Me+ learn which guidance is useful.</p>
       {error ? (
         <section role="alert" style={{ padding: 20, border: "1px solid currentColor", borderRadius: 12 }}>
           We couldn't load your current Me+ state. Please refresh or try again later.
@@ -68,6 +69,7 @@ export default async function TodayPage() {
               <ul style={{ paddingLeft: 20 }}>{guidance.map(r => <li key={r.id} style={{ marginBottom: 16 }}>
                 <strong>{r.title}</strong>{r.rationale ? <p>{r.rationale}</p> : null}
                 <small>Confidence: {r.confidence ?? "not available"}</small>
+                <RecommendationRating id={r.id} />
               </li>)}</ul>}
           </section>
         </>
