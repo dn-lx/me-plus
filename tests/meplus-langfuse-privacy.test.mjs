@@ -38,3 +38,14 @@ test('Langfuse rejects cleartext export destinations',async()=>{
   enabled:true,publicKey:'test-key',secretKey:'test-secret',host:'http://example.invalid'
  }),/HTTPS/);
 });
+
+
+test('reasoning worker preserves active Luna model routing and optional tracing',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const {fileURLToPath}=await import('node:url');
+  const source=await readFile(fileURLToPath(new URL('../supabase/functions/me-plus-reasoning-worker/index.ts',import.meta.url)),'utf8');
+  assert.match(source,/meplus-ai-routing-v4-luna-adaptive-effort/);
+  assert.match(source,/const FALLBACK_MODEL = [^\n]*luna/);
+  assert.match(source,/MEPLUS_LANGFUSE_ENABLED/);
+  assert.match(source,/langfuse_trace_unavailable_nonblocking/);
+});
