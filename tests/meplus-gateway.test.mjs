@@ -264,3 +264,62 @@ test('Me+ Daily Review is a private read-only event view', async () => {
   assert.doesNotMatch(source,/\.insert\(/);
   assert.doesNotMatch(source,/\.update\(/);
 });
+
+
+test('STAGING ONLY: action owner, cross-user isolation, and idempotent replay', {
+  skip: !(process.env.MEPLUS_STAGING_E2E_URL && process.env.MEPLUS_STAGING_E2E_REF &&
+    process.env.MEPLUS_STAGING_E2E_ANON_KEY && process.env.MEPLUS_STAGING_E2E_OWNER_JWT &&
+    process.env.MEPLUS_STAGING_E2E_OTHER_JWT && process.env.MEPLUS_STAGING_E2E_ACTION_ID &&
+    process.env.MEPLUS_STAGING_E2E_ALLOW_MUTATION === 'yes'),
+  timeout: 60000
+}, async () => {
+  const ref=process.env.MEPLUS_STAGING_E2E_REF;
+  const base=process.env.MEPLUS_STAGING_E2E_URL.replace(/\/$/,'');
+  assert.notEqual(ref,'wbqnctrvxohxwiaignhg','primary Me+ project is excluded');
+  assert.equal(new URL(base).hostname,ref+'.supabase.co');
+  const id=process.env.MEPLUS_STAGING_E2E_ACTION_ID;
+  assert.match(id,/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i);
+  const key=process.env.MEPLUS_STAGING_E2E_ANON_KEY;
+  const owner=process.env.MEPLUS_STAGING_E2E_OWNER_JWT;
+  const other=process.env.MEPLUS_STAGING_E2E_OTHER_JWT;
+  const call=async(path,jwt,body)=>{
+    const response=await fetch(base+path,{
+      method:body===undefined?'GET':'POST',
+      headers:{apikey:key,authorization:'Bearer '+(jwt||key),
+        accept:'application/json',...(body===undefined?{}:{'content-type':'application/json'})},
+      ...(body===undefined?{}:{body:JSON.stringify(body)})
+    });
+    const raw=await response.text();
+    let value;try{value=JSON.parse(raw);}catch{value=raw;}
+    return {response,value};
+  };
+  const get=async(jwt,path)=>{
+    const {response,value}=await call(path,jwt);
+    assert.equal(response.status,200);
+    assert.ok(Array.isArray(value));
+    return value;
+  };
+  const actionPath='/rest/v1/actions?id=eq.'+id+'&select=id,user_id,status';
+  const eventsPath='/rest/v1/action_events?action_id=eq.'+id+'&select=id,event_type';
+  const decide=(jwt,status)=>call('/rest/v1/rpc/record_meplus_action_decision',jwt,
+    {p_action_id:id,p_decision:status});
+  const before=await get(owner,actionPath);
+  assert.equal(before.length,1);
+  assert.ok(['available','planned'].includes(before[0].status),'use a fresh disposable staging fixture');
+  assert.deepEqual(await get(other,actionPath),[]);
+  assert.deepEqual(await get(owner,eventsPath),[]);
+  assert.equal((await decide(null,'completed')).response.ok,false);
+  assert.equal((await decide(other,'completed')).response.ok,false);
+  assert.equal((await decide(owner,'invalid')).response.ok,false);
+  assert.equal((await get(owner,actionPath))[0].status,before[0].status);
+  const saved=await decide(owner,'completed');
+  assert.equal(saved.response.status,200);
+  assert.equal(saved.value?.ok,true);
+  assert.equal(saved.value?.replayed,false);
+  assert.equal((await get(owner,actionPath))[0].status,'completed');
+  assert.equal((await get(owner,eventsPath)).length,1);
+  const again=await decide(owner,'completed');
+  assert.equal(again.response.status,200);
+  assert.equal(again.value?.replayed,true);
+  assert.equal((await get(owner,eventsPath)).length,1);
+});
