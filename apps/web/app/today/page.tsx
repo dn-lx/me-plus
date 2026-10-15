@@ -43,7 +43,7 @@ export default async function TodayPage() {
           <section aria-labelledby="now-heading" style={{ padding: 24, border: "1px solid #7775", borderRadius: 16, marginTop: 28 }}>
             <h2 id="now-heading">What matters now</h2>
             {actions.length ? (
-              <p><strong>{actions.find(a => a.priority === "must")?.title ?? actions[0].title}</strong></p>
+              <p><strong>{actions.find(a => a.priority === "must")?.title ?? actions[0]?.title ?? "No next action"}</strong></p>
             ) : <p>No active actions are currently available.</p>}
           </section>
           {groups.map(priority => {
