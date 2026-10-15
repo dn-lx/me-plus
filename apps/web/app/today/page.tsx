@@ -28,13 +28,13 @@ export default async function TodayPage() {
   const actions = (actionsResult.data ?? []) as Action[];
   const guidance = (guidanceResult.data ?? []) as Recommendation[];
   const groups = ["must", "should", "bonus"] as const;
-  const now = chooseNowAction(actions.map(a => ({...a,due_at:null,available_from:null})),new Date(),null);
+  const now = chooseNowAction(actions,new Date(),null);
 
   return (
     <main style={{ maxWidth: 850, margin: "0 auto", padding: "clamp(20px,5vw,48px)", fontFamily: "system-ui", lineHeight: 1.5 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Link href="/" aria-label="Me+ home" style={{ fontWeight: 800, fontSize: 22 }}>Me+</Link>
-        <span style={{ fontSize: 13, opacity: 0.7 }}>Private · Feedback enabled</span>
+        <Link href="/review" style={{ fontSize: 13 }}>Daily Review →</Link>
       </header>
       <h1 style={{ fontSize: "clamp(32px,7vw,52px)", marginBottom: 4 }}>Today</h1>
       <p style={{ opacity: 0.75 }}>Your current priorities from Me+. Your ratings help Me+ learn which guidance is useful.</p>
