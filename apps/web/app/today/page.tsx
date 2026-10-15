@@ -32,7 +32,11 @@ export default async function TodayPage() {
   const actions = (actionsResult.data ?? []) as Action[];
   const guidance = (guidanceResult.data ?? []) as Recommendation[];
   const groups = ["must", "should", "bonus"] as const;
-  const now = chooseNowAction(actions,new Date(),null);
+  const calendar = calendarResult.data ?? [];
+  const busyNow = calendar.some(item => Date.parse(item.starts_at) <= clock.getTime() && Date.parse(item.ends_at) > clock.getTime());
+  const nextStart = calendar.map(item => Date.parse(item.starts_at)).filter(t => t > clock.getTime()).sort((a,b) => a-b)[0];
+  const available = calendarResult.error ? null : busyNow ? 0 : nextStart ? Math.floor((nextStart-clock.getTime())/60000) : null;
+  const now = chooseNowAction(actions,clock,available);
 
   return (
     <main style={{ maxWidth: 850, margin: "0 auto", padding: "clamp(20px,5vw,48px)", fontFamily: "system-ui", lineHeight: 1.5 }}>
