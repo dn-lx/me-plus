@@ -1343,6 +1343,17 @@ export default {
           p_response_id: responseBody?.id ?? null
         });
         if (completeError) throw new Error(`complete_dispatch_failed: ${completeError.message}`);
+        // Optional, best-effort, metadata-only OTLP trace; never blocks canonical success.
+        try {
+          await exportLangfuseTrace({
+            dispatchId,attempt,startedAt,completedAt,
+            route:routing.route_key,model:routing.model.api_model,status:"completed",
+            inputTokens:metrics.input_tokens,outputTokens:metrics.output_tokens,
+            costUsd:metrics.estimated_cost_usd
+          },LANGFUSE_CONFIG);
+        } catch {
+          console.warn("langfuse_trace_unavailable_nonblocking");
+        }
 
         results.push({
           dispatch_id: dispatchId,
