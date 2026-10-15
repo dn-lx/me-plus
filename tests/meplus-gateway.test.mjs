@@ -232,3 +232,35 @@ test('live gateway rejects unknown operations', { skip: !liveEnabled }, async ()
   assert.equal(result.response.status, 404)
   assert.equal(result.body?.error, 'unknown_operation')
 })
+
+
+test('Me+ 2.0 action decisions share an atomic, owner-scoped path', async () => {
+  const sql = await readFile(resolve(root,'supabase/migrations/20261015110000_meplus_2_unified_atomic_action_execution.sql'),'utf8');
+  const gateway = await readFile(gatewayPath,'utf8');
+  const web = await readFile(resolve(root,'apps/web/app/today/action-decisions.ts'),'utf8');
+  assert.match(sql,/FOR UPDATE/i);
+  assert.match(sql,/UPDATE public\\.actions/i);
+  assert.match(sql,/UPDATE public\\.routine_events/i);
+  assert.match(sql,/INSERT INTO public\\.action_events/i);
+  assert.match(sql,/IF v_action\\.status = p_decision THEN/i);
+  assert.match(sql,/auth\\.uid\\(\\)/i);
+  assert.match(sql,/user_id = p_user_id FOR UPDATE/i);
+  assert.match(sql,/TO service_role/i);
+  const start=gateway.indexOf('async function completeAction(');
+  const end=gateway.indexOf('function validIdempotencyKey(',start);
+  const completion=gateway.slice(start,end);
+  assert.match(completion,/server_gateway_complete_action_atomic/);
+  assert.doesNotMatch(completion,/\\.update\\(/);
+  assert.doesNotMatch(completion,/\\.insert\\(/);
+  assert.match(web,/db\\.auth\\.getUser\\(\\)/);
+  assert.match(web,/record_meplus_action_decision/);
+});
+
+test('Me+ Daily Review is a private read-only event view', async () => {
+  const source = await readFile(resolve(root,'apps/web/app/review/page.tsx'),'utf8');
+  assert.match(source,/action_events/);
+  assert.match(source,/Intl\\.DateTimeFormat/);
+  assert.match(source,/db\\.auth\\.getUser\\(\\)/);
+  assert.doesNotMatch(source,/\\.insert\\(/);
+  assert.doesNotMatch(source,/\\.update\\(/);
+});
