@@ -23,7 +23,7 @@ export default async function TodayPage() {
       .eq("user_id", auth.user.id).in("status", ["available", "planned", "in_progress", "partial"])
       .order("due_at", { ascending: true, nullsFirst: false }).limit(40),
     supabase.from("recommendations").select("id,title,rationale,confidence,generated_at")
-      .eq("user_id", auth.user.id).gte("generated_at", new Date(Date.now() - 86400000).toISOString()).order("generated_at", { ascending: false }).limit(3),
+      .eq("user_id", auth.user.id).gte("generated_at", new Date(Date.now() - 86400000).toISOString()).or(`expires_at.is.null,expires_at.gt.${currentIso}`).order("generated_at", { ascending: false }).limit(3),
     supabase.from("calendar_events").select("starts_at,ends_at").eq("user_id",auth.user.id)
       .eq("busy",true).gt("ends_at",currentIso).order("starts_at",{ascending:true}).limit(12)
   ]);
