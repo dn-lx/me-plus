@@ -193,62 +193,28 @@ async function today(admin:any,userId:string) {
 }
 
 async function completeAction(admin:any,userId:string,input:any) {
-  const EXECUTION_STATUSES = new Set(["completed","partial","skipped"]);
+  const allowed = new Set(["completed","partial","skipped"]);
   const actionId=input?.action_id;
   const status=input?.status;
-  if(!actionId || !EXECUTION_STATUSES.has(status)) return { __status:400, error:"invalid_request", message:"action_id and status completed|partial|skipped are required" };
-  if(input?.outcome && typeof input.outcome==="object" && !input.outcome.outcome_type) {
-    return { __status:400, error:"invalid_outcome", message:"outcome.outcome_type is required when outcome is provided" };
+  if(!actionId || !allowed.has(status)) return {__status:400,error:"invalid_request",message:"action_id and status completed|partial|skipped are required"};
+  if(input?.outcome && (typeof input.outcome!=="object" || !input.outcome.outcome_type)) {
+    return {__status:400,error:"invalid_outcome",message:"outcome.outcome_type is required"};
   }
   const {data:action,error:readError}=await admin.from("actions")
     .select("id,user_id,routine_event_id,recommendation_id,status,version,title,domain")
     .eq("user_id",userId).eq("id",actionId).maybeSingle();
   if(readError) throw readError;
-  if(!action) return { __status:404, error:"action_not_found" };
-  if(input?.dry_run===true) return { dry_run:true, valid:true, action:{id:action.id,status:action.status,version:action.version,title:action.title,domain:action.domain}, requested_status:status };
-
-  const patch:any={status};
-  if(input.version && ["full","reduced","minimum"].includes(input.version)) patch.version=input.version;
-  if(input.planned_start!==undefined) patch.planned_start=input.planned_start;
-  if(input.planned_end!==undefined) patch.planned_end=input.planned_end;
-
-  const {data:updated,error:updateError}=await admin.from("actions").update(patch)
-    .eq("user_id",userId).eq("id",actionId).select().single();
-  if(updateError) throw updateError;
-
-  const now=new Date().toISOString();
-  if(action.routine_event_id){
-    const eventPatch:any={
-      status,
-      selected_version:patch.version ?? action.version,
-      completed_at: status==="completed" || status==="partial" ? now : null,
-      skip_reason: status==="skipped" ? (input.reason_code ?? input.note ?? null) : null,
-    };
-    const {error:eventError}=await admin.from("routine_events").update(eventPatch)
-      .eq("user_id",userId).eq("id",action.routine_event_id);
-    if(eventError) throw eventError;
-  }
-
-  const {data:event,error:eventInsertError}=await admin.from("action_events").insert({
-    user_id:userId,action_id:actionId,event_type:status,occurred_at:now,
-    reason_code:input.reason_code ?? null,note:input.note ?? null,
-    metadata:{previous_status:action.status,version:patch.version ?? action.version}
-  }).select().single();
-  if(eventInsertError) throw eventInsertError;
-
-  let outcome=null;
-  if(input.outcome && typeof input.outcome==="object"){
-    const o=input.outcome;
-    const {data:created,error:outcomeError}=await admin.from("outcomes").insert({
-      user_id:userId,action_id:actionId,recommendation_id:action.recommendation_id,
-      outcome_type:o.outcome_type,observed_at:o.observed_at ?? now,
-      subjective_value:o.subjective_value ?? null,objective_refs:o.objective_refs ?? null,
-      summary:o.summary ?? null
-    }).select().single();
-    if(outcomeError) throw outcomeError;
-    outcome=created;
-  }
-  return {action:updated,action_event:event,outcome};
+  if(!action) return {__status:404,error:"action_not_found"};
+  if(input?.dry_run===true) return {dry_run:true,valid:true,
+    action:{id:action.id,status:action.status,version:action.version,title:action.title,domain:action.domain},
+    requested_status:status};
+  // One database transaction updates action, occurrence, event, and optional outcome.
+  // Do not split these writes across PostgREST calls.
+  const {data,error}=await admin.rpc("server_gateway_complete_action_atomic",{
+    p_user_id:userId,p_input:input
+  });
+  if(error) throw new Error("complete_action_atomic: "+error.message);
+  return data;
 }
 
 function validIdempotencyKey(input:any) {
