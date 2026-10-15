@@ -13,7 +13,8 @@ export async function recordActionDecision(_previous:ActionDecisionState, form:F
  const {data:action,error:readError}=await db.from("actions").select("id,status").eq("id",id).eq("user_id",user.id).maybeSingle();
  if(readError||!action||!["available","planned","in_progress","partial"].includes(action.status))
   return {ok:false,message:"Action is unavailable or already closed."};
- // Never update actions directly: the event must pass through the canonical action engine.
- // Until the authorized atomic RPC is confirmed, fail closed rather than creating inconsistent history.
- return {ok:false,message:"Completion recording is awaiting the verified Me+ action gateway. No change was made."};
+ const {error}=await db.rpc("record_meplus_action_decision",{p_action_id:id,p_decision:decision});
+ if(error) return {ok:false,message:"Could not record the action. Please retry."};
+ revalidatePath("/today");
+ return {ok:true,message:"Action recorded."};
 }
