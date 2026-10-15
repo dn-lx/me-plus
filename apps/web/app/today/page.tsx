@@ -16,12 +16,16 @@ export default async function TodayPage() {
   if (authError || !auth.user) redirect("/login?next=%2Ftoday");
 
   // User-scoped Supabase session + RLS. Never use service-role credentials in this view.
-  const [actionsResult, guidanceResult] = await Promise.all([
+  const clock = new Date();
+  const currentIso = clock.toISOString();
+  const [actionsResult, guidanceResult, calendarResult] = await Promise.all([
     supabase.from("actions").select("id,title,priority,status,estimated_minutes,instructions,due_at,available_from")
       .eq("user_id", auth.user.id).in("status", ["available", "planned", "in_progress", "partial"])
       .order("due_at", { ascending: true, nullsFirst: false }).limit(40),
     supabase.from("recommendations").select("id,title,rationale,confidence,generated_at")
-      .eq("user_id", auth.user.id).gte("generated_at", new Date(Date.now() - 86400000).toISOString()).order("generated_at", { ascending: false }).limit(3)
+      .eq("user_id", auth.user.id).gte("generated_at", new Date(Date.now() - 86400000).toISOString()).order("generated_at", { ascending: false }).limit(3),
+    supabase.from("calendar_events").select("starts_at,ends_at").eq("user_id",auth.user.id)
+      .eq("busy",true).gt("ends_at",currentIso).order("starts_at",{ascending:true}).limit(12)
   ]);
 
   const error = actionsResult.error || guidanceResult.error;
