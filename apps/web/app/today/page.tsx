@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RecommendationRating } from "./rating";
 import { ActionControls } from "./action-controls";
+import { chooseNowAction } from "../../lib/now-ranking";
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 
@@ -27,7 +28,7 @@ export default async function TodayPage() {
   const actions = (actionsResult.data ?? []) as Action[];
   const guidance = (guidanceResult.data ?? []) as Recommendation[];
   const groups = ["must", "should", "bonus"] as const;
-  const now = [...actions].sort((a,b) => ({must:0,should:1,bonus:2}[a.priority as "must"|"should"|"bonus"] ?? 3) - ({must:0,should:1,bonus:2}[b.priority as "must"|"should"|"bonus"] ?? 3))[0];
+  const now = chooseNowAction(actions.map(a => ({...a,due_at:null,available_from:null})),new Date(),null);
 
   return (
     <main style={{ maxWidth: 850, margin: "0 auto", padding: "clamp(20px,5vw,48px)", fontFamily: "system-ui", lineHeight: 1.5 }}>
