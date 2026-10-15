@@ -17,7 +17,7 @@ export default async function TodayPage() {
 
   // User-scoped Supabase session + RLS. Never use service-role credentials in this view.
   const [actionsResult, guidanceResult] = await Promise.all([
-    supabase.from("actions").select("id,title,priority,status,estimated_minutes,instructions")
+    supabase.from("actions").select("id,title,priority,status,estimated_minutes,instructions,due_at,available_from")
       .eq("user_id", auth.user.id).in("status", ["available", "planned", "in_progress", "partial"])
       .order("due_at", { ascending: true, nullsFirst: false }).limit(40),
     supabase.from("recommendations").select("id,title,rationale,confidence,generated_at")
