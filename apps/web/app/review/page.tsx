@@ -47,7 +47,7 @@ export default async function ReviewPage() {
   const error = eventResult.error || actionsResult.error || openResult.error || profileResult.error;
   const tz = safeTimeZone(profileResult.data?.timezone ?? null);
   const today = localDate(new Date().toISOString(), tz);
-  const [year, month, day] = today.split("-").map(Number);
+  const [year = 1970, month = 1, day = 1] = today.split("-").map(Number);
   const dates = Array.from({length: 7}, (_, i) =>
     new Date(Date.UTC(year, month - 1, day - i, 12)).toISOString().slice(0, 10)
   );
