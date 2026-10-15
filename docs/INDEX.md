@@ -81,3 +81,4 @@ Run `node scripts/validate-docs.mjs` to check documentation structure/references
 
 - `docs/ARCHITECTURE.md` — application architecture
 - `docs/N26-OPEN-BANKING.md` — N26 integration
+- `docs/MEPLUS2_LANGFUSE_OBSERVABILITY.md` — optional redacted Langfuse OTLP integration and rollout
