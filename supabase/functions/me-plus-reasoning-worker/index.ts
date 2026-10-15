@@ -1,10 +1,17 @@
 import { withSupabase } from "npm:@supabase/server@^1";
+import { exportLangfuseTrace } from "./langfuse.ts";
 
 const FALLBACK_MODEL = Deno.env.get("MEPLUS_AI_MODEL") ?? "gpt-6.1-sol";
 const OPENAI_BASE_URL = (Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/$/, "");
 const PROMPT_CONTRACT_VERSION = "meplus-scheduler-reasoning-v10-incomplete-safe-daily-planner";
 const ROUTING_POLICY_VERSION = "meplus-ai-routing-v1";
 const MAX_DISPATCHES_PER_WAKE = 1;
+const LANGFUSE_CONFIG = {
+  enabled: Deno.env.get("MEPLUS_LANGFUSE_ENABLED") === "true",
+  publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY") ?? undefined,
+  secretKey: Deno.env.get("LANGFUSE_SECRET_KEY") ?? undefined,
+  host: Deno.env.get("LANGFUSE_HOST") ?? undefined,
+};
 
 const decisionSchema = {
   type: "object",
