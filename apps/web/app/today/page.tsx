@@ -7,7 +7,7 @@ import { createClient } from "../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type Action = { id: string; title: string; priority: string; status: string; estimated_minutes: number | null; instructions: string | null };
+type Action = { id: string; title: string; priority: string; status: string; estimated_minutes: number | null; instructions: string | null; due_at: string | null; available_from: string | null };
 type Recommendation = { id: string; title: string; rationale: string | null; confidence: string | null; generated_at: string };
 
 export default async function TodayPage() {
