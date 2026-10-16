@@ -32,6 +32,17 @@ Order work so lower-priority features do not depend on unreliable or incorrect f
 
 # Active requirements
 
+## [ ] ME2-NATIVE-001 — Reproducible native task write contract
+
+**Priority:** P1 · Backend / reliability
+
+Recover exact applied source for native task create/reschedule and request deduplication. Verify owner-scoped writes, denied clients, invalid input, retry safety, routine/closed-task protection and atomic rollback in disposable PostgreSQL. No live replay or deployment is included.
+
+Acceptance: recovered versions/statements match inspected migration history; isolated contract CI and existing gates pass; independent security review has no blocker. Hosted sign-in and full app E2E remain separate acceptance.
+
+Implementation: `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
+
+
 ## [ ] REQ-001 — Short requirement title
 
 **Priority:** P0 / P1 / P2 / P3  

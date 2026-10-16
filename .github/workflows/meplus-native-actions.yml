@@ -1,0 +1,55 @@
+name: Me+ native action contracts
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'supabase/migrations/*native_action*'
+      - 'tests/sql/native-actions-*.sql'
+      - '.github/workflows/meplus-native-actions.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native_actions-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-contract:
+    name: tasks / isolated native action contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: native_actions_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: native_actions_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify ownership, replay, validation and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = native_actions_test
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-fixture.sql
+          for attempt in 1 2; do
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154529_meplus_2_native_action_create_rpc_20261015.sql
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154605_meplus_2_native_action_reschedule_rpc_20261015.sql
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154633_meplus_2_native_action_request_dedupe_index_20261015.sql
+            psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-contract.sql
+          done
