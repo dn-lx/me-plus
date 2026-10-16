@@ -62,8 +62,8 @@ Finish safe status, owner-bound expiring authorization probes, pause/start/clock
 Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/live rollback controls acceptance and hosted failed-authorization callback smoke passed. N26 functions-only ZIPs build and deny invalid credentials, with a pinned reproducible CI artifact pipeline. N26 deployment is an explicit capability blocker, not claimed delivered. Details: `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
 
 
-### ME2-SETUP-005 — Native lifecycle and backend readiness
-- Status: implementation complete, hosted and live verification pending.
+## [x] ME2-SETUP-005 — Native lifecycle and backend readiness
+- Status: deployed; hosted PostgreSQL 17.6 concurrency and live-schema rollback checks passed.
 - Expire only stale internal native occurrences; preserve completed/partial/skipped, manual/legacy and external history under concurrent decisions.
 - Owner readiness reports current configuration separately from pending app/device acceptance and deferred authorization/N26.
 - Plan: `docs/plans/ME2-SETUP-005-native-lifecycle.md`.

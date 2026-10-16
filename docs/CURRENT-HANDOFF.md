@@ -48,3 +48,11 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 - Android builds use the designated Windows Actions runner; Netlify distributes verified APKs but never compiles Android.
 - Health Connect needs a real phone upload and retry before claiming device sync fixed.
 - Historical ENG-007 and Android evidence: [handoff archive](handoffs/2026-10-07.md). Consult current source, PRs and runtime before relying on it.
+
+## Native lifecycle and app-stage configuration checkpoint
+
+- ME2-SETUP-005 is deployed: migrations `20261016123952` / `20261016123953` close stale internal native occurrences even after schedules are disabled/ended. Completion/partial/skipped history, legacy/manual tasks and external surfaces remain protected. Read-only workspace hides elapsed internal snapshots.
+- Owner-only `get_meplus_backend_readiness()` reports current database configuration ready (13 owner APIs, private/service boundaries, Berlin native clock) and explicitly keeps app/device acceptance pending. This is not an E2E/production release claim.
+- Independent security review clear. Hosted PostgreSQL 17.6 run https://github.com/dn-lx/me-plus/actions/runs/38901981341 passed rollback contracts, audit-write failure rollback and concurrent completed/partial/skipped decisions against cleanup; Node 112 passed, 7 pre-existing skipped. Live-schema lifecycle rollback acceptance passed. No synthetic data persists: one profile, zero actions/routines; native empty clock ok, three external clocks off.
+- Next authorized scope boundary: app/website implementation and signed-in/device/client acceptance. User explicitly defers all provider authorization and N26; do not prompt again or activate external clocks. Optional platforms remain behind documented adoption gates.
+- Exact lifecycle/readiness evidence and rollback: `docs/plans/ME2-SETUP-005-native-lifecycle.md`. Historical checkpoints above are superseded by this verified current state where applicable.

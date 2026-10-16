@@ -70,8 +70,8 @@ jobs:
             supabase/tests/backend-readiness/integration-control-fixture.sql
             supabase/migrations/20261016121130_meplus2_integration_control.sql
             supabase/tests/backend-readiness/native-lifecycle-fixture.sql
-            supabase/migrations/20261016122906_meplus2_native_occurrence_lifecycle.sql
-            supabase/migrations/20261016123233_meplus2_backend_readiness_contract.sql
+            supabase/migrations/20261016123952_meplus2_native_occurrence_lifecycle.sql
+            supabase/migrations/20261016123953_meplus2_backend_readiness_contract.sql
             supabase/tests/backend-readiness/native-lifecycle-rollback.sql
             supabase/tests/backend-readiness/integration-control-rollback.sql
             supabase/tests/backend-readiness/auth-native-rollback.sql
