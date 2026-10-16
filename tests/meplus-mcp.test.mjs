@@ -11,7 +11,7 @@ test('MCP denies missing credentials and untrusted browser origins before execut
 });
 test('MCP negotiates a supported protocol and lists only granted operations',async()=>{
  const f=fixture(['read_state']);let r=await f.handler(req(rpc('initialize',{protocolVersion:'2025-11-25'})));assert.equal((await r.json()).result.protocolVersion,'2025-11-25');
- r=await f.handler(req(rpc('tools/list')));assert.deepEqual((await r.json()).result.tools.map(x=>x.name),['read_state']);
+ r=await f.handler(req(rpc('tools/list')));const listed=(await r.json()).result;assert.deepEqual(listed.tools.map(x=>x.name),['read_state']);assert.deepEqual(listed._meta['meplus/data-scopes'],['tasks']);
 });
 test('MCP rejects unsupported protocol, batch messages, bad JSON and unsupported methods',async()=>{
  const f=fixture();assert.equal((await f.handler(req(rpc('ping'),{'mcp-protocol-version':'invalid'}))).status,400);

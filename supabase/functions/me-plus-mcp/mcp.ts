@@ -62,7 +62,7 @@ export function createMcpHandler(execute:Execute,allowedOrigins:string[]=[]){
    switch(message.method){
     case "initialize":result={protocolVersion:versions.includes(message.params?.protocolVersion)?message.params.protocolVersion:versions.at(-1),capabilities:{tools:{listChanged:false}},serverInfo:{name:"me-plus",version:"2.0.0-backend"},instructions:"Use only user-approved tools. No finance transactions, treatment changes, external effects, arbitrary SQL or general table mutations are exposed. Keep request_id stable for retries."};break;
     case "ping":result={};break;
-    case "tools/list":result={tools:TOOLS.filter(t=>caps.operations?.includes(t.name))};break;
+    case "tools/list":result={tools:TOOLS.filter(t=>caps.operations?.includes(t.name)),_meta:{"meplus/data-scopes":caps.data_scopes??[]}};break;
     case "tools/call":{
      const chosen=TOOLS.find(t=>t.name===message.params?.name&&caps.operations?.includes(t.name));
      const args=message.params?.arguments??{};

@@ -68,6 +68,12 @@ Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/
 - Owner readiness reports current configuration separately from pending app/device acceptance and deferred authorization/N26.
 - Plan: `docs/plans/ME2-SETUP-005-native-lifecycle.md`.
 
+## [ ] ME2-AGENTS-006 — Letta/n8n integration setup before authorization
+
+Prepare credential-free registration/attachment and inactive workflow packages, bounded scoped MCP access, safe repeatable activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
+
+Acceptance: templates/tooling and synthetic protocol/provider contract tests pass, independent review clear, hosted CI green; exact remaining account/runtime acceptance recorded. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`.
+
 ## [ ] ME2-CONNECT-003 — Provider authorization and real client/device activation
 
 **Priority:** P1 · Integrations / user-assisted
