@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { FinanceSyncResult } from "@me-plus/contracts";
 
 import { createAdminClient } from "../supabase/admin";
+import { n26HistoryStart, n26TransactionInWindow } from "./n26-history";
 import {
   isN26IdentityBootstrapMatch,
   n26RawTransactionExternalRecordId,
@@ -124,7 +125,12 @@ async function upsertDataSource(
   client: AdminClient,
   userId: string,
   session: EnableBankingSession,
-): Promise<string> {
+): Promise<{id: string; historyStart: string}> {
+  const prior = await client.from("data_sources").select("metadata")
+    .eq("user_id", userId).eq("provider", "enable-banking").eq("display_name", "N26").maybeSingle();
+  throwIfError(prior.error, "Unable to inspect N26 history policy");
+  const priorMetadata = (prior.data?.metadata ?? {}) as Record<string, unknown>;
+  const historyStart = n26HistoryStart(priorMetadata, new Date());
   const { data, error } = await client
     .from("data_sources")
     .upsert(
@@ -136,6 +142,7 @@ async function upsertDataSource(
         status: "active",
         external_account_ref: session.session_id,
         metadata: {
+          ...priorMetadata,
           institution: "n26",
           aspsp: session.aspsp,
           psuType: session.psu_type ?? "personal",
@@ -154,7 +161,7 @@ async function upsertDataSource(
     throw new Error("Unable to resolve N26 data source id");
   }
 
-  return data.id;
+  return {id: data.id, historyStart};
 }
 
 async function grantFinanceConsent(
@@ -781,11 +788,6 @@ async function markSyncRunFailed(
     .eq("id", syncRunId);
 }
 
-function utcDateDaysAgo(days: number): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - days);
-  return date.toISOString().slice(0, 10);
-}
 
 export async function syncN26Session(
   userId: string,
@@ -799,7 +801,7 @@ export async function syncN26Session(
   }
 
   const client = createAdminClient();
-  const dataSourceId = await upsertDataSource(client, userId, session);
+  const {id: dataSourceId, historyStart} = await upsertDataSource(client, userId, session);
   await grantFinanceConsent(
     client,
     userId,
@@ -838,12 +840,12 @@ export async function syncN26Session(
       let continuationKey: string | undefined;
       let pageCount = 0;
 
-      do {
+      while (historyStart <= new Date().toISOString().slice(0, 10)) {
         const page = await withProviderStage("account_transactions", () =>
           getEnableBankingAccountTransactions(
             authorizedAccount.uid,
             {
-              dateFrom: utcDateDaysAgo(90),
+              dateFrom: historyStart,
               dateTo: new Date().toISOString().slice(0, 10),
               ...(continuationKey ? { continuationKey } : {}),
             },
@@ -851,6 +853,7 @@ export async function syncN26Session(
         );
 
         for (const transaction of page.transactions ?? []) {
+          if (!n26TransactionInWindow(transaction, historyStart)) continue;
           transactionsSeen += 1;
           const result = await syncFinancialTransaction(
             client,
@@ -879,7 +882,8 @@ export async function syncN26Session(
         if (pageCount >= 50) {
           throw new Error("N26 transaction pagination exceeded safety limit");
         }
-      } while (continuationKey);
+        if (!continuationKey) break;
+      }
     }
 
     const finishedAt = new Date().toISOString();

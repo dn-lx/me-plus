@@ -35,3 +35,6 @@ CLAUDE.local.md
 .claude/settings.local.json
 .gemini/settings.json
 .mcp.json
+
+# Supabase CLI generated project cache
+/supabase/.temp/

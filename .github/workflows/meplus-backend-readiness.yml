@@ -1,0 +1,72 @@
+name: Me+ backend readiness
+on:
+  push:
+    branches: [feature/me2-backend-integrations]
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'supabase/migrations/*meplus2*'
+      - 'supabase/functions/**'
+      - 'apps/web/lib/finance/n26-*.ts'
+      - 'tests/*.test.mjs'
+      - 'supabase/tests/backend-readiness/**'
+      - '.github/workflows/meplus-backend-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backend-readiness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: meplus_backend_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: meplus_backend_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node integration suite
+        run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Disposable schema and owner contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = meplus_backend_test
+          files=(
+            supabase/tests/backend-readiness/native-routines-fixture.sql
+            supabase/tests/backend-readiness/scoped-client-extra-fixture.sql
+            supabase/migrations/20261016084425_meplus2_auth_profile_bootstrap_fix.sql
+            supabase/tests/backend-readiness/auth-trigger-fixture.sql
+            supabase/migrations/20261015110000_meplus_2_unified_atomic_action_execution.sql
+            supabase/migrations/20261016083256_meplus_native_action_replay_receipts.sql
+            supabase/migrations/20261016085920_meplus2_native_routines_feedback.sql
+            supabase/migrations/20261016114024_meplus2_scoped_client_registry.sql
+            supabase/migrations/20261016114053_meplus2_scoped_client_dispatch.sql
+            supabase/tests/backend-readiness/auth-native-rollback.sql
+            supabase/tests/backend-readiness/native-routines-rollback.sql
+            supabase/tests/backend-readiness/scoped-client-rollback.sql
+          )
+          for file in "${files[@]}"; do
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+          done

@@ -14,21 +14,22 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-10-16T08:36:00Z"
+  "updated_at": "2026-10-16T11:52:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Me+ 2.0 development checkpoint
+## Me+ 2.0 backend/integration checkpoint
 
-- PR #69 SEC-008 merged as `b724ad1`; all seven CI checks passed and temporary branch deletion was verified. Its source matches live migration `20261014151223`; read-only inspection confirms client denial/server access already live.
-- PR #76 ME2-NATIVE-001 recovers exact applied native create/reschedule/deduplication versions and adds an additive repair for stale no-op retries and event-source replay collisions. No-op requests now retain receipts; retries preserve newer dates. The repair is **not deployed**.
-- PR #76 code head `31f10f4` passed all seven CI checks, including isolated PostgreSQL, typecheck, web build and mobile web bundle. Independent review found no blocking issue. Local suite: 95 passed, 7 skipped, 0 failed. Final documentation/whitespace head must pass its checks before merge.
-- Isolated tests reproduce the old no-op failure and pass the repaired contracts twice: owner scope, denied clients, retry, invalid inputs, protected tasks, event-write rollback, source collisions and cross-action request reuse. Minimal fixtures do not prove hosted Auth/JWT transport, full live triggers or concurrency; receipts require retaining event history.
-- Current dev already includes PRs #70–#74: Today, Now, Daily Review and atomic completion. Native create/reschedule RPCs are deployed but app controls and authenticated two-user E2E remain unfinished. Routine scheduling and scoped read/write MCP remain follow-up work.
-- PR #75 optional Langfuse tracing remains deferred: it also changes routing/models/token budgets without deployed-source provenance or behavioral regression evidence.
-- Next: add native task app controls using the recovered contract; verify full signed-in E2E in an isolated test environment. Prepare the new replay repair through the reviewed release process; never blindly replay recovered migrations or assume all older repository migration versions match live history.
-- No shared Supabase data/schema or production deployment changed in this continuation. Version impact: patch, recorded under Unreleased.
-- Evidence/rollout detail: `docs/plans/ME2-NATIVE-001-contract-recovery.md`; historical ENG-007/Android evidence is archived below.
+- User explicitly authorized live DB/integration completion on 16 October and waived Supabase PRs; app/website work remains deferred. Source snapshot is `feature/me2-backend-integrations`, based on dev `cf90a19`. No prod merge or app/web publication.
+- PRs #69 and #76 are merged. The native replay repair is now applied as live version `20261016084240` (existing source filename `20261016083256`); do not reapply it or the recovered historical migrations.
+- Fixed live signup/profile bootstrap; deployed native routine definition/audit/scheduling, recommendation feedback, scoped client token lifecycle/audit/rate limits and bounded workspace read. All three acceptance suites passed isolated PostgreSQL and live-schema rollback testing; no synthetic data persists.
+- Deployed me-plus-mcp v1, Health Sync Drive v27 and Calendar v18. MCP is scoped opaque bearer auth, not OAuth and not yet connected to an actual ChatGPT/Letta/n8n client. Calendar now uses its own wake-secret auth instead of an incompatible platform JWT gate. Hosted denied-path checks passed.
+- Native deterministic half-hour routine clock is active, locally sleep-gated and makes no AI/Todoist calls. Calendar, Health Sync and N26 clocks are installed inactive. Three source configurations are pending_authorization with fresh-start cutoffs; no deleted V1 history was imported. One profile, zero actions/routines/recommendations/tokens/sync runs verified.
+- Both Google authorization probes fail with authorization_required: renew their existing Google credentials through secure Supabase Edge Function Secrets, then verify a fresh-only sync before activating clocks. No secret values were read or emitted.
+- N26 worker diagnostic returns 200 and confirms config presence, but there is no bank consent/session. The N26 history guard is source-prepared and tested, **not deployed**; roll it out to the backend before fresh bank consent. Health Connect needs a real device upload at app stage.
+- Langfuse/Letta/n8n remain optional, intentionally unprovisioned/unconnected pending account, privacy, recovery and measured-benefit gates. PR #75 still mixes exporter/routing changes and remains deferred. Existing reasoning worker v41 and gateway v26 unchanged.
+- Checks: Node 111 passed / 7 pre-existing skipped / 0 failed; focused strict TypeScript passed; isolated and live rollback DB suites passed; independent security review clear. New hosted PostgreSQL/Node workflow runs on the source branch; inspect actual SHA/run before claiming its CI outcome. Full app/browser OAuth/device E2E was not run.
+- Exact live migration provenance, endpoint/RPC contracts, activation/rollback procedures and remaining manual steps: `docs/plans/ME2-BACKEND-002-integrations.md`.
 
 ## Environment and release boundaries
 

@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { calendarWindow } from "../_shared/ingestion-window.ts";
 
 const H={"content-type":"application/json"}, TZ="Europe/Berlin", SCHED="google_calendar_sync";
 const respond=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:H});
@@ -91,6 +92,12 @@ Deno.serve(async(req)=>{
   const {data:valid,error:authError}=await db.rpc("server_validate_calendar_wake",{p_secret:wake});
   if(authError||valid!==true) return respond({error:"unauthorized"},401);
 
+  const body=await req.json().catch(()=>({}));
+  if(body?.mode==="auth_probe"){
+    try{await accessToken();return respond({configured:true,status:"authorized"});}
+    catch{return respond({configured:false,status:"authorization_required"},502);}
+  }
+
   const {data:sources,error:sourceError}=await db.from("data_sources")
     .select("id,user_id,external_account_ref,metadata")
     .eq("provider","google-calendar-supabase")
@@ -114,8 +121,7 @@ Deno.serve(async(req)=>{
 
       const token=await accessToken();
       const now=new Date();
-      const start=new Date(now.getTime()-14*86400000).toISOString();
-      const end=new Date(now.getTime()+180*86400000).toISOString();
+      const {start,end}=calendarWindow(now,source.metadata);
 
       const all:any[]=[];
       const counts:any[]=[];
