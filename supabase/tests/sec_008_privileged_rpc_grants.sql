@@ -1,5 +1,5 @@
 -- SEC-008 regression: privileged RPCs must not be client-callable.
--- Run after migration 20261014150015_sec_008_restrict_privileged_rpc_grants.sql.
+-- Run after migration 20261014151223_sec_008_restrict_privileged_rpc_grants.sql.
 -- Pure privilege inspection; no mutations or personal data reads.
 
 BEGIN;

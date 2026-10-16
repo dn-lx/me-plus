@@ -24,7 +24,8 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 - PR #69 SEC-008 restricts privileged health/medication RPCs to service_role. Refreshed to current dev; added isolated PostgreSQL CI with vulnerable-fixture detection, effective grants, actual denied client calls, allowed server calls and repeated migration application.
 - Independent source review found no blocking issues. Fixture bodies verify ACL/callability only; real gateway ownership and adherence idempotency remain separate runtime acceptance.
 - First CI security run passed isolated RPC grants, Semgrep, Gitleaks and dependency audit. Its policy failures were handoff formatting/context errors, corrected here. Final-head CI must pass before merge.
-- Local integration suite before documentation edits: 95 passed, 7 skipped, 0 failed.
+- Local integration suite after handoff correction: 95 passed, 7 skipped, 0 failed. Isolated PostgreSQL CI passed. Final-head CI remains mandatory.
+- SEC-008 migration recovered under its actual applied version `20261014151223`, with exact recorded statements, replacing the unshipped candidate timestamp. This is provenance reconciliation, not a new live migration.
 - Read-only Supabase verification on 16 October: Me+ project `wbqnctrvxohxwiaignhg` healthy; both SEC-008 functions already deny anon/authenticated and allow service_role. Native create/reschedule and completion RPCs exist and allow authenticated only. No live data/schema/deployment changes made.
 - Native create/reschedule app controls, authenticated two-user E2E, routine scheduling and scoped read/write MCP remain unfinished. PR #75 optional redacted Langfuse tracing remains open. Reconcile source/live state before implementation.
 - Version impact: security patch; release version unchanged.

@@ -53,7 +53,7 @@ jobs:
             echo 'Regression failed to detect vulnerable grants'; exit 1
           fi
           for attempt in 1 2; do
-            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014150015_sec_008_restrict_privileged_rpc_grants.sql
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014151223_sec_008_restrict_privileged_rpc_grants.sql
             psql -X -v ON_ERROR_STOP=1 -f supabase/tests/sec_008_privileged_rpc_grants.sql
             psql -X -v ON_ERROR_STOP=1 -f tests/sql/sec008-calls.sql
           done
