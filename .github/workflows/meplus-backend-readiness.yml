@@ -69,6 +69,10 @@ jobs:
             supabase/migrations/20261016114053_meplus2_scoped_client_dispatch.sql
             supabase/tests/backend-readiness/integration-control-fixture.sql
             supabase/migrations/20261016121130_meplus2_integration_control.sql
+            supabase/tests/backend-readiness/native-lifecycle-fixture.sql
+            supabase/migrations/20261016122906_meplus2_native_occurrence_lifecycle.sql
+            supabase/migrations/20261016123233_meplus2_backend_readiness_contract.sql
+            supabase/tests/backend-readiness/native-lifecycle-rollback.sql
             supabase/tests/backend-readiness/integration-control-rollback.sql
             supabase/tests/backend-readiness/auth-native-rollback.sql
             supabase/tests/backend-readiness/native-routines-rollback.sql
@@ -77,6 +81,8 @@ jobs:
           for file in "${files[@]}"; do
             psql -X -v ON_ERROR_STOP=1 -f "$file"
           done
+      - name: Concurrent native completion and cleanup
+        run: python3 supabase/tests/backend-readiness/native-lifecycle-concurrency.py
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

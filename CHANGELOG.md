@@ -11,6 +11,7 @@
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
+- Native occurrence lifecycle cleanup covers disabled and ended schedules, preserves execution history, and removes elapsed internal snapshots from the active workspace. Added owner-only backend configuration readiness with separate app/device acceptance gates.
 - Auth profile bootstrap after the V1 reset, Calendar wake authentication, and fresh-start ingestion guards for Google connectors. N26 history guard is source-prepared pending backend rollout and renewed consent.
 - Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair applied and verified on the shared backend on 16 October 2026.
 - SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
