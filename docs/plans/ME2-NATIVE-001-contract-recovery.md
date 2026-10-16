@@ -11,3 +11,7 @@ Verification covers anonymous/missing actor denial, owner creation, cross-user r
 Compatibility: signatures remain unchanged. The repair records an audit event for a no-op request with a request ID; its first response reports replayed=false and supplies event_id/no_change=true. Subsequent retries report replayed=true without overwriting later edits. These files reconcile existing history; do not apply them as new migrations to the shared backend. The repair migration is not applied to the shared database. Release must review and apply only the new repair after reconciling already-applied versions; do not replay the recovered migrations. Rollback can restore the prior function bodies, retaining audit events. No irreversible data operations. User-facing app controls and full authenticated E2E remain follow-up work.
 
 Version impact: patch maintenance. No new telemetry or performance-sensitive application path.
+
+## Completion evidence
+
+PR #76, code head `31f10f4`: all seven CI gates passed (isolated PostgreSQL, workspace runtime, dependency audit, secret scan, Semgrep, version and agent policy). PostgreSQL tests reproduce the old no-op bug, then pass ownership/rollback and replay/source-scope suites twice after repair. Independent review found no blocker. Local Node suite: 95 passed, 7 skipped, 0 failed. Final docs/whitespace commit requires fresh CI. Live deployment, hosted JWT/schema and concurrency acceptance remain unverified.

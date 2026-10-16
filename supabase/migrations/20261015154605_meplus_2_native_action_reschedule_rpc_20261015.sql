@@ -80,4 +80,3 @@ end;
 $fn$;
 revoke all on function public.reschedule_meplus_native_action(uuid,jsonb) from public, anon, authenticated;
 grant execute on function public.reschedule_meplus_native_action(uuid,jsonb) to authenticated;
-

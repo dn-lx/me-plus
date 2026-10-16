@@ -6,35 +6,29 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "ME2-NATIVE-001",
-  "repository": "dn-lx/me-plus",
+  "task_id": null,
+  "repository": null,
   "base": "dev",
-  "branch": "fix/meplus2-native-action-provenance",
-  "pr": 76,
-  "status": "testing",
-  "last_verified_sha": "0ca44ac6f01b0213b59c5bd0f8bdd282def434c4",
-  "next_step": "Review isolated native action CI and independent security findings; repair confirmed failures, then merge to dev with idle task state.",
-  "updated_at": "2026-10-16T08:31:00Z"
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-10-16T08:36:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## ME2-NATIVE-001 — PR #76
+## Me+ 2.0 development checkpoint
 
-Recovered exact applied native create/reschedule and deduplication migrations from read-only migration history. Added isolated tests of real function bodies for ownership, denied clients, retry, validation, protected tasks and event-failure rollback. Initial isolated ownership/rollback CI passed. Independent review found pre-existing no-op retry and event-source collision bugs. An additive CLI-generated repair records no-op request receipts and scopes lookups to native events; regression CI must reproduce the old failure and pass on the repair. Repair is not deployed. Minimal fixture does not prove hosted Auth/JWT transport, full live triggers or concurrency. No shared-backend changes.
-
-SEC-008 PR #69 merged as `b724ad1`, all seven final-head checks passed; temporary branch deletion verified. PR #75 remains deferred: optional telemetry also changes routing/models/token budgets without deployed-source provenance or behavioral regression evidence.
-
-## Me+ 2.0 continuation
-
-- Dev at session start: `4591abd`, merged PRs #70–#74: Today, Now, Daily Review and atomic task execution.
-- PR #69 SEC-008 restricts privileged health/medication RPCs to service_role. Refreshed to current dev; added isolated PostgreSQL CI with vulnerable-fixture detection, effective grants, actual denied client calls, allowed server calls and repeated migration application.
-- Independent source review found no blocking issues. Fixture bodies verify ACL/callability only; real gateway ownership and adherence idempotency remain separate runtime acceptance.
-- First CI security run passed isolated RPC grants, Semgrep, Gitleaks and dependency audit. Its policy failures were handoff formatting/context errors, corrected here. Final-head CI must pass before merge.
-- Local integration suite after handoff correction: 95 passed, 7 skipped, 0 failed. Isolated PostgreSQL CI passed. Final-head CI remains mandatory.
-- SEC-008 migration recovered under its actual applied version `20261014151223`, with exact recorded statements, replacing the unshipped candidate timestamp. This is provenance reconciliation, not a new live migration.
-- Read-only Supabase verification on 16 October: Me+ project `wbqnctrvxohxwiaignhg` healthy; both SEC-008 functions already deny anon/authenticated and allow service_role. Native create/reschedule and completion RPCs exist and allow authenticated only. No live data/schema/deployment changes made.
-- Native create/reschedule app controls, authenticated two-user E2E, routine scheduling and scoped read/write MCP remain unfinished. PR #75 optional redacted Langfuse tracing remains open. Reconcile source/live state before implementation.
-- Version impact: security patch; release version unchanged.
+- PR #69 SEC-008 merged as `b724ad1`; all seven CI checks passed and temporary branch deletion was verified. Its source matches live migration `20261014151223`; read-only inspection confirms client denial/server access already live.
+- PR #76 ME2-NATIVE-001 recovers exact applied native create/reschedule/deduplication versions and adds an additive repair for stale no-op retries and event-source replay collisions. No-op requests now retain receipts; retries preserve newer dates. The repair is **not deployed**.
+- PR #76 code head `31f10f4` passed all seven CI checks, including isolated PostgreSQL, typecheck, web build and mobile web bundle. Independent review found no blocking issue. Local suite: 95 passed, 7 skipped, 0 failed. Final documentation/whitespace head must pass its checks before merge.
+- Isolated tests reproduce the old no-op failure and pass the repaired contracts twice: owner scope, denied clients, retry, invalid inputs, protected tasks, event-write rollback, source collisions and cross-action request reuse. Minimal fixtures do not prove hosted Auth/JWT transport, full live triggers or concurrency; receipts require retaining event history.
+- Current dev already includes PRs #70–#74: Today, Now, Daily Review and atomic completion. Native create/reschedule RPCs are deployed but app controls and authenticated two-user E2E remain unfinished. Routine scheduling and scoped read/write MCP remain follow-up work.
+- PR #75 optional Langfuse tracing remains deferred: it also changes routing/models/token budgets without deployed-source provenance or behavioral regression evidence.
+- Next: add native task app controls using the recovered contract; verify full signed-in E2E in an isolated test environment. Prepare the new replay repair through the reviewed release process; never blindly replay recovered migrations or assume all older repository migration versions match live history.
+- No shared Supabase data/schema or production deployment changed in this continuation. Version impact: patch, recorded under Unreleased.
+- Evidence/rollout detail: `docs/plans/ME2-NATIVE-001-contract-recovery.md`; historical ENG-007/Android evidence is archived below.
 
 ## Environment and release boundaries
 

@@ -71,4 +71,3 @@ end;
 $fn$;
 revoke all on function public.create_meplus_native_action(jsonb) from public, anon, authenticated;
 grant execute on function public.create_meplus_native_action(jsonb) to authenticated;
-
