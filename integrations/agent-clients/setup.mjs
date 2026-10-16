@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { openReadOnlyLettaSession } from './letta/session.mjs';
 import { pathToFileURL } from 'node:url';
 import { MCP_URL, credential, scopedToken, httpsOrigin, jsonRequest, verifyReadOnlyAccess, SetupError, fail } from './client.mjs';
 const load = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
@@ -6,33 +7,21 @@ const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.te
 export async function setup(action = 'plan', { env = process.env, fetchImpl = fetch, apply = false } = {}) {
   if (!['plan','verify','letta','n8n'].includes(action)) fail('unknown_action');
   if (action === 'plan' || !apply) return {
-    mode: 'plan', setup_ready: ['letta_mcp_registration_and_tool_attachment','n8n_inactive_manual_workflow'],
+    mode: 'plan', setup_ready: ['letta_local_app_server_task_tool','n8n_inactive_manual_workflow'],
     endpoint: MCP_URL, permissions: { operations: ['read_state'], data_scopes: ['tasks'] },
-    required_env: action === 'letta' ? ['MEPLUS_CLIENT_TOKEN','LETTA_API_KEY','LETTA_AGENT_ID'] : action === 'n8n' ? ['N8N_API_ORIGIN','N8N_API_KEY','N8N_MEPLUS_CREDENTIAL_ID'] : ['MEPLUS_CLIENT_TOKEN'],
+    required_env: action === 'letta' ? ['MEPLUS_CLIENT_TOKEN','LETTA_AGENT_ID','LETTA_WORKDIR','LETTA_APPROVED_MODEL'] : action === 'n8n' ? ['N8N_API_ORIGIN','N8N_API_KEY','N8N_MEPLUS_CREDENTIAL_ID'] : ['MEPLUS_CLIENT_TOKEN'],
     runtime_connected: false, authorization: 'deferred', paid_resources_created: false,
   };
   if (action === 'verify') return verifyReadOnlyAccess(scopedToken(env.MEPLUS_CLIENT_TOKEN), fetchImpl);
   if (action === 'letta') {
-    const token = scopedToken(env.MEPLUS_CLIENT_TOKEN);
-    const key = credential(env.LETTA_API_KEY, 'LETTA_API_KEY');
-    const agent = safeId(credential(env.LETTA_AGENT_ID, 'LETTA_AGENT_ID'));
-    await verifyReadOnlyAccess(token, fetchImpl);
-    const api = (path, method = 'GET', body) => jsonRequest('https://api.letta.com/v1/' + path, { method, headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }, fetchImpl);
-    const template = await load('./letta/mcp-server.json');
-    const servers = await api('mcp-servers/');
-    if (!Array.isArray(servers)) fail('unexpected_letta_list');
-    const matches = servers.filter(s => s.server_name === template.server_name);
-    if (matches.length > 1) fail('duplicate_letta_servers');
-    let server = matches[0];
-    if (server && (server.server_url !== MCP_URL || server.mcp_server_type !== 'streamable_http' || server.auth_header !== 'Authorization' || server.auth_token !== `Bearer ${token}`)) fail('letta_configuration_conflict');
-    if (!server) server = await api('mcp-servers/', 'POST', { ...template, config: { ...template.config, auth_token: `Bearer ${token}` } });
-    const serverId = safeId(server?.id);
-    const tools = await api(`mcp-servers/${serverId}/tools`);
-    if (!Array.isArray(tools) || tools.length !== 1 || tools[0].name !== 'read_state') fail('unexpected_letta_tools');
-    const toolId = safeId(tools[0].id);
-    await api(`agents/${agent}/tools/attach/${toolId}`, 'PATCH');
-    return { registration_present: true, read_tool_attached: true, agent_inference_run: false, hosted_tool_execution_verified: false };
+    const connection = await openReadOnlyLettaSession({
+      token: scopedToken(env.MEPLUS_CLIENT_TOKEN), agentId: env.LETTA_AGENT_ID,
+      cwd: env.LETTA_WORKDIR, approvedModel: env.LETTA_APPROVED_MODEL,
+    }, { fetchImpl });
+    await connection.close();
+    return { local_session_verified: true, task_tool_configured: true, inference_run: false, production_acceptance: false };
   }
+
   const origin = httpsOrigin(env.N8N_API_ORIGIN);
   const key = credential(env.N8N_API_KEY, 'N8N_API_KEY');
   const credentialId = safeId(credential(env.N8N_MEPLUS_CREDENTIAL_ID, 'N8N_MEPLUS_CREDENTIAL_ID'));

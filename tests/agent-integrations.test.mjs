@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { runInNewContext } from 'node:vm';
+import { openReadOnlyLettaSession, sessionOptions, TOOL_NAME } from '../integrations/agent-clients/letta/session.mjs';
 import { setup } from '../integrations/agent-clients/setup.mjs';
 import { jsonRequest, verifyReadOnlyAccess, httpsOrigin, MCP_URL } from '../integrations/agent-clients/client.mjs';
 import { createMcpHandler } from '../supabase/functions/me-plus-mcp/mcp.ts';
@@ -44,35 +45,6 @@ test('transport bounds responses, blocks redirects, redacts exceptions and does 
   assert.equal(count, 1);
   await assert.rejects(jsonRequest('https://example.invalid', {}, async () => new Response('x'.repeat(262145))), /response_too_large/);
   for (const url of ['http://n8n.example.invalid','https://secret@host.invalid','https://host.invalid/path','https://host.invalid?token=secret','https://host.invalid:8443']) assert.throws(() => httpsOrigin(url), /invalid_runtime_origin/);
-});
-test('Letta setup registers the fixed MCP server and attaches only the discovered read tool', async () => {
-  const f = mcpFixture(); const calls = [];
-  const fetchImpl = async (url, options) => {
-    if (url === MCP_URL) return f.fetchImpl(url, options);
-    calls.push({ url, options });
-    assert.equal(options.redirect, 'error');
-    assert.ok(url.startsWith('https://api.letta.com/v1/'));
-    if (options.method === 'GET' && url.endsWith('/mcp-servers/')) return json([]);
-    if (options.method === 'POST') {
-      const body = JSON.parse(options.body);
-      assert.equal(body.config.auth_token, `Bearer ${token}`); assert.equal(body.config.server_url, MCP_URL);
-      return json({ id: 'mcp_server-fixture' });
-    }
-    if (url.endsWith('/tools')) return json([{ name: 'read_state', id: 'tool-fixture' }]);
-    assert.equal(url, 'https://api.letta.com/v1/agents/agent-fixture/tools/attach/tool-fixture');
-    assert.equal(options.method, 'PATCH'); return json(null);
-  };
-  const result = await setup('letta', { apply: true, env, fetchImpl });
-  assert.equal(result.read_tool_attached, true); assert.equal(result.hosted_tool_execution_verified, false);
-  assert.equal(calls.length, 4); assert.ok(!JSON.stringify(result).includes(token));
-});
-test('Letta registration conflict fails closed instead of replacing an existing credential', async () => {
-  const f = mcpFixture(); let writes = 0;
-  await assert.rejects(setup('letta', { apply: true, env, fetchImpl: async (u,o) => {
-    if (u === MCP_URL) return f.fetchImpl(u,o);
-    if (o.method !== 'GET') writes++;
-    return json([{ server_name: 'meplus-tasks-readonly-v1', server_url: 'https://evil.invalid', mcp_server_type: 'streamable_http', auth_header: 'Authorization' }]);
-  }}), /letta_configuration_conflict/); assert.equal(writes, 0);
 });
 test('n8n exported workflow is manual-only, credential-free and minimizes retained data', () => {
   assert.equal(workflow.active, false); assert.equal(workflow.nodes.length, 3);
@@ -120,14 +92,30 @@ test('read_state with extra data scopes fails before any tool read or provider e
   await assert.rejects(verifyReadOnlyAccess(token, f.fetchImpl), /tasks_only_token_required/);
   assert.equal(f.calls.filter(c => c.tool !== null).length, 0);
 });
-test('Letta refuses a matching registration with unknown or stale stored credentials', async () => {
-  for (const auth_token of [undefined, 'REDACTED', 'Bearer meplus_'+'d'.repeat(64)]) {
-    const f = mcpFixture(); let writes = 0;
-    await assert.rejects(setup('letta', {apply:true, env, fetchImpl:async(u,o)=> {
-      if(u===MCP_URL)return f.fetchImpl(u,o);
-      if(o.method!=='GET')writes++;
-      return json([{server_name:'meplus-tasks-readonly-v1',server_url:MCP_URL,mcp_server_type:'streamable_http',auth_header:'Authorization',auth_token}]);
-    }}), /letta_configuration_conflict/);
-    assert.equal(writes,0);
+
+test('local Letta policy exposes only bounded task reads and denies shell, filesystem and malformed calls', async () => {
+  const f=mcpFixture(); const options=sessionOptions(token,'/isolated/meplus','approved/synthetic-model',f.fetchImpl);
+  assert.equal(options.permissionMode,'strict');assert.equal(options.stateless,true);
+  assert.deepEqual(options.allowedTools,[TOOL_NAME]);assert.deepEqual(options.skillSources,[]);
+  assert.equal((await options.canUseTool(TOOL_NAME,{limit:2})).behavior,'allow');
+  for(const name of ['Bash','Read','WebSearch','memory','meplus_write']) assert.equal((await options.canUseTool(name,{})).behavior,'deny');
+  for(const input of [{sections:['health']},{limit:11},{limit:0},{limit:1,user_id:'other'},null,[]]){
+    assert.equal((await options.canUseTool(TOOL_NAME,input)).behavior,'deny');
+    await assert.rejects(options.tools[0].execute('fixture',input),/invalid_or_cancelled_task_read/);
   }
+  await options.tools[0].execute('fixture',{limit:2});
+  assert.deepEqual(f.calls.at(-1),{tool:'read_state',args:{sections:['tasks'],limit:2}});
+});
+test('local Letta session uses local backend, closes safely and performs no inference', async()=>{
+  let closed=false;let clientClosed=false;let initialized=false;
+  class Client {
+    constructor(options){assert.equal(options.backend,'local');assert.equal(options.apiKey,undefined);}
+    resumeSession(id,options){assert.equal(id,'agent-fixture');assert.deepEqual(options.allowedTools,[TOOL_NAME]);return {bootstrapState:async()=>{initialized=true;return {model:'approved/synthetic-model',tools:[TOOL_NAME]};},close:()=>{closed=true;},send:()=>assert.fail('inference not authorized')};}
+    async close(){clientClosed=true;}
+  }
+  const c=await openReadOnlyLettaSession({token,agentId:'agent-fixture',cwd:'/isolated/meplus',approvedModel:'approved/synthetic-model'},{LettaAgentClient:Client,fetchImpl:mcpFixture().fetchImpl});
+  assert.equal(initialized,true);await c.close();assert.equal(closed,true);assert.equal(clientClosed,true);
+});
+test('local Letta requires explicit existing agent, isolated directory and approved model',async()=>{
+  for(const overrides of [{agentId:'../bad'},{cwd:'relative'},{approvedModel:''}]) await assert.rejects(openReadOnlyLettaSession({token,agentId:'agent-fixture',cwd:'/isolated/meplus',approvedModel:'approved/synthetic-model',...overrides},{fetchImpl:()=>assert.fail('bad policy made request')}));
 });

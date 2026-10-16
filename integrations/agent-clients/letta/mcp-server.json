@@ -1,9 +1,0 @@
-{
-  "server_name": "meplus-tasks-readonly-v1",
-  "config": {
-    "mcp_server_type": "streamable_http",
-    "server_url": "https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/me-plus-mcp",
-    "auth_header": "Authorization",
-    "custom_headers": { "MCP-Protocol-Version": "2025-11-25" }
-  }
-}

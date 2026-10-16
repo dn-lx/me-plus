@@ -10,6 +10,7 @@ on:
       - 'apps/web/lib/finance/n26-*.ts'
       - 'tests/*.test.mjs'
       - 'integrations/agent-clients/**'
+      - 'tooling/letta-runtime/**'
       - 'scripts/build-backend-functions.mjs'
       - 'scripts/verify-backend-functions.mjs'
       - 'tooling/backend-build/**'
@@ -128,3 +129,18 @@ jobs:
             -v "$PWD/integrations/agent-clients/n8n:/fixtures:ro" \
             --entrypoint n8n docker.n8n.io/n8nio/n8n:2.43.7 \
             import:workflow --input=/fixtures/tasks-readonly.json
+
+  letta-local-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned local Letta SDK runtime
+        run: npm ci --prefix tooling/letta-runtime --ignore-scripts --no-audit --no-fund
+      - name: Local App Server policy without account, API key or inference
+        run: node --experimental-strip-types tooling/letta-runtime/smoke.mjs
