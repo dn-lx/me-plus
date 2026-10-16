@@ -9,6 +9,7 @@
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Live deployment remains a separate release gate.
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 - Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
 
