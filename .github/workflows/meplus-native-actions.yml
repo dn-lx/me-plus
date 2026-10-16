@@ -47,9 +47,16 @@ jobs:
           test "$PGHOST" = 127.0.0.1
           test "$PGDATABASE" = native_actions_test
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154529_meplus_2_native_action_create_rpc_20261015.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154605_meplus_2_native_action_reschedule_rpc_20261015.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154633_meplus_2_native_action_request_dedupe_index_20261015.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-contract.sql
+          if psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-replay.sql > /tmp/native-replay-baseline.log 2>&1; then
+            echo 'Regression did not detect stale no-op replay'; exit 1
+          fi
+          grep -Fq 'no-op retry overwrote a newer edit' /tmp/native-replay-baseline.log
           for attempt in 1 2; do
-            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154529_meplus_2_native_action_create_rpc_20261015.sql
-            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154605_meplus_2_native_action_reschedule_rpc_20261015.sql
-            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015154633_meplus_2_native_action_request_dedupe_index_20261015.sql
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261016083256_meplus_native_action_replay_receipts.sql
             psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-contract.sql
+            psql -X -v ON_ERROR_STOP=1 -f tests/sql/native-actions-replay.sql
           done

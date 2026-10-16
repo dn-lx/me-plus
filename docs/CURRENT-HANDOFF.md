@@ -6,17 +6,23 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-NATIVE-001",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-16T08:24:56Z"
+  "branch": "fix/meplus2-native-action-provenance",
+  "pr": 76,
+  "status": "testing",
+  "last_verified_sha": "0ca44ac6f01b0213b59c5bd0f8bdd282def434c4",
+  "next_step": "Review isolated native action CI and independent security findings; repair confirmed failures, then merge to dev with idle task state.",
+  "updated_at": "2026-10-16T08:31:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
+
+## ME2-NATIVE-001 — PR #76
+
+Recovered exact applied native create/reschedule and deduplication migrations from read-only migration history. Added isolated tests of real function bodies for ownership, denied clients, retry, validation, protected tasks and event-failure rollback. Initial isolated ownership/rollback CI passed. Independent review found pre-existing no-op retry and event-source collision bugs. An additive CLI-generated repair records no-op request receipts and scopes lookups to native events; regression CI must reproduce the old failure and pass on the repair. Repair is not deployed. Minimal fixture does not prove hosted Auth/JWT transport, full live triggers or concurrency. No shared-backend changes.
+
+SEC-008 PR #69 merged as `b724ad1`, all seven final-head checks passed; temporary branch deletion verified. PR #75 remains deferred: optional telemetry also changes routing/models/token budgets without deployed-source provenance or behavioral regression evidence.
 
 ## Me+ 2.0 continuation
 
