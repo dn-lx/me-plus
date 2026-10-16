@@ -9,6 +9,10 @@ on:
       - 'supabase/functions/**'
       - 'apps/web/lib/finance/n26-*.ts'
       - 'tests/*.test.mjs'
+      - 'scripts/build-backend-functions.mjs'
+      - 'scripts/verify-backend-functions.mjs'
+      - 'tooling/backend-build/**'
+      - 'netlify/functions/n26-*.mts'
       - 'supabase/tests/backend-readiness/**'
       - '.github/workflows/meplus-backend-readiness.yml'
   workflow_dispatch:
@@ -63,6 +67,9 @@ jobs:
             supabase/migrations/20261016085920_meplus2_native_routines_feedback.sql
             supabase/migrations/20261016114024_meplus2_scoped_client_registry.sql
             supabase/migrations/20261016114053_meplus2_scoped_client_dispatch.sql
+            supabase/tests/backend-readiness/integration-control-fixture.sql
+            supabase/migrations/20261016121130_meplus2_integration_control.sql
+            supabase/tests/backend-readiness/integration-control-rollback.sql
             supabase/tests/backend-readiness/auth-native-rollback.sql
             supabase/tests/backend-readiness/native-routines-rollback.sql
             supabase/tests/backend-readiness/scoped-client-rollback.sql
@@ -70,3 +77,19 @@ jobs:
           for file in "${files[@]}"; do
             psql -X -v ON_ERROR_STOP=1 -f "$file"
           done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build N26 functions without a website deploy
+        env:
+          MEPLUS_BACKEND_BUILD_MODULES: ${{ github.workspace }}/tooling/backend-build/node_modules
+        run: |
+          npm ci --prefix tooling/backend-build --ignore-scripts --no-audit --no-fund
+          node scripts/build-backend-functions.mjs
+          node scripts/verify-backend-functions.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: n26-backend-functions
+          path: dist/backend-functions/archives/
+          if-no-files-found: error
+          retention-days: 30

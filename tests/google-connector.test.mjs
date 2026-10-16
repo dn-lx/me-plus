@@ -6,10 +6,10 @@ import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 import {ingestionCutoff,acceptsObservation,calendarWindow} from '../supabase/functions/_shared/ingestion-window.ts';
 
-async function edge(name,valid=true){
- let handler;const updates=[];let lookups=0;
+async function edge(name,valid=true,options={}){
+ let handler;const updates=[];const proofs=[];let lookups=0;
  const metadata={folders:[{id:'synthetic-folder'}],ingestFrom:'2026-10-16T00:00:00Z'};
- const db={rpc:async()=>({data:valid,error:null}),from:()=>({
+ const db={rpc:async(name,args)=>{if(name==='server_record_meplus_integration_probe'){proofs.push(args);return {data:options.recorded??true,error:null};}return {data:valid,error:null};},from:()=>({
   select:()=>({eq:async()=>{lookups++;return {data:[{id:'synthetic-source',metadata}],error:null};}}),
   update:values=>({eq:async()=>{updates.push(values);return {error:null};}})
  })};
@@ -17,10 +17,11 @@ async function edge(name,valid=true){
  source=source.replace(/^import .*;\s*$/gm,'');
  const context=vm.createContext({Request,Response,URL,URLSearchParams,TextEncoder,crypto:webcrypto,
   ingestionCutoff,acceptsObservation,calendarWindow,createClient:()=>db,
-  Deno:{env:{get:key=>key.startsWith('SUPABASE_')?'synthetic-runtime':undefined},serve:f=>{handler=f;}}});
+  fetch:async()=>Response.json({access_token:'synthetic-oauth-token-never-expose'}),
+  Deno:{env:{get:key=>key.startsWith('SUPABASE_')?'synthetic-runtime':options.oauthAuthorized&&key.startsWith('GOOGLE_')?'synthetic-google-credential':undefined},serve:f=>{handler=f;}}});
  vm.runInContext(stripTypeScriptTypes(source),context);
  if(name==='me-plus-healthsync-drive')vm.runInContext('globalThis.parseReadings=readingsFromCsv',context);
- return {handler,updates,metadata,context,lookups:()=>lookups};
+ return {handler,updates,metadata,context,proofs,lookups:()=>lookups};
 }
 test('Health Sync authorization failure preserves saved folders and ingestion cutoff',async()=>{
  const f=await edge('me-plus-healthsync-drive');
@@ -29,6 +30,23 @@ test('Health Sync authorization failure preserves saved folders and ingestion cu
  assert.equal(f.updates[0].metadata.ingestFrom,f.metadata.ingestFrom);
  assert.equal(f.updates[0].metadata.folders,f.metadata.folders);
  assert.equal(f.updates[0].metadata.authConfigured,false);
+});
+test('Google callbacks record only nonce-bound server proofs after wake validation',async()=>{
+ const probe_id='00000000-0000-0000-0000-000000000001';
+ for(const name of ['me-plus-healthsync-drive','meplus-google-calendar-sync']){
+  for(const oauthAuthorized of [true,false]){
+   const f=await edge(name,true,{oauthAuthorized});
+   const r=await f.handler(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({mode:'auth_probe',probe_id})}));
+   assert.equal(r.status,oauthAuthorized?200:502);assert.equal(f.proofs.length,1);
+   assert.equal(f.proofs[0].p_probe_id,probe_id);assert.equal(f.proofs[0].p_authorized,oauthAuthorized);
+   assert.equal(f.proofs[0].p_provider,name==='me-plus-healthsync-drive'?'google-drive-healthsync':'google-calendar-supabase');
+   assert.ok(!(await r.text()).includes('synthetic-oauth-token'));assert.equal(f.updates.length,0);
+  }
+  const denied=await edge(name,false);
+  assert.equal((await denied.handler(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({mode:'auth_probe',probe_id})}))).status,401);assert.equal(denied.proofs.length,0);
+  const rejected=await edge(name,true,{recorded:false});
+  assert.equal((await rejected.handler(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({mode:'auth_probe',probe_id})}))).status,409);
+ }
 });
 test('Google auth probes are wake-authenticated and never ingest or rewrite source state',async()=>{
  for(const name of ['me-plus-healthsync-drive','meplus-google-calendar-sync']){

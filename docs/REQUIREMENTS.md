@@ -53,6 +53,14 @@ Deliver owner-authenticated profile bootstrap, native daily/weekly/once routines
 
 Acceptance evidence: isolated PostgreSQL and live-schema rollback tests passed for auth/ownership/retry/DST/feedback/token lifecycle; hosted negative MCP/Google authentication checks passed; independent review clear. Migrations and endpoints deployed; no historical data restored. Exact versions and limits: `docs/plans/ME2-BACKEND-002-integrations.md`.
 
+## [x] ME2-INTEGRATIONS-004 — Integration controls before user authorization
+
+**Priority:** P1 · Backend / integrations
+
+Finish safe status, owner-bound expiring authorization probes, pause/start/clock controls and offline N26 rollout preparation while the user defers sign-in. Require real database sync evidence before recurring ingestion. Preserve history cutoffs and protect shared server credentials.
+
+Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/live rollback controls acceptance and hosted failed-authorization callback smoke passed. N26 functions-only ZIPs build and deny invalid credentials, with a pinned reproducible CI artifact pipeline. N26 deployment is an explicit capability blocker, not claimed delivered. Details: `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
+
 ## [ ] ME2-CONNECT-003 — Provider authorization and real client/device activation
 
 **Priority:** P1 · Integrations / user-assisted

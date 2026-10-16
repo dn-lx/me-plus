@@ -7,7 +7,7 @@
 - **Project name:** Me+
 - **Purpose:** A personal intelligence and control platform that turns durable user-owned records, goals, context, policies, connected services, and device signals into transparent, user-controlled insights and actions.
 - **Primary users:** The owner of the Me+ system; keep the architecture extensible without assuming a multi-tenant product.
-- **Repository:** dn-lx/me-plus-app
+- **Repository:** dn-lx/me-plus
 - **Owner/team:** dn-lx
 
 ## Architecture
@@ -18,7 +18,7 @@
 - **Shared layer:** Domain logic, contracts, reusable UI where appropriate, configuration and reasoning interfaces live under `packages/` and must not depend on platform-specific APIs.
 - **Backend/runtime:** Shared application/domain services plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record.
 - **Database/storage:** Supabase Postgres is the durable source of truth; repository-managed migrations; Storage only where needed.
-- **Hosting/deployment:** To be selected after web/mobile framework scaffold; keep providers replaceable.
+- **Hosting/deployment:** Netlify web/N26 backend and Supabase Edge Functions. Supabase data is shared across code branches.
 - **Authentication:** Supabase Auth with explicit authorization boundaries.
 - **Key boundaries:** `apps/web` and `apps/mobile` stay thin. Platform-native capabilities sit behind typed adapters. Shared domain code talks to contracts, not browser/native APIs. Supabase owns canonical state. Models reason over retrieved context but do not own canonical state. Domain policies constrain reasoning and external side effects.
 
@@ -39,13 +39,13 @@
 
 | Purpose | Command |
 | --- | --- |
-| Install | TBD during monorepo scaffold |
-| Development | TBD during monorepo scaffold |
-| Test | TBD during monorepo scaffold |
-| Build | TBD during monorepo scaffold |
-| Lint/typecheck | TBD during monorepo scaffold |
-| Browser/E2E | TBD during monorepo scaffold |
-| Performance | TBD after UI scaffold |
+| Install | pnpm install --no-frozen-lockfile |
+| Development | pnpm dev:web / pnpm dev:mobile |
+| Test | pnpm test:integration |
+| Build | pnpm build:web |
+| Lint/typecheck | pnpm typecheck |
+| Browser/E2E | Provider authorization, signed-in app and physical-device E2E pending |
+| Performance | No UI performance acceptance established |
 
 ## Runtime environments
 
@@ -69,6 +69,13 @@
 - Single-owner first, while preserving explicit ownership in schema and policies so future multi-user support remains possible.
 - Private records are private by default; minimize collection, redact logs, separate raw observations from derived insights and require explicit authorization for external writes.
 - Mobile permission grants do not imply permission to persist or share all accessible device data; ingest only data required by an explicit Me+ workflow.
+
+## Integration control
+
+- Native task/routine/feedback/workspace and scoped MCP contracts are in Supabase. Client tokens are opaque, scoped, hashed, expiring and revocable; no service keys go to agents.
+- Google connectors have one server account per provider; owner controls refuse multi-owner activation until separate credentials exist. Authorization proofs are server-recorded and expiring; recurring clocks require a successful own-source sync.
+- Provider authorization and physical-device acceptance remain manual gates. Optional Letta/n8n/Langfuse are replaceable and gated; no paid infrastructure is required.
+- API/rollout runbooks: `docs/plans/ME2-BACKEND-002-integrations.md`, `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
 
 ## External systems
 

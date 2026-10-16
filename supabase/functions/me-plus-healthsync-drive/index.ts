@@ -389,6 +389,11 @@ Deno.serve(async (req: Request) => {
 
   const google = await getGoogleAccessToken();
   if (requestBody?.mode === "auth_probe") {
+    if (requestBody.probe_id !== undefined) {
+      if (typeof requestBody.probe_id !== "string" || !/^[0-9a-f-]{36}$/i.test(requestBody.probe_id)) return json({error:"invalid_probe"},400);
+      const recorded=await supabase.rpc("server_record_meplus_integration_probe",{p_probe_id:requestBody.probe_id,p_provider:"google-drive-healthsync",p_authorized:Boolean(google.token)});
+      if(recorded.error || recorded.data!==true) return json({error:"probe_not_recorded"},409);
+    }
     return json({configured: Boolean(google.token), status: google.token ? "authorized" : "authorization_required"}, google.token ? 200 : 502);
   }
   if (!google.token) {

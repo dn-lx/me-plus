@@ -64,3 +64,8 @@ Letta requires a measured improvement plus backup/restore/fallback acceptance be
 ## Rollback and compatibility
 
 Stop the native clock with cron.alter_job(active:=false) if needed. External clocks are already inactive. Revoke client tokens and remove the MCP endpoint to disable external tools; retain audit/receipts/history. Restore prior Google worker versions and verification settings as a matched deployment if rollback is required, understanding that Calendar's prior JWT gate rejected modern publishable-key wakes. Restore prior RPC bodies through additive reviewed migrations if necessary; do not drop canonical tables, wipe user records, replay historical data migrations or delete audit history. New routine schedule enabled defaults false, so legacy schedules were never silently adopted. No prod Git merge or website/app release occurred.
+
+
+## Authorization-deferred follow-up
+
+Current controls/callbacks and N26 rollout preparation are in ME2-INTEGRATIONS-004-control-and-rollout.md. Google workers are now Health Sync v28 / Calendar v19; migration20261016121130 adds the owner control API. Provider authorization remains pending; N26 ZIPs are built but deployment capability is unavailable in the current connection. Earlier versions/counts above describe the first checkpoint.

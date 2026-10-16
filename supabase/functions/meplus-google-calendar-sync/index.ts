@@ -94,8 +94,14 @@ Deno.serve(async(req)=>{
 
   const body=await req.json().catch(()=>({}));
   if(body?.mode==="auth_probe"){
-    try{await accessToken();return respond({configured:true,status:"authorized"});}
-    catch{return respond({configured:false,status:"authorization_required"},502);}
+    let authorized=false;
+    try{await accessToken();authorized=true;}catch{}
+    if(body.probe_id!==undefined){
+      if(typeof body.probe_id!=="string"||!/^[0-9a-f-]{36}$/i.test(body.probe_id))return respond({error:"invalid_probe"},400);
+      const recorded=await db.rpc("server_record_meplus_integration_probe",{p_probe_id:body.probe_id,p_provider:"google-calendar-supabase",p_authorized:authorized});
+      if(recorded.error||recorded.data!==true)return respond({error:"probe_not_recorded"},409);
+    }
+    return respond({configured:authorized,status:authorized?"authorized":"authorization_required"},authorized?200:502);
   }
 
   const {data:sources,error:sourceError}=await db.from("data_sources")

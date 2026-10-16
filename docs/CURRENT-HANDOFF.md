@@ -14,7 +14,7 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-10-16T11:52:00Z"
+  "updated_at": "2026-10-16T12:20:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -30,6 +30,15 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 - Langfuse/Letta/n8n remain optional, intentionally unprovisioned/unconnected pending account, privacy, recovery and measured-benefit gates. PR #75 still mixes exporter/routing changes and remains deferred. Existing reasoning worker v41 and gateway v26 unchanged.
 - Checks: Node 111 passed / 7 pre-existing skipped / 0 failed; focused strict TypeScript passed; isolated and live rollback DB suites passed; independent security review clear. New hosted PostgreSQL/Node workflow runs on the source branch; inspect actual SHA/run before claiming its CI outcome. Full app/browser OAuth/device E2E was not run.
 - Exact live migration provenance, endpoint/RPC contracts, activation/rollback procedures and remaining manual steps: `docs/plans/ME2-BACKEND-002-integrations.md`.
+
+## Authorization-deferred continuation
+
+- User will authorize providers later and explicitly asked to finish all other setup. Continued the same source branch; no PR requested, no app/site/prod release.
+- Applied integration control migration `20261016121130`; owner status/probe/pause/start/clock APIs are live. Fresh server-only nonce proof is required before start; successful own-source sync after private activation is required before recurring clock enable. Stable receipts prevent old start retries undoing pause. Existing single-account workers refuse multi-owner activation.
+- Google workers now Health Sync v28 / Calendar v19. Both real owner-bound callbacks recorded authorization_required; no sign-in or data import occurred. All three external clocks remain off and sources pending. Only two failed-authorization proof records were committed; no synthetic activation/user/sync records remain.
+- N26 functions are built and verified as API2 Node24 ZIPs with history guard, protected diagnostic contract marker and explicit background mode. Deployment remains pending: current Netlify tools offer no deploy action and no CLI authentication is configured. No assumption of Git CD, credential copying, or production unlock was made. CI builds/preserves the functions-only artifact.
+- New control SQL passed isolated and live rollback acceptance; Node 112 passed / 7 pre-existing skipped / 0 failed; focused strict TypeScript passed; extracted ZIP payloads deny missing/invalid secrets with no network access. Independent reviews clear. Prior hosted CI at a469982 passed; inspect the new final SHA's readiness workflow/artifact before claiming its result.
+- Reproducible artifact build, exact API contracts, activation/pause sequence, multi-owner/in-flight limitations and remaining deployment capability: `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
 
 ## Environment and release boundaries
 

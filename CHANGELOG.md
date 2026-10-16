@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Owner-scoped integration readiness/probe/pause/start controls; recurring sync requires fresh server authorization proof and successful source sync. Added reproducible N26 functions-only deployment artifacts while provider authorization remains deferred.
 - Me+ 2.0 owner-scoped routine scheduling/history, feedback, workspace API and expiring/revocable scoped MCP client tools. Native routine clock is active; external integrations remain pending authorization with disabled clocks.
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
