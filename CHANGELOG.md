@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Documentation
+- Audited the Me+ 2.0 source/runtime boundaries, proposed a modular-core architecture, and replaced the starter backlog with an ordered roadmap covering N26 and ING, client/session contracts, durable jobs, health acceptance, delivery, privacy/recovery and optional runtime gates. Planning only; no product/runtime/dependency changes.
+
 ### Added
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.

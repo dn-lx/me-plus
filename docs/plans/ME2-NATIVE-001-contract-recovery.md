@@ -1,5 +1,7 @@
 # Native action contract recovery
 
+**17 October 2026 reconciliation:** the later shared migration ledger includes repair version `20261016084240`, and PR #77 records its source mapping and deployment acceptance. The pre-deployment statements below describe the original PR #76 scope. This architecture audit read migration metadata only; it did not re-verify exact applied SQL equivalence or replay anything. Preserve the provenance mapping and inspect PR #77 before any later rollout.
+
 Task: ME2-NATIVE-001. Recover the already-deployed task creation and rescheduling contract and verify it in an isolated database before adding app controls. Scope extended after independent review reproduced two existing retry defects: no-op requests lack receipts, and replay lookups include unrelated event sources.
 
 Verified state: on 16 October 2026, the shared Me+ database records migrations 20261015154529, 20261015154605 and 20261015154633. Their statements are absent from dev. Both public functions allow authenticated callers and reject anon; they derive ownership from auth.uid().

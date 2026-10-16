@@ -1,6 +1,8 @@
 # N26 Open Banking
 
-N26 is the first live banking integration for Me+. It uses Enable Banking in **read-only Account Information (AISP) mode** and follows the general Me+ source-sync lifecycle.
+N26 is the first implemented bank adapter for Me+, using Enable Banking in **read-only Account Information (AISP) mode**. Current connection and deployment acceptance must be verified separately; earlier V1 operation is not proof of an active post-reset bank session.
+
+**17 October 2026 planning update:** both N26 and ING are required. The shared [N26 + ING implementation plan](plans/ME2-BANK-012-n26-ing.md) owns the proposed connection model, provider selection, correctness, migration and acceptance sequence. This file documents existing N26-specific routes/configuration and their limitations. No integration is activated by this update.
 
 ## Security boundary
 
@@ -34,21 +36,16 @@ Never commit these values.
 3. The browser completes provider consent.
 4. Enable Banking redirects to `/api/finance/n26/callback`.
 5. Me+ verifies state and exchanges the authorization code for an Enable Banking session.
-6. The callback schedules the initial read-only sync with Next.js `after()` and redirects the browser immediately with `n26=connected&sync=started`.
+6. The existing callback schedules the initial read-only sync with Next.js `after()` and redirects with `n26=connected&sync=started`. That response means work was scheduled in this implementation; it is not proof that a durable sync completed.
 7. The initial sync writes source, consent, account, balance, transaction and provenance state to Supabase.
 
-The callback must not wait for the full transaction import. OAuth/provider callbacks are latency-bounded; long ingestion runs independently of the browser request.
+The callback must return promptly. The planned replacement persists session/consent binding and a durable job receipt before redirecting, then reports pending/complete honestly. See ME2-JOBS-011 and the banking plan; `after()` alone does not establish restart-safe progress.
 
 ## Automatic refresh
 
-N26 currently uses a **daily** refresh policy.
+N26 has a **daily refresh intent**. Current source places the clock under Supabase and the long-running protected worker on Netlify; the old Netlify `05:00 UTC` scheduled-function description is historical. Prepared PR #77 installs the external clock inactive and records the guarded N26 worker as deployment-pending. This planning audit did not change or activate that state.
 
-- A Netlify Scheduled Function triggers at `05:00 UTC`.
-- The scheduled function starts a protected Netlify Background Function.
-- The background worker resolves the stored Enable Banking session and runs the normal idempotent N26 sync.
-- On-demand authenticated refresh remains available through `POST /api/finance/n26/sync`.
-
-Netlify Scheduled Functions are lightweight triggers and run only on published production deploys. The long-running ingestion belongs in the Background Function. If the initial callback sync later exceeds the hosting limit for `after()`, the callback should enqueue the same durable/background path rather than block the browser.
+The background worker resolves an authorized session and applies idempotent ingestion. On-demand `POST /api/finance/n26/sync` also exists and must obey the same owner, runtime-readiness, source-cutoff and pause/revoke policy as recurring work. Before activation, verify the hosted worker contract and one successful source sync. ING will need independent connection controls even when it uses the same provider.
 
 ## Sync and health semantics
 
@@ -68,7 +65,7 @@ Important rules:
 - Recoverable failures remain eligible for later scheduled retries.
 - Reauthorization is requested only when the stored consent/session can no longer be used.
 - Healthy sources stay quiet; notify only when user action is required or freshness exceeds policy.
-- The initial import requests the most recent 90 days and is idempotent by provider account/transaction identity.
+- The earlier adapter has a 90-day fallback; PR #77 prepares a source-specific fresh-start guard. Post-reset rollout must preserve the configured cutoff through every entrypoint and must not silently restore historical data. Reauthorization/account identity remains idempotent; multi-bank generalization is planned.
 
 ## Validation boundary
 
