@@ -18,6 +18,8 @@ External tool access is host-specific. This repository records capability requir
 | Transactional email | Optional | TBD | Notifications or reports when a concrete workflow requires email |
 | Documents/business files | Optional | Google Drive | Supporting documents and exports; canonical structured state remains in Supabase |
 | Issue/project management | Required | GitHub | Implementation work, decisions, defects, and release readiness |
+| Plan collaboration | Optional | Slack | Links and discussions around canonical Drive/GitHub artifacts; a Me+ Slack product integration requires a selected scope |
+| Bank account information | Required product capability | Enable Banking is the first provider candidate | Independently controlled N26 and ING AIS; verify exact institution/product/entitlements and use server runtime credentials, not a ChatGPT plugin credential |
 
 ## Verification before use
 
@@ -36,3 +38,5 @@ Before relying on any connector:
 - Use typed adapters for integrations and device ingestion so providers remain replaceable.
 - Record material external writes in `docs/CURRENT-HANDOFF.md`.
 - Do not commit credentials or private connector configuration.
+- Development/ChatGPT connectors and product runtime integrations are different access boundaries. A connected Slack, Supabase or banking plugin does not automatically authorize the deployed Me+ application.
+- N26 + ING planning, provider-selection gates and runtime acceptance are in `docs/plans/ME2-BANK-012-n26-ing.md`; this planning revision enables no source or clock.
