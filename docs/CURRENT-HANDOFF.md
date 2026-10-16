@@ -11,16 +11,17 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
   "base": "dev",
   "branch": "feature/me2-backend-integrations",
   "pr": 77,
-  "status": "testing",
+  "status": "blocked",
   "last_verified_sha": "b9dad87f064a410559c40c6738a7523ebe7b9683",
-  "next_step": "Verify credential-free Letta/n8n packages in CI and independent review; authorization remains deferred.",
-  "updated_at": "2026-10-16T13:03:00Z"
+  "next_step": "Pre-authorization packages verified; durable host/identity, approved model and real credentials/acceptance deferred. See ME2-AGENTS-006 plan.",
+  "updated_at": "2026-10-16T13:25:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
 ## Agent integration continuation
 
-- User now explicitly requests Letta/n8n preparation before authentication; N26 still deferred. Draft PR77 binds this continuing branch. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`. No host, key, token or provider activation created.
+- User explicitly requests Letta/n8n preparation before authentication; N26 still deferred. Draft PR77 binds this branch. ME2-AGENTS-006 preparation done: local SDK session/task tool, inactive n8n workflow/import CLI, privacy/recovery runbook and downloadable CI artifact. No persistent host, real key/token or provider activation created.
+- MCP v2 scope metadata deployed; hosted missing/forged bearer401. Local Node126 passed/7 skipped; focused24 and independent review clear; actual Letta SDK/local synthetic no-inference handshake, n8n2.43.7 isolated import and dependency audit0 passed. All hosted checks green at ccb3029; verify final source SHA. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`. Live authorized tool execution, runtime isolation, model/budget and backup/fallback acceptance remain pending.
 
 ## Current backend checkpoint
 

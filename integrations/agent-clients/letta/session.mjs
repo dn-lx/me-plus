@@ -2,6 +2,7 @@ import { isAbsolute } from 'node:path';
 import { credential, scopedToken, verifyReadOnlyAccess, mcpRequest, fail } from '../client.mjs';
 
 export const TOOL_NAME = 'meplus_read_tasks';
+const CHILD_SYSTEM_ENV = new Set(['PATH','HOME','USERPROFILE','HOMEDRIVE','HOMEPATH','USER','LOGNAME','TMPDIR','TEMP','TMP','LANG','LC_ALL','SHELL','LETTA_LOCAL_BACKEND_DIR','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE']);
 function validInput(input) {
   return input && typeof input === 'object' && !Array.isArray(input) && Object.keys(input).every(k => k === 'limit') && (input.limit === undefined || Number.isInteger(input.limit) && input.limit >= 1 && input.limit <= 10);
 }
@@ -11,7 +12,7 @@ export function sessionOptions(token, cwd, approvedModel, fetchImpl = fetch, env
   credential(approvedModel, 'LETTA_APPROVED_MODEL');
   return {
     cwd, permissionMode: 'strict', stateless: true,
-    env: Object.fromEntries(Object.keys(environment).filter(k => /TOKEN|KEY|PASSWORD|SECRET|CREDENTIAL/i.test(k)).map(k => [k, ''])),
+    env: Object.fromEntries(Object.keys(environment).filter(k => !CHILD_SYSTEM_ENV.has(k)).map(k => [k, ''])),
     allowedTools: [TOOL_NAME], skillSources: [],
     canUseTool: async (name, input) => name === TOOL_NAME && validInput(input)
       ? { behavior: 'allow' } : { behavior: 'deny', message: 'Me+ task-read policy denied this tool or input' },

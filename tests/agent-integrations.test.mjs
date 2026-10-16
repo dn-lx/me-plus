@@ -94,8 +94,8 @@ test('read_state with extra data scopes fails before any tool read or provider e
 });
 
 test('local Letta policy exposes only bounded task reads and denies shell, filesystem and malformed calls', async () => {
-  const f=mcpFixture(); const options=sessionOptions(token,'/isolated/meplus','approved/synthetic-model',f.fetchImpl,{MEPLUS_CLIENT_TOKEN:token,OPENAI_API_KEY:'synthetic',PATH:'/bin'});
-  assert.equal(options.env.MEPLUS_CLIENT_TOKEN,'');assert.equal(options.env.OPENAI_API_KEY,'');assert.equal(options.env.PATH,undefined);
+  const f=mcpFixture(); const options=sessionOptions(token,'/isolated/meplus','approved/synthetic-model',f.fetchImpl,{MEPLUS_CLIENT_TOKEN:token,OPENAI_API_KEY:'synthetic',DATABASE_URL:'synthetic_database_url',PATH:'/bin'});
+  assert.equal(options.env.MEPLUS_CLIENT_TOKEN,'');assert.equal(options.env.OPENAI_API_KEY,'');assert.equal(options.env.DATABASE_URL,'');assert.equal(options.env.PATH,undefined);
   assert.equal(options.permissionMode,'strict');assert.equal(options.stateless,true);
   assert.deepEqual(options.allowedTools,[TOOL_NAME]);assert.deepEqual(options.skillSources,[]);
   assert.equal((await options.canUseTool(TOOL_NAME,{limit:2})).behavior,'allow');
