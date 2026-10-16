@@ -70,7 +70,7 @@ Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/
 
 ## [ ] ME2-AGENTS-006 — Letta/n8n integration setup before authorization
 
-Prepare credential-free registration/attachment and inactive workflow packages, bounded scoped MCP access, safe repeatable activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
+Prepare credential-free local Letta App Server sessions and inactive n8n workflow packages, bounded scoped MCP access, safe repeatable activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
 
 Acceptance: templates/tooling and synthetic protocol/provider contract tests pass, independent review clear, hosted CI green; exact remaining account/runtime acceptance recorded. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`.
 

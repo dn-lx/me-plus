@@ -94,7 +94,8 @@ test('read_state with extra data scopes fails before any tool read or provider e
 });
 
 test('local Letta policy exposes only bounded task reads and denies shell, filesystem and malformed calls', async () => {
-  const f=mcpFixture(); const options=sessionOptions(token,'/isolated/meplus','approved/synthetic-model',f.fetchImpl);
+  const f=mcpFixture(); const options=sessionOptions(token,'/isolated/meplus','approved/synthetic-model',f.fetchImpl,{MEPLUS_CLIENT_TOKEN:token,OPENAI_API_KEY:'synthetic',PATH:'/bin'});
+  assert.equal(options.env.MEPLUS_CLIENT_TOKEN,'');assert.equal(options.env.OPENAI_API_KEY,'');assert.equal(options.env.PATH,undefined);
   assert.equal(options.permissionMode,'strict');assert.equal(options.stateless,true);
   assert.deepEqual(options.allowedTools,[TOOL_NAME]);assert.deepEqual(options.skillSources,[]);
   assert.equal((await options.canUseTool(TOOL_NAME,{limit:2})).behavior,'allow');
@@ -110,7 +111,7 @@ test('local Letta session uses local backend, closes safely and performs no infe
   let closed=false;let clientClosed=false;let initialized=false;
   class Client {
     constructor(options){assert.equal(options.backend,'local');assert.equal(options.apiKey,undefined);}
-    resumeSession(id,options){assert.equal(id,'agent-fixture');assert.deepEqual(options.allowedTools,[TOOL_NAME]);return {bootstrapState:async()=>{initialized=true;return {model:'approved/synthetic-model',tools:[TOOL_NAME]};},close:()=>{closed=true;},send:()=>assert.fail('inference not authorized')};}
+    resumeSession(id,options){assert.equal(id,'agent-fixture');assert.deepEqual(options.allowedTools,[TOOL_NAME]);return {ready:async()=>{initialized=true;return {agentId:'agent-fixture',model:'approved/synthetic-model',tools:[]};},close:()=>{closed=true;},send:()=>assert.fail('inference not authorized')};}
     async close(){clientClosed=true;}
   }
   const c=await openReadOnlyLettaSession({token,agentId:'agent-fixture',cwd:'/isolated/meplus',approvedModel:'approved/synthetic-model'},{LettaAgentClient:Client,fetchImpl:mcpFixture().fetchImpl});
@@ -118,4 +119,13 @@ test('local Letta session uses local backend, closes safely and performs no infe
 });
 test('local Letta requires explicit existing agent, isolated directory and approved model',async()=>{
   for(const overrides of [{agentId:'../bad'},{cwd:'relative'},{approvedModel:''}]) await assert.rejects(openReadOnlyLettaSession({token,agentId:'agent-fixture',cwd:'/isolated/meplus',approvedModel:'approved/synthetic-model',...overrides},{fetchImpl:()=>assert.fail('bad policy made request')}));
+});
+
+test('unexpected Letta identity/model/base tool manifests fail closed and release runtime resources',async()=>{
+ for(const state of [{agentId:'agent-other',model:'approved/synthetic-model',tools:[]},{agentId:'agent-fixture',model:'unapproved/model',tools:[]},{agentId:'agent-fixture',model:'approved/synthetic-model',tools:['Bash']},{agentId:'agent-fixture',model:'approved/synthetic-model'}]){
+  let closed=false;let clientClosed=false;
+  class Client{resumeSession(){return {ready:async()=>state,close:()=>{closed=true;}};}async close(){clientClosed=true;}}
+  await assert.rejects(openReadOnlyLettaSession({token,agentId:'agent-fixture',cwd:'/isolated/meplus',approvedModel:'approved/synthetic-model'},{LettaAgentClient:Client,fetchImpl:mcpFixture().fetchImpl}),/letta_local_session_failed/);
+  assert.equal(closed,true);assert.equal(clientClosed,true);
+ }
 });

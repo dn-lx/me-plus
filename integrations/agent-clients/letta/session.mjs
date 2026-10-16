@@ -5,13 +5,14 @@ export const TOOL_NAME = 'meplus_read_tasks';
 function validInput(input) {
   return input && typeof input === 'object' && !Array.isArray(input) && Object.keys(input).every(k => k === 'limit') && (input.limit === undefined || Number.isInteger(input.limit) && input.limit >= 1 && input.limit <= 10);
 }
-export function sessionOptions(token, cwd, approvedModel, fetchImpl = fetch) {
+export function sessionOptions(token, cwd, approvedModel, fetchImpl = fetch, environment = process.env) {
   scopedToken(token);
   if (typeof cwd !== 'string' || !isAbsolute(cwd)) fail('absolute_isolated_LETTA_WORKDIR_required');
   credential(approvedModel, 'LETTA_APPROVED_MODEL');
   return {
-    cwd, model: approvedModel, permissionMode: 'strict', stateless: true,
-    allowedTools: [TOOL_NAME], skillSources: [], dreaming: { trigger: 'off' },
+    cwd, permissionMode: 'strict', stateless: true,
+    env: Object.fromEntries(Object.keys(environment).filter(k => /TOKEN|KEY|PASSWORD|SECRET|CREDENTIAL/i.test(k)).map(k => [k, ''])),
+    allowedTools: [TOOL_NAME], skillSources: [],
     canUseTool: async (name, input) => name === TOOL_NAME && validInput(input)
       ? { behavior: 'allow' } : { behavior: 'deny', message: 'Me+ task-read policy denied this tool or input' },
     tools: [{ name: TOOL_NAME, label: 'Read Me+ tasks',
@@ -37,8 +38,10 @@ export async function openReadOnlyLettaSession({ token, agentId, cwd, approvedMo
   let session;
   try {
     session = client.resumeSession(agentId, options);
-    const state = await session.bootstrapState();
-    if (state.model !== approvedModel || !Array.isArray(state.tools) || state.tools.length !== 1 || state.tools[0] !== TOOL_NAME) fail('letta_runtime_policy_mismatch');
+    // ready().tools reports persisted base tools, not connection-scoped client
+    // tools. Require none; the sole client tool has its own exact allowlist.
+    const state = await session.ready();
+    if (state.agentId !== agentId || state.model !== approvedModel || !Array.isArray(state.tools) || state.tools.length !== 0) fail('letta_runtime_policy_mismatch');
     return { session, close: async () => { session.close(); await client.close(); } };
   } catch {
     session?.close(); await client.close().catch(() => {}); fail('letta_local_session_failed');

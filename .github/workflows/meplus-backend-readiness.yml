@@ -60,7 +60,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: agent-integration-setup
-          path: integrations/agent-clients/
+          path: |
+            integrations/agent-clients/
+            tooling/letta-runtime/package.json
+            tooling/letta-runtime/pnpm-lock.yaml
+            tooling/letta-runtime/pnpm-workspace.yaml
+            tooling/letta-runtime/smoke.mjs
           if-no-files-found: error
           retention-days: 30
       - name: Disposable schema and owner contracts
@@ -141,6 +146,8 @@ jobs:
         with:
           node-version: '22'
       - name: Install pinned local Letta SDK runtime
-        run: npm ci --prefix tooling/letta-runtime --ignore-scripts --no-audit --no-fund
+        run: npx --yes pnpm@11.25.0 --dir tooling/letta-runtime install --frozen-lockfile --ignore-scripts --config.manage-package-manager-versions=false
+      - name: Audit isolated runtime dependencies
+        run: npx --yes pnpm@11.25.0 --dir tooling/letta-runtime audit --prod --audit-level=high
       - name: Local App Server policy without account, API key or inference
         run: node --experimental-strip-types tooling/letta-runtime/smoke.mjs
