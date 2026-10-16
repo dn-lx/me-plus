@@ -6,35 +6,35 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-AGENTS-006",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-16T08:36:00Z"
+  "branch": "feature/me2-backend-integrations",
+  "pr": 77,
+  "status": "blocked",
+  "last_verified_sha": "b9dad87f064a410559c40c6738a7523ebe7b9683",
+  "next_step": "Pre-authorization packages verified; durable host/identity, approved model and real credentials/acceptance deferred. See ME2-AGENTS-006 plan.",
+  "updated_at": "2026-10-16T13:25:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Me+ 2.0 development checkpoint
+## Agent integration continuation
 
-- PR #69 SEC-008 merged as `b724ad1`; all seven CI checks passed and temporary branch deletion was verified. Its source matches live migration `20261014151223`; read-only inspection confirms client denial/server access already live.
-- PR #76 ME2-NATIVE-001 recovers exact applied native create/reschedule/deduplication versions and adds an additive repair for stale no-op retries and event-source replay collisions. No-op requests now retain receipts; retries preserve newer dates. The repair is **not deployed**.
-- PR #76 code head `31f10f4` passed all seven CI checks, including isolated PostgreSQL, typecheck, web build and mobile web bundle. Independent review found no blocking issue. Local suite: 95 passed, 7 skipped, 0 failed. Final documentation/whitespace head must pass its checks before merge.
-- Isolated tests reproduce the old no-op failure and pass the repaired contracts twice: owner scope, denied clients, retry, invalid inputs, protected tasks, event-write rollback, source collisions and cross-action request reuse. Minimal fixtures do not prove hosted Auth/JWT transport, full live triggers or concurrency; receipts require retaining event history.
-- Current dev already includes PRs #70–#74: Today, Now, Daily Review and atomic completion. Native create/reschedule RPCs are deployed but app controls and authenticated two-user E2E remain unfinished. Routine scheduling and scoped read/write MCP remain follow-up work.
-- PR #75 optional Langfuse tracing remains deferred: it also changes routing/models/token budgets without deployed-source provenance or behavioral regression evidence.
-- Next: add native task app controls using the recovered contract; verify full signed-in E2E in an isolated test environment. Prepare the new replay repair through the reviewed release process; never blindly replay recovered migrations or assume all older repository migration versions match live history.
-- No shared Supabase data/schema or production deployment changed in this continuation. Version impact: patch, recorded under Unreleased.
-- Evidence/rollout detail: `docs/plans/ME2-NATIVE-001-contract-recovery.md`; historical ENG-007/Android evidence is archived below.
+- User explicitly requests Letta/n8n preparation before authentication; N26 still deferred. Draft PR77 binds this branch. ME2-AGENTS-006 preparation done: local SDK session/task tool, inactive n8n workflow/import CLI, disabled Langfuse OTLP metadata exporter, privacy/recovery runbook and downloadable CI artifact. No persistent host, real key/token or provider activation created.
+- MCP v2 scope metadata deployed; hosted missing/forged bearer401. Local Node126 passed/7 skipped; focused24 and independent review clear; actual Letta SDK/local synthetic no-inference handshake, n8n2.43.7 isolated import and dependency audit0 passed. All hosted checks green at ccb3029; verify final source SHA. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`. Live authorized tool execution, runtime isolation, model/budget and backup/fallback acceptance remain pending.
 
-## Environment and release boundaries
+## Current backend checkpoint
 
-- Supabase `wbqnctrvxohxwiaignhg` is shared by dev and production; branches do not isolate data.
-- Only dev may target prod; a specific reviewed production release needs explicit user approval.
-- Use native service connectors. Desktop Commander is Android build/runtime only.
-- Android builds use the designated Windows Actions runner; Netlify distributes verified APKs but never compiles Android.
-- Health Connect needs a real phone upload and retry before claiming device sync fixed.
-- Historical ENG-007 and Android evidence: [handoff archive](handoffs/2026-10-07.md). Consult current source, PRs and runtime before relying on it.
+- User authorized shared DB/integration setup and waived Supabase PRs. Provider authorization and N26 explicitly deferred; do not prompt again. App/website implementation is the next stage, not published. No production merge. Source: `feature/me2-backend-integrations`, based on dev `cf90a19`.
+- Live: signup/profile fix, routines/history/feedback, native task APIs, scoped token lifecycle/MCP v1, integration status/probe/pause/start/clock controls. Health Sync v28 / Calendar v19 use own wake auth and nonce-bound server proofs; both remain authorization_required. Native routine clock active with Berlin 06–22 sleep gate; all three external clocks off. No Todoist restoration or old V1 import.
+- Lifecycle migrations `20261016123952` / `20261016123953` deployed. Stale internal native occurrences expire after disablement/ending; execution history, manual/legacy/external records preserved. Owner readiness reports current database configuration ready, with app/device/provider acceptance separate. One profile, zero actions/routines; synthetic rollback records removed.
+- Security review clear. Hosted PostgreSQL 17.6 run https://github.com/dn-lx/me-plus/actions/runs/38901981341 passed owner/negative/rollback contracts and concurrent completed/partial/skipped decisions versus cleanup; Node 112 passed, 7 pre-existing skipped. Live-schema rollback acceptance passed. Latest source CI must also pass.
+- N26 guarded API2 Node24 ZIPs are built/verified but not deployed; rollout and consent deferred. MCP uses opaque scoped bearer tokens, not OAuth; no actual client connected. Health Connect requires physical-device upload/retry. Letta/n8n/Langfuse optional and unprovisioned behind adoption/privacy/recovery gates. PR75 model routing deferred; gateway v26/reasoning v41 unchanged.
+- Detailed contracts, evidence, rollback and migration provenance: `docs/plans/ME2-BACKEND-002-integrations.md`, `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`, `docs/plans/ME2-SETUP-005-native-lifecycle.md`; historical checkpoint `docs/handoffs/2026-10-16-backend.md`.
+- Native replay repair live version `20261016084240` matches source `20261016083256`; do not replay it or recovered historical migrations.
+
+## Release boundaries
+
+- Supabase `wbqnctrvxohxwiaignhg` is shared across dev/production; branches do not isolate data. Specific production releases need approval and only dev may target prod.
+- Use service connectors. Desktop Commander is Android build/runtime only. Android uses the designated Windows runner; Netlify distributes verified APKs and never compiles Android.
+- Next: app/website sign-in/onboarding and device/client acceptance, then provider authorization when user is ready. Do not claim E2E readiness from database configuration.

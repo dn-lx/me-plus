@@ -3,14 +3,19 @@
 ## [Unreleased]
 
 ### Added
+- Credential-free Letta local App Server task-tool adapter and inactive n8n tasks workflow packages, with fail-closed activation tooling and tasks-only grant metadata. Added disabled metadata-only Langfuse OTLP v4 preparation without worker/model changes. Provider accounts and authenticated hosted acceptance remain deferred.
+- Owner-scoped integration readiness/probe/pause/start controls; recurring sync requires fresh server authorization proof and successful source sync. Added reproducible N26 functions-only deployment artifacts while provider authorization remains deferred.
+- Me+ 2.0 owner-scoped routine scheduling/history, feedback, workspace API and expiring/revocable scoped MCP client tools. Native routine clock is active; external integrations remain pending authorization with disabled clocks.
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
-- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair is staged for release, not deployed.
-- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Live deployment remains a separate release gate.
+- Native occurrence lifecycle cleanup covers disabled and ended schedules, preserves execution history, and removes elapsed internal snapshots from the active workspace. Added owner-only backend configuration readiness with separate app/device acceptance gates.
+- Auth profile bootstrap after the V1 reset, Calendar wake authentication, and fresh-start ingestion guards for Google connectors. N26 history guard is source-prepared pending backend rollout and renewed consent.
+- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair applied and verified on the shared backend on 16 October 2026.
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 - Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
 

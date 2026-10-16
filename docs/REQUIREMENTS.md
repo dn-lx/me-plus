@@ -1,7 +1,7 @@
 # Requirements, Issues & Execution Plan
 
 **Status:** Active  
-**Last updated:** 2026-10-06  
+**Last updated:** 2026-10-16
 **Primary branch:** `dev`
 
 Use this document as the project-level, checkable source of truth for requested features, known issues, planned improvements and completion evidence.
@@ -44,6 +44,43 @@ Implementation: `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
 
 Completion evidence: PR #76 code head `31f10f4`: all seven CI gates passed; isolated PostgreSQL reproduces the old bug then passes both suites twice; independent review clear. Development implementation verified; live repair deployment and hosted app E2E are explicitly outside this requirement. Final PR head remains subject to CI.
 
+
+## [x] ME2-BACKEND-002 — Native database and scoped integration foundation
+
+**Priority:** P1 · Backend / integrations
+
+Deliver owner-authenticated profile bootstrap, native daily/weekly/once routines and audit, deterministic sleep-gated materialization, 1–5 recommendation feedback, bounded workspace reads and scoped/revocable/rate-limited MCP tools. Preserve the fresh database and keep optional runtimes replaceable. User authorized live backend work without Supabase PRs; app and website release are deferred.
+
+Acceptance evidence: isolated PostgreSQL and live-schema rollback tests passed for auth/ownership/retry/DST/feedback/token lifecycle; hosted negative MCP/Google authentication checks passed; independent review clear. Migrations and endpoints deployed; no historical data restored. Exact versions and limits: `docs/plans/ME2-BACKEND-002-integrations.md`.
+
+## [x] ME2-INTEGRATIONS-004 — Integration controls before user authorization
+
+**Priority:** P1 · Backend / integrations
+
+Finish safe status, owner-bound expiring authorization probes, pause/start/clock controls and offline N26 rollout preparation while the user defers sign-in. Require real database sync evidence before recurring ingestion. Preserve history cutoffs and protect shared server credentials.
+
+Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/live rollback controls acceptance and hosted failed-authorization callback smoke passed. N26 functions-only ZIPs build and deny invalid credentials, with a pinned reproducible CI artifact pipeline. N26 deployment is an explicit capability blocker, not claimed delivered. Details: `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
+
+
+## [x] ME2-SETUP-005 — Native lifecycle and backend readiness
+- Status: deployed; hosted PostgreSQL 17.6 concurrency and live-schema rollback checks passed.
+- Expire only stale internal native occurrences; preserve completed/partial/skipped, manual/legacy and external history under concurrent decisions.
+- Owner readiness reports current configuration separately from pending app/device acceptance and deferred authorization/N26.
+- Plan: `docs/plans/ME2-SETUP-005-native-lifecycle.md`.
+
+## [x] ME2-AGENTS-006 — Letta/n8n/Langfuse preparation before authorization
+
+Prepare credential-free local Letta App Server sessions, inactive n8n workflow packages and disabled metadata-only Langfuse exporter, bounded scoped MCP access, safe activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
+
+Evidence: isolated n8n2.43.7 import and real local Letta SDK0.8.45 handshake passed without credentials/inference; scoped protocol/privacy/error tests and independent security review passed. Hosted checks at ccb3029 are green; final SHA remains subject to CI. Preparation complete; approved persistent hosting, provider credentials, actual authorized execution and recovery/model acceptance remain ME2-CONNECT-003. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`.
+
+## [ ] ME2-CONNECT-003 — Provider authorization and real client/device activation
+
+**Priority:** P1 · Integrations / user-assisted
+
+Google Drive Health Sync and Calendar require renewed authorization. N26 requires rollout of the source-prepared history guard followed by fresh bank consent. Health Connect requires actual device upload/retry at app stage. MCP requires an actual securely configured scoped client; OAuth-style ChatGPT setup is not implemented. Activate external cron only after successful fresh-only ingestion. Letta/n8n/Langfuse remain optional behind measured-benefit, privacy and recovery gates.
+
+Acceptance: actual Google probes and source snapshots succeed, N26 imports only the configured day window with valid consent, device upload/retry succeeds, a real scoped MCP client executes allowed tools and is denied ungranted tools. Record provenance without credentials. No integration is complete merely because a worker is deployed.
 
 ## [ ] REQ-001 — Short requirement title
 
