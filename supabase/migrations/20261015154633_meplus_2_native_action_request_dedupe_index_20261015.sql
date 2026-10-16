@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS action_events_native_request_unique ON public.action_events (user_id, event_type, (metadata->>'request_id')) WHERE (metadata->>'source')='meplus_native' AND (metadata->>'request_id') IS NOT NULL AND event_type IN ('created','rescheduled');
