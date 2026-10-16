@@ -1,22 +1,32 @@
 # Current Handoff
 
-**Last updated:** 2026-10-07
+**Last updated:** 2026-10-16
 
 Canonical specifications are in Me+ Google Drive, operational state/checkpoints in Supabase, and implementation/test/release evidence in GitHub. Read source before trusting historical handoffs.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "SEC-008",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-07T08:08:00Z"
+  "branch": "fix/sec-008-privileged-rpc-grants",
+  "pr": 69,
+  "status": "verifying",
+  "last_verified_sha": "4591abda2752f195420b2f17f50cae701c612b9e",
+  "next_step": "Inspect current-head isolated RPC grants, security and runtime CI; merge to dev only if green. Live deployment and owner-scoped gateway acceptance remain separate release gates.",
+  "updated_at": "2026-10-16T08:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
+
+## Me+ 2.0 continuation — 16 October 2026
+
+- Current dev includes PRs #70–#74: Today, Now, Daily Review and atomic task execution. Earlier handoff sections below are historical.
+- Resumed SEC-008 in PR #69; refreshed its code base to current dev (Next.js 16.3.8 resolves its earlier dependency-audit failure).
+- Added disposable PostgreSQL CI: vulnerable-fixture detection, effective grants, actual anon/authenticated denial, service-role success and repeated migration application. Fixture functions test the ACL boundary only; they do not prove live health/medication bodies or gateway behavior.
+- Independent source review found no blocking grant/caller mismatch. Gateway obtains its actor from authenticated server context. Adherence function definition is absent from repository history, so internal behavior remains unverified.
+- Local integration suite: 95 passed, 7 skipped, 0 failed. Local PostgreSQL unavailable; database evidence must come from the new CI job.
+- No shared Supabase state or production deployment changed. User-scoped authenticated E2E, native create/reschedule app controls, routine scheduling and read/write MCP remain unfinished; reconcile live state before any external write.
+- Version impact: security patch; no release version increment until release preparation.
 
 ## ENG-007 current follow-up
 
