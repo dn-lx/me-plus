@@ -45,13 +45,13 @@ Implementation: `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
 Completion evidence: PR #76 code head `31f10f4`: all seven CI gates passed; isolated PostgreSQL reproduces the old bug then passes both suites twice; independent review clear. Development implementation verified; live repair deployment and hosted app E2E are explicitly outside this requirement. Final PR head remains subject to CI.
 
 
-## [ ] ME2-ARCH-007 — Evidence-based architecture and delivery plan
+## [x] ME2-ARCH-007 — Evidence-based architecture and delivery plan
 
 **Priority:** P1 · Documentation / planning
 
 Audit current dev, prepared backend/mobile work, canonical design and deployment metadata; recommend boundaries, technology choices and a complete roadmap covering N26 and ING. Do not implement, install, activate or deploy.
 
-Acceptance: source-linked findings, explicit current/prepared/proposed states, bank coverage assumptions and acceptance gates, prioritized dependencies, preserved design authority, consistent repository/Drive documentation and documentation checks. Evidence: [audit](ARCHITECTURE-AUDIT-2026-10-17.md), [roadmap](ROADMAP.md), proposed [ADR 0002](adr/0002-meplus2-modular-core-and-adapters.md).
+Acceptance: source-linked findings, explicit current/prepared/proposed states, bank coverage assumptions and acceptance gates, prioritized dependencies, preserved design authority, consistent repository/Drive documentation and documentation checks. Evidence: [audit](ARCHITECTURE-AUDIT-2026-10-17.md), [roadmap](ROADMAP.md), proposed [ADR 0002](adr/0002-meplus2-modular-core-and-adapters.md). Planning completion: documentation-only PR #78; guarded canonical Drive architecture/roadmap edits read back with original text preserved; strict documentation checks and 8 focused documentation/task-state tests passed. Implementation requirements remain unchecked.
 
 ## [ ] ME2-BASE-008 — Reproducible source, schema and deployment baseline
 
@@ -59,7 +59,7 @@ Acceptance: source-linked findings, explicit current/prepared/proposed states, b
 
 Reconcile active function source/digests/auth config, migration ledger, dev/prod/API targets, pending PR #77/#38 dependencies and legacy runtime disposition. Create a reproducible isolated schema/config baseline with synthetic fixtures.
 
-Acceptance: exact deployable source identified; no unknown-source redeploy; clean environment reproduces contracts; migration provenance and compatibility verified; no historical migration replay or live-data import to repair documentation. Audit findings A01–A03.
+Acceptance: exact deployable source identified; no unknown-source redeploy; clean environment reproduces contracts; migration provenance and compatibility verified; no historical migration replay or live-data import to repair documentation. Generic bootstrap tests own explicit incomplete/complete fixtures and preserve the strict guard without relying on placeholder Me+ requirements (known PR #78 CI blocker). Audit findings A01–A03/A19.
 
 ## [ ] ME2-CONTRACT-009 — Versioned capability contracts and server module boundaries
 

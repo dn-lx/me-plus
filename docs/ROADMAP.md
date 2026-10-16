@@ -49,6 +49,7 @@ G2 and G3 may proceed together after their G1 dependencies. Bank consent needs t
 - Review PR #38's database dependency, artifact and final checks against current native ingestion; retain unique work rather than reimplementing it.
 - Reassess PR #66 and PR #75 independently. Separate tracing from routing/model policy and retire superseded proposals only after checking unique work.
 - Recover deployed gateway/reasoning/MCP/function source and runtime configuration; record active, inert, retired and unknown explicitly.
+- Make the inherited starter bootstrap test create explicit incomplete/complete disposable fixtures instead of assuming Me+ product docs still contain placeholders. Preserve its negative strict-validation check. This known PR #78 CI blocker requires a separate authorized test-code change.
 - Establish a reviewed Supabase schema/config baseline, migration provenance and synthetic isolated environment. Never replay historical migrations on the shared project to repair documentation.
 - Record actual dev/prod hosting, app/API targets, secrets ownership and release manifests. Verify published HTTP runtime identity in a later operational check.
 
