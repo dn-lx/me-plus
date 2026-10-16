@@ -20,7 +20,7 @@ Canonical specifications are in Me+ Google Drive, operational state in Supabase,
 
 ## Agent integration continuation
 
-- User explicitly requests Letta/n8n preparation before authentication; N26 still deferred. Draft PR77 binds this branch. ME2-AGENTS-006 preparation done: local SDK session/task tool, inactive n8n workflow/import CLI, privacy/recovery runbook and downloadable CI artifact. No persistent host, real key/token or provider activation created.
+- User explicitly requests Letta/n8n preparation before authentication; N26 still deferred. Draft PR77 binds this branch. ME2-AGENTS-006 preparation done: local SDK session/task tool, inactive n8n workflow/import CLI, disabled Langfuse OTLP metadata exporter, privacy/recovery runbook and downloadable CI artifact. No persistent host, real key/token or provider activation created.
 - MCP v2 scope metadata deployed; hosted missing/forged bearer401. Local Node126 passed/7 skipped; focused24 and independent review clear; actual Letta SDK/local synthetic no-inference handshake, n8n2.43.7 isolated import and dependency audit0 passed. All hosted checks green at ccb3029; verify final source SHA. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`. Live authorized tool execution, runtime isolation, model/budget and backup/fallback acceptance remain pending.
 
 ## Current backend checkpoint

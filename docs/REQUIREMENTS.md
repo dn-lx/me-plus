@@ -68,9 +68,9 @@ Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/
 - Owner readiness reports current configuration separately from pending app/device acceptance and deferred authorization/N26.
 - Plan: `docs/plans/ME2-SETUP-005-native-lifecycle.md`.
 
-## [x] ME2-AGENTS-006 — Letta/n8n integration setup before authorization
+## [x] ME2-AGENTS-006 — Letta/n8n/Langfuse preparation before authorization
 
-Prepare credential-free local Letta App Server sessions and inactive n8n workflow packages, bounded scoped MCP access, safe repeatable activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
+Prepare credential-free local Letta App Server sessions, inactive n8n workflow packages and disabled metadata-only Langfuse exporter, bounded scoped MCP access, safe activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
 
 Evidence: isolated n8n2.43.7 import and real local Letta SDK0.8.45 handshake passed without credentials/inference; scoped protocol/privacy/error tests and independent security review passed. Hosted checks at ccb3029 are green; final SHA remains subject to CI. Preparation complete; approved persistent hosting, provider credentials, actual authorized execution and recovery/model acceptance remain ME2-CONNECT-003. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`.
 

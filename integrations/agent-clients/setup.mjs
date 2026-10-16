@@ -7,7 +7,7 @@ const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.te
 export async function setup(action = 'plan', { env = process.env, fetchImpl = fetch, apply = false } = {}) {
   if (!['plan','verify','letta','n8n'].includes(action)) fail('unknown_action');
   if (action === 'plan' || !apply) return {
-    mode: 'plan', setup_ready: ['letta_local_app_server_task_tool','n8n_inactive_manual_workflow'],
+    mode: 'plan', setup_ready: ['letta_local_app_server_task_tool','n8n_inactive_manual_workflow','langfuse_disabled_metadata_only_exporter'],
     endpoint: MCP_URL, permissions: { operations: ['read_state'], data_scopes: ['tasks'] },
     required_env: action === 'letta' ? ['MEPLUS_CLIENT_TOKEN','LETTA_AGENT_ID','LETTA_WORKDIR','LETTA_APPROVED_MODEL'] : action === 'n8n' ? ['N8N_API_ORIGIN','N8N_API_KEY','N8N_MEPLUS_CREDENTIAL_ID'] : ['MEPLUS_CLIENT_TOKEN'],
     runtime_connected: false, authorization: 'deferred', paid_resources_created: false,
