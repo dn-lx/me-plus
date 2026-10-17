@@ -3,26 +3,28 @@
 ## [Unreleased]
 
 ### Added
-- Development web app navigation, authenticated Today and Review, and a verified versioned Android download.
-- Me+ 0.4.0 Android daily loop, versionCode 6; filename `me-plus-0.4.0.apk`.
+- Me+ 0.4.0 native Today daily loop, Android versionCode 6, intended installer `me-plus-0.4.0.apk` (build pending).
 
 
 ### Added
-- ME2-CLIENT-015A: Mobile Today first slice with authenticated daily priorities (Must, Should, Bonus), conservative Now suggestion, 24-hour unexpired guidance, and canonical Complete / Partial / Skip action decisions with committed readback.
-- Platform-neutral Now ranking, calendar availability evaluation and recommendation freshness rules shared through `@me-plus/domain`.
-- Deterministic Node test suite for mobile Today covering bounded owner queries, signed-out denial, calendar failure/invalid rows, safe read/write errors, account/reset races, duplicate tap serialization, and mutation readback.
+- Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
+- Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
+
+### Fixed
+- Web Now fails closed on calendar errors and evaluates freshness after reads. Action decisions require confirmed canonical readback.
+
+
+### Added
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
-- Calendar unavailable or invalid states now disable Now recommendations rather than assuming infinite availability.
 - Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair is staged for release, not deployed.
 - SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Live deployment remains a separate release gate.
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 - Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
-
 
 ## [0.3.1] - 2026-09-29
 
