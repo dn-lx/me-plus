@@ -2,6 +2,14 @@
 
 This starter can use a deliberately small set of complementary local coding hosts when a project benefits from them. The goal is stronger implementation and review, not collecting every available agent.
 
+## Me+ app implementation platform
+
+Antigravity CLI is the selected Me+ app implementation platform. Verified installation: version 1.4.0 at `D:\Tools\Antigravity\bin\agy.exe`; isolated workspace `D:\Development\me-plus-antigravity`. It follows AGENTS.md and the same review/security boundaries. Credentials remain outside Git.
+
+Keep responsibilities explicit: Antigravity CLI implements app code; GitHub MCP performs repository, PR and CI operations; GitHub Actions on the designated Windows Android host runs Expo prebuild/Gradle and verifies signed APK provenance; Netlify serves development web/API and verified downloads. Desktop Commander is limited to Android build/runtime work. Antigravity CLI does not replace the Android compiler or hosting platform.
+
+On 2026-10-17 the headless Android analysis attempt first hit a command-permission denial; a read-only retry hit provider RESOURCE_EXHAUSTED / individual quota. No successful Antigravity implementation or native build is claimed for ME2-HEALTH-017. Coordinator implementation/verification can continue while its quota is unavailable; record the actual executor in delivery evidence.
+
 ## Optional baseline
 
 | Host | Use when its verified capabilities fit | Notes |
@@ -190,3 +198,4 @@ Then verify inside each installed host that:
 ## Maintenance policy
 
 Third-party plugins can execute hooks or background helpers. Review their source/release notes before installation or major upgrades. Keep plugin upgrades separate from application feature work when practical, and rerun the starter validation after changing the agent stack.
+

@@ -74,6 +74,12 @@
 
 See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside Git.
 
+## App build platform
+
+- Selected app implementation platform: Antigravity CLI 1.4.0 (`D:\Tools\Antigravity\bin\agy.exe`, workspace `D:\Development\me-plus-antigravity`). Current availability and actual executor evidence: `docs/CLI-AGENT-STACK.md`.
+- GitHub operations use GitHub MCP. Android compilation/provenance uses the designated Windows Actions host; Netlify hosts web/API and verified APK bytes. Deploy application changes to `dev` only unless a specific production release is approved.
+- Phone health sync target: every 180 minutes with Health Connect background-read permission and foreground catch-up. Android execution is deferrable, not an exact alarm. Acceptance and shared database repair status: `docs/plans/ME2-HEALTH-017-phone-sync.md`.
+
 ## Durable decisions
 
 - `docs/adr/0001-agent-independent-engineering.md`
@@ -82,3 +88,4 @@ See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside G
 ## Context freshness
 
 Source, tests and accepted ADRs override stale memory.
+

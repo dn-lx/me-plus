@@ -1,5 +1,5 @@
 import { radius, spacing, typography } from "@me-plus/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import {
   requestHealthConnectReadPermissions,
@@ -12,6 +12,9 @@ import {
 } from "../lib/health/sync-health-readings";
 import { supabase } from "../lib/supabase/client";
 import type { SensorReading } from "@me-plus/contracts";
+import { AutomaticHealthSyncCard } from '../lib/health/automatic-sync-card';
+import { cancelHealthSync } from '../lib/health/automatic-health-sync';
+import { stopBackgroundHealthSync } from '../lib/health/background-health-sync';
 
 export default function HealthConnectScreen() {
   const [inventory, setInventory] = useState<HealthConnectInventory | null>(null);
@@ -22,6 +25,9 @@ export default function HealthConnectScreen() {
   const [authenticated, setAuthenticated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const account = useRef<string | null>(null);
+  const scannedOwner = useRef<string | null>(null);
+  const accountGeneration = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -37,10 +43,20 @@ export default function HealthConnectScreen() {
       }
 
       setAuthenticated(Boolean(data.session));
+      account.current = data.session?.user.id ?? null;
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active) {
+        const owner = session?.user.id ?? null;
+        if (account.current !== owner) {
+          account.current = owner;
+          accountGeneration.current += 1;
+          scannedOwner.current = null;
+          setReadings([]);
+          setInventory(null);
+          setSyncSummary(null);
+        }
         setAuthenticated(Boolean(session));
       }
     });
@@ -81,6 +97,8 @@ export default function HealthConnectScreen() {
   async function signOut() {
     setBusy(true);
     try {
+      cancelHealthSync();
+      await stopBackgroundHealthSync();
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
@@ -108,11 +126,16 @@ export default function HealthConnectScreen() {
   }
 
   async function scan() {
+    const owner = account.current;
+    const generation = accountGeneration.current;
+    if (!owner) { setStatus("Connect this phone before scanning health data."); return; }
     setBusy(true);
     setSyncSummary(null);
     setStatus("Scanning and paginating the last 7 days of Health Connect records…");
     try {
       const scanResult = await scanHealthConnect(7);
+      if (account.current !== owner || generation !== accountGeneration.current) return;
+      scannedOwner.current = owner;
       setInventory(scanResult.inventory);
       setReadings(scanResult.readings);
       const populated = scanResult.inventory.items.filter((item) => item.count > 0).length;
@@ -136,6 +159,9 @@ export default function HealthConnectScreen() {
       setStatus("Scan Health Connect before uploading.");
       return;
     }
+    const owner = scannedOwner.current;
+    const generation = accountGeneration.current;
+    if (!owner || account.current !== owner) { setStatus("Account changed. Scan Health Connect again."); return; }
 
     setBusy(true);
     setStatus(`Uploading ${readings.length} readings to Me+…`);
@@ -143,7 +169,10 @@ export default function HealthConnectScreen() {
       const result = await syncHealthConnectReadings(readings, {
         windowStart: inventory.windowStart,
         windowEnd: inventory.windowEnd,
-      });
+      }, { ownerId: owner, assertActive: async () => {
+        if (account.current !== owner || generation !== accountGeneration.current) throw new Error("Account changed. Scan Health Connect again.");
+      } });
+      if (account.current !== owner || generation !== accountGeneration.current) return;
       setSyncSummary(result);
       setStatus(
         `Me+ sync complete: ${result.recordsCreated} created, ${result.recordsUpdated} updated across ${result.sourceCount} source origins.`,
@@ -168,6 +197,7 @@ export default function HealthConnectScreen() {
         <Text style={styles.statusText}>{status}</Text>
       </View>
 
+      <AutomaticHealthSyncCard />
       <View style={styles.authCard}>
         <View style={styles.authHeader}>
           <Text style={styles.authTitle}>Me+ connection</Text>
@@ -179,7 +209,7 @@ export default function HealthConnectScreen() {
         {authenticated ? (
           <>
             <Text style={styles.authBody}>
-              This phone has a persistent Supabase session and can upload health records to your Me+ account.
+              This phone is connected and can upload health records to your Me+ account.
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -548,3 +578,4 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 });
+

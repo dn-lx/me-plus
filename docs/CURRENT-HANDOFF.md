@@ -5,15 +5,15 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-HEALTH-017",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
+  "branch": "fix/health-sync-three-hour",
+  "pr": 81,
+  "status": "testing",
   "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-17T14:20:00Z"
+  "next_step": "Verify isolated batch-run-key regression and hosted checks; obtain shared DB application authorization; native build/physical-phone acceptance pending.",
+  "updated_at": "2026-10-17T14:55:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -37,3 +37,9 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 - Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
 
 The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
+
+
+## ME2-HEALTH-017
+- Netlify dev logs at 14:38 UTC show three P0001 failures after one completed 50-reading batch. Live source-sync guard uses minute keys; PR #38 repair was never applied. Narrow migration recovered into PR #81; shared DB and production remain unchanged.
+- Current development app had no automatic sync. Candidate targets 180-minute Android WorkManager scheduling with explicit background permission, owner/permission-scoped Changes cursors and resumable hourly backfill. Native target 0.4.1/code7; verified download remains 0.3.1. PR #79 must reconcile versionCode before future publication.
+- Antigravity CLI provider quota exhausted during read-only Android analysis; implementation continued in coordinator. No successful CLI implementation/build is claimed.
