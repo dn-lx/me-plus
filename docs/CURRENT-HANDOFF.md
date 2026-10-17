@@ -6,7 +6,7 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 <!-- AGENT_TASK_STATE_START -->
 {
  "task_id":"ME2-WEB-016", "repository":"dn-lx/me-plus", "base":"dev",
- "branch":"feature/me2-web-download", "pr":null, "status":"planning",
+ "branch":"feature/me2-web-download", "pr":80, "status":"implementing",
  "last_verified_sha":null,
  "next_step":"Open web draft PR, verify current CI and preview, then deploy dev only. Mobile APK is blocked on offline Windows runner.",
  "updated_at":"2026-10-17T14:15:00Z"

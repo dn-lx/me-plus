@@ -23,3 +23,5 @@ Initial web types/build and 22 focused cases passed before the last checksum/cle
 Netlify has production branch prod (locked), branch deploys dev/v2, pull-request previews disabled. Temporarily allow only this feature branch for pre-merge browser review, retaining prod and existing branches. Merge current green verified head to dev using GitHub MCP; verify dev deployment, logged-out redirects and actual download. Remove the temporary preview allowance afterwards. Fix forward in dev if necessary; no production deployment or schema rollback.
 
 No new dependencies, analytics or motion runtime. Static pages compute checksum during build so large APK files remain ordinary downloads outside client JS. Inspect bundle/output size and browser overflow/focus/console. Physical phone and authenticated two-user acceptance remain pending; no native completion claim.
+
+Draft PR #80 created via GitHub MCP. Temporary preview allowance for feature/me2-web-download was verified against the real GitHub branch; prod remains prod and PR-wide previews remain disabled. Native changes and version bump are excluded from this web PR.

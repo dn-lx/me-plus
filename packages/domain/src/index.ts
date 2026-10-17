@@ -81,5 +81,3 @@ export function reconcileSensorReadings(
       matchedCount === source.length,
   };
 }
-
-export * from "./now-ranking.ts";
