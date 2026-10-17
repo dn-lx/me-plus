@@ -2,8 +2,32 @@
 
 ## [Unreleased]
 
+- Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
+
+- Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.
+
+### Added
+- Me+ 2.0 native core adopts the retained UI/UX v2 light design, Today/Plan/Capture/Review/More navigation, server-confirmed decisions and owner-scoped notes/history. Companion icon is wired into the Android configuration.
+- Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
+
+### Changed
+- ChatGPT/Codex is now the app builder. Android compilation uses owner-approved GitHub-hosted Windows Actions; builds upload verified artifacts without committing lockfiles or APKs back to source branches.
+
+
 ### Added
 - Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
+- Android opt-in Health Connect background sync targets every three hours, catches up on resume, shows the last successful automatic sync, and resumes acknowledged hourly backfill checkpoints. Android power/network restrictions can defer execution; native acceptance is pending.
+- Antigravity CLI is the selected Me+ app implementation platform; GitHub MCP owns repository operations and the Windows Android toolchain produces APKs.
+
+### Fixed
+- Recover the unapplied atomic-health batch run-key repair: independent 50-reading batches no longer collide under the source-sync minute guard after the migration is approved and applied. Shared database deployment is pending.
+- Automatic sync binds uploads/cursors to the initiating account and current read permissions; disabling sync or signing out cancels further batches.
+
+### Changed
+- Native source target is 0.4.1 / versionCode 7 / me-plus-0.4.1.apk. Existing verified download remains 0.3.1 until actual new bytes pass native provenance checks.
+
+
+### Added
 - Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
 - Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
 
@@ -105,3 +129,4 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
+

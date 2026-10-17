@@ -36,7 +36,7 @@ function getApiBaseUrl(): string {
   return value.replace(/\/$/, "");
 }
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(ownerId?: string): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
 
   if (error) {
@@ -44,6 +44,9 @@ async function getAccessToken(): Promise<string> {
   }
 
   const accessToken = data.session?.access_token;
+  if (ownerId && data.session?.user.id !== ownerId) {
+    throw new Error("Health sync stopped because the account changed.");
+  }
   if (!accessToken) {
     throw new Error("Health sync requires an authenticated Supabase session");
   }
@@ -51,8 +54,8 @@ async function getAccessToken(): Promise<string> {
   return accessToken;
 }
 
-async function postHealthBatch(payload: HealthIngestRequest, accessToken: string) {
-  return postBatch(payload, accessToken, `${getApiBaseUrl()}/api/health/ingest`);
+async function postHealthBatch(payload: HealthIngestRequest, accessToken: string, assertActive?: () => Promise<void>) {
+  return postBatch(payload, accessToken, `${getApiBaseUrl()}/api/health/ingest`, assertActive ? { assertActive } : {});
 }
 
 export async function syncHealthReadings(
@@ -73,7 +76,11 @@ export async function syncHealthReadings(
 export async function syncHealthConnectReadings(
   readings: readonly SensorReading[],
   metadata: HealthConnectSyncMetadata = {},
+  control: { ownerId?: string; assertActive?: () => Promise<void> } = {},
 ): Promise<HealthSyncSummary> {
+  const session = await supabase.auth.getSession();
+  const ownerId = control.ownerId ?? session.data.session?.user.id;
+  if (session.error || !ownerId) throw new Error("Health sync requires a connected Me+ account.");
   if (readings.length === 0) {
     return {
       sourceCount: 0,
@@ -123,7 +130,9 @@ export async function syncHealthConnectReadings(
         readings: batch,
         ...(cursorAfter ? { cursorAfter } : {}),
       };
-      const result = await postHealthBatch(payload, await getAccessToken());
+      await control.assertActive?.();
+      const check = async () => { await control.assertActive?.(); await getAccessToken(ownerId); };
+      const result = await postHealthBatch(payload, await getAccessToken(ownerId), check);
 
       batchCount += 1;
       recordsSeen += result.recordsSeen;
@@ -152,4 +161,5 @@ function latestTimestamp(readings: readonly SensorReading[]): string | undefined
     .sort()
     .at(-1);
 }
+
 

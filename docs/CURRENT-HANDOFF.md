@@ -1,7 +1,7 @@
 # Current Handoff
 
 **Last updated:** 2026-10-17
-Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implementation/checks: GitHub.
+Canonical specs: Google Drive. Operational state: Supabase. Implementation/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
@@ -13,32 +13,26 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-10-17T14:20:00Z"
+  "updated_at": "2026-10-17T18:30:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Development handoff
-- User authorized web app/APK publication to development only. All coordinator GitHub writes use GitHub MCP. No prod, schema, live-data test writes or provider activation.
-- ME2-WEB-016 separates the core responsive web app and verified existing Android download from pending native work. Plan: `docs/plans/ME2-WEB-016-core-app-download.md`.
-- Mobile PR #79 at c887843 targets 0.4.0 / versionCode 6 / me-plus-0.4.0.apk. Four hosted checks green; Android run 39038848460 queued because designated Windows runner DESKTOP-RG1HH2I is offline. No installed runner was found to restart. New APK is not built or available.
-- Existing 0.3.1 APK remains labeled with its actual version/code/hash. Web build validates metadata and bytes; no relabeling to 0.4.0. Native/authenticated two-user acceptance remains pending.
-- Antigravity workspace `D:\Development\me-plus-antigravity`; original dirty `D:\Development\me-plus` untouched. Approved telemetry path repair retained the hook.
+## Current task
+- User selected ChatGPT/Codex as builder, preserving Me+ 2.0 design with three-hour phone sync and one-day recovery. Antigravity is optional historical tooling. Current plan and full scope/evidence: `docs/plans/ME2-APP-019-native-core-sync.md`.
+- Draft PR #81 integrates PR #79 controller/tests, original v2 light core Today/Plan/Capture/Review/More, Companion icons and resilient health sync. Native target 0.4.1/code7. PR #79 remains unmerged and must not independently publish its older code6 target.
+- Each due health run replays at least 24 hours, extends to last acknowledged success after longer outages, and retains interrupted checkpoints. Android schedules 180-minute minimum intervals; exact execution depends on OS constraints and permissions. Supabase existing revision keys handle duplicate retries while retaining distinct providers and corrections.
+- At 0f046c1: 45 focused local tests and all workspace types pass; Expo web and Android JS exports pass. Hosted synthetic browser acceptance at 360/1363 and PostgreSQL health contracts/security pass. Policy/runtime checks found startup context exceeded budget; this handoff is condensed to fix it without weakening checks. No physical-phone acceptance yet. Final app source 1f534d1 passed all seven hosted gates, including signed APK compilation.
 
-## Release boundaries
-- Promotion `dev → prod`; no current production approval. Netlify primary published deploy is locked. Supabase project wbqnctrvxohxwiaignhg is shared by dev/prod; branches do not isolate records.
-- Android compiles on designated Windows Actions runner; Netlify distributes verified bytes. Verify manifest/code/name, source SHA, embedded JS, ARM64 ABI, signer continuity and checksum.
-- Dev cf90a19 includes PR #76 native retry repair source, not its live deployment. Never blindly replay recovered migrations. PR #69 restricted privileged RPCs; #70–#74 added Today/Now/Review/atomic decisions.
-- Independent PRs #38/#66/#75/#77/#78 remain outside this task. Prior evidence: `docs/handoffs/2026-10-07.md`, `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
+## Release blockers
+- Approved narrow migration `20261017145227_health_batch_unique_run_key.sql` fixes the reproduced P0001 minute-key collision causing multi-batch uploads to fail. Shared Supabase application returned Invalid or expired requestState in earlier attempts and again after fresh connector diagnostics; readback confirmed the repair trigger is absent. This is a connector failure, not missing authorization. Existing phone error remains unresolved live. Do not blindly retry or apply unrelated migrations.
+- User explicitly approved switching Android compilation to GitHub-hosted Windows on 17 October 20:01 Berlin. Workflow now uses windows-2022 with unchanged frozen dependency and signer/manifest/source/ABI/checksum gates. Build/publication evidence pending. Local runner is no longer a prerequisite.
+- Actual authenticated two-user and Android background/reboot/offline/replay acceptance remain outstanding. Build workflow uploads verified artifacts only; distribution uses reviewed GitHub MCP changes.
 
-## Web PR #80 review
-- Web-only source: no native application or version bump; shared new ranking helpers are not exported by the existing native package entrypoint. The Android path filter still queues a build for shared-package additions; its offline status is not evidence that a new native APK exists.
-- Before final documentation/CSS commit: 117 passed, 7 skipped, 0 failed; all workspace typechecks and Next.js build passed. Four hosted checks green at d526bcc; branch deployment 6ad383242f5e5cb9be99924c ready for that SHA. Final head requires fresh checks.
-- Browser at available 500 CSS-pixel viewport: Home and Download render without horizontal overflow; version, code, filename, size and SHA shown; Today redirects to login with safe next; blank sign-in focuses the required email field. Only browser-extension metadata errors observed. Full desktop/360px, authenticated Today/Review interaction and physical Android remain unverified.
-- Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
+## Boundaries and retained context
+- Development app/APK publication authorized; no production deployment. GitHub operations use GitHub MCP only. No live synthetic records, unrelated schemas or provider activation.
+- Supabase wbqnctrvxohxwiaignhg is shared by dev/prod; branch separation does not isolate data. Netlify primary published deploy remains locked. Promote dev to prod only with authorization.
+- Verified 0.4.1/code7 APK built from 1f534d1 by hosted Windows run 39056735709: 44,808,768 bytes; SHA256 11eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Signer matches 0.3.1; package/version/background permission and packaged Companion launcher image independently checked. Site publication pending final PR integration/Netlify verification. Retain prior downloads unchanged.
+- Dev 9997fa7 includes Companion kit from PR #82; preserve its assets and guide. Reviewed web work/evidence: `docs/plans/ME2-WEB-016-core-app-download.md`. Prior health investigation: `docs/plans/ME2-HEALTH-017-phone-sync.md`. Historical recovery: `docs/plans/ME2-NATIVE-001-contract-recovery.md`, `docs/handoffs/2026-10-07.md`.
+- Original dirty Windows checkout remains untouched; optional Antigravity workspace is separate. No successful Antigravity build is claimed. Independent PRs #38/#66/#75/#77/#78 remain outside this change.
 
-The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
-
-## Companion brand kit — ME2-BRAND-018
-- User selected the Companion navy/apricot symbol. Brand resources and usage guide are in `brand/companion/`, delivered through PR #82 to dev using GitHub MCP.
-- SVG redraws, color/monochrome logos, Android adaptive layers, web icons and custom download badges are asset-only. Current UI and installed APK are unchanged; integration/device mask validation require follow-up.
-- Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.
+- APK publication uses six bounded binary parts because the GitHub connector rejects request bodies over 16 MiB. Pre-Next assembly verifies each part, release provenance and complete size/SHA before atomically replacing the public installer; source APK bytes are unchanged. Five negative/replay assembly tests and independent security/hash review pass.

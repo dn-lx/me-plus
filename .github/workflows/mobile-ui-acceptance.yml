@@ -1,0 +1,50 @@
+name: Me+ native UI browser acceptance
+on:
+  pull_request:
+    branches: [dev]
+    paths: ['apps/mobile/**', 'packages/**', 'tests/mobile-ui-acceptance.mjs', 'pnpm-lock.yaml', '.github/workflows/mobile-ui-acceptance.yml']
+permissions:
+  contents: read
+concurrency:
+  group: mobile-ui-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  ui:
+    name: mobile / synthetic browser acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @me-plus/mobile exec expo export --platform web --output-dir dist-ci
+      - name: Install isolated browser harness
+        run: |
+          npm install --prefix /tmp/meplus-ui-runtime playwright@1.58.2
+          node /tmp/meplus-ui-runtime/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Exercise the rendered native components with synthetic server replies
+        env:
+          PLAYWRIGHT_MODULE: /tmp/meplus-ui-runtime/node_modules/playwright/index.js
+          UI_QA_OUTPUT: /tmp/meplus-ui
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory apps/mobile/dist-ci > /tmp/mobile-server.log 2>&1 &
+          node tests/mobile-ui-acceptance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: me-plus-native-ui-${{ github.event.pull_request.head.sha }}
+          path: /tmp/meplus-ui/
+          retention-days: 7
+          if-no-files-found: ignore
