@@ -29,6 +29,17 @@ tests/
 
 Platform-specific capabilities stay inside their client/adapters. Shared domain code must not depend directly on browser or native APIs.
 
+## Mobile client usage
+
+The mobile client (`apps/mobile/`) provides daily interaction, quick capture, and device integrations:
+
+- **Today priorities:** Authenticated owner surface displaying grouped daily priorities (Must, Should, Bonus) queried through user-scoped Supabase RLS.
+- **What matters now:** Conservative suggestion ranked via shared `@me-plus/domain` logic and evaluated against current calendar windows. If calendar schedule data is unavailable or invalid, suggestions are disabled rather than assuming free capacity.
+- **Action decisions:** Complete, Partial, and Skip operations invoke the canonical `record_meplus_action_decision` RPC, serialized per operation, with committed readback and account race protection.
+- **Guidance:** Displays unexpired recommendations generated within the 24-hour horizon.
+- **Device tools:** Quick access to live Health Connect (`/health-connect`) for watch data inventory and upload, and the pipeline test harness (`/sensor-diagnostics`) for deterministic fixture testing.
+
+
 ## Architecture direction
 
 - **Clients:** thin web/mobile clients over shared services and contracts.
