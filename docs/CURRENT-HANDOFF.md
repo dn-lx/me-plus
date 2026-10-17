@@ -37,3 +37,8 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 - Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
 
 The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
+
+## Companion brand kit — ME2-BRAND-018
+- User selected the Companion navy/apricot symbol. Brand resources and usage guide are in `brand/companion/`, delivered through PR #82 to dev using GitHub MCP.
+- SVG redraws, color/monochrome logos, Android adaptive layers, web icons and custom download badges are asset-only. Current UI and installed APK are unchanged; integration/device mask validation require follow-up.
+- Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
 - Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
 - Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
 
