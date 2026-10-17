@@ -5,15 +5,15 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-CLIENT-015A",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
+  "branch": "feature/me2-mobile-today",
+  "pr": 79,
+  "status": "blocked",
   "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-17T14:20:00Z"
+  "next_step": "Restore designated Windows Actions runner, build current committed source, verify APK provenance and device acceptance. Do not publish an unbuilt 0.4.0 artifact.",
+  "updated_at": "2026-10-17T14:24:30.337828+00:00"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -37,3 +37,6 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 - Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
 
 The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
+
+## Mobile continuation after web delivery
+Web PR #80 is merged into dev at 2f46e00497c051883291eba07aabd0998ff48698. This merge commit retains that complete web source and combines it with reviewed native 0.4.0/code6. New exact-head CI is required. No APK built yet: runner DESKTOP-RG1HH2I remains offline. Existing 0.3.1 download stays accurately labeled. No changes to prod, schema or providers.

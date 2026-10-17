@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- Me+ 0.4.0 native Today daily loop, Android versionCode 6, intended installer `me-plus-0.4.0.apk` (build pending).
+
+
+### Added
 - Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
 - Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
 
