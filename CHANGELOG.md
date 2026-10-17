@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.
+
 ### Added
 - Me+ 2.0 native core adopts the retained UI/UX v2 light design, Today/Plan/Capture/Review/More navigation, server-confirmed decisions and owner-scoped notes/history. Companion icon is wired into the Android configuration.
 - Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
