@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
+- Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
+
+### Fixed
+- Web Now fails closed on calendar errors and evaluates freshness after reads. Action decisions require confirmed canonical readback.
+
+
+### Added
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
 - Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
