@@ -77,7 +77,7 @@ See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside G
 ## App build platform
 
 - Selected app builder: ChatGPT/Codex. Antigravity is optional and no longer a dependency. Build/execution responsibilities: `docs/CLI-AGENT-STACK.md`.
-- GitHub operations use GitHub MCP. Android compilation/provenance uses the designated Windows Actions host; Netlify hosts web/API and verified APK bytes. Deploy application changes to `dev` only unless a specific production release is approved.
+- GitHub operations use GitHub MCP. Android compilation/provenance uses GitHub-hosted Windows 2022 Actions (owner-approved 17 October 2026); Netlify hosts web/API and verified APK bytes. Deploy application changes to `dev` only unless a specific production release is approved.
 - Phone health sync target: every 180 minutes with Health Connect background-read permission and foreground catch-up. Each due run replays at least 24 hours and extends to the last acknowledgement after longer gaps; fixed unsent windows resume without sliding forward. Supabase source/external-ID/revision keys deduplicate overlaps. Android execution is deferrable, not an exact alarm. Acceptance and shared database repair status: `docs/plans/ME2-HEALTH-017-phone-sync.md`.
 
 ## Durable decisions

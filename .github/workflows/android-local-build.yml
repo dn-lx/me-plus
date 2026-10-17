@@ -1,4 +1,4 @@
-name: Android local builder
+name: Android hosted Windows builder
 
 on:
   workflow_dispatch:
@@ -27,8 +27,8 @@ concurrency:
 jobs:
   build-android:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    name: android / self-hosted-local-builder
-    runs-on: [self-hosted, Windows, X64]
+    name: android / hosted-windows-builder
+    runs-on: windows-2022
     timeout-minutes: 45
     env:
       CI: "true"
@@ -49,14 +49,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify designated local Android builder
+      - name: Verify hosted Windows Android builder
         shell: powershell
         run: |
           Write-Host "Runner: ${{ runner.name }}"
           Write-Host "OS: ${{ runner.os }}"
           Write-Host "Architecture: ${{ runner.arch }}"
           if ("${{ runner.os }}" -ne "Windows") {
-            throw "Me+ Android builds must run on the designated self-hosted Windows Android builder."
+            throw "Me+ Android builds require the approved Windows Android builder."
           }
 
       - name: Verify required public mobile environment
@@ -128,7 +128,7 @@ jobs:
           "$latest\bin" >> $env:GITHUB_PATH
 
           # sdkmanager.bat does not consume piped interactive answers reliably on
-          # this Windows service runner. Persist the standard Android license
+          # this Windows runner. Persist the standard Android license
           # fingerprints before package installation so CI remains non-interactive.
           $licenseDir = Join-Path $sdk "licenses"
           New-Item -ItemType Directory -Force -Path $licenseDir | Out-Null
@@ -251,7 +251,7 @@ jobs:
 
           $sdk = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if ([string]::IsNullOrWhiteSpace($sdk)) {
-            throw "Android SDK not found on the designated self-hosted builder."
+            throw "Android SDK not found on the hosted Windows builder."
           }
 
           "ANDROID_HOME=$sdk" >> $env:GITHUB_ENV
@@ -341,7 +341,7 @@ jobs:
             sourceCommit = "$env:SOURCE_SHA"
             githubRunId = "${{ github.run_id }}"
             githubRunAttempt = "${{ github.run_attempt }}"
-            buildPath = "github-actions-self-hosted"
+            buildPath = "github-actions-hosted-windows"
             runnerName = "${{ runner.name }}"
             publishTarget = "netlify-static"
             publicDownloadPath = "/downloads/$filename"
@@ -364,12 +364,12 @@ jobs:
         shell: powershell
         run: |
           @"
-          ## Me+ Android self-hosted build
+          ## Me+ Android hosted Windows build
           - Source SHA: `$env:SOURCE_SHA`
           - Runner: `${{ runner.name }}`
           - APK: `${{ steps.artifact.outputs.filename }}`
           - SHA-256: `${{ steps.artifact.outputs.sha256 }}`
-          - Build path: GitHub Actions → self-hosted local Android builder
+          - Build path: GitHub Actions → hosted Windows 2022 Android builder
           - Distribution: artifact only; verified bytes require a separate reviewed GitHub MCP publication.
           "@ | Add-Content $env:GITHUB_STEP_SUMMARY
 

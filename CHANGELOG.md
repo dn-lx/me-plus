@@ -7,7 +7,7 @@
 - Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
 
 ### Changed
-- ChatGPT/Codex is now the app builder. Android compilation remains on the designated Windows Actions host; builds no longer commit lockfiles or APKs back to source branches.
+- ChatGPT/Codex is now the app builder. Android compilation uses owner-approved GitHub-hosted Windows Actions; builds upload verified artifacts without committing lockfiles or APKs back to source branches.
 
 
 ### Added

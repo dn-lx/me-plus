@@ -10,10 +10,10 @@ Canonical specs: Google Drive. Operational state: Supabase. Implementation/check
   "base": "dev",
   "branch": "fix/health-sync-three-hour",
   "pr": 81,
-  "status": "blocked",
+  "status": "testing",
   "last_verified_sha": null,
-  "next_step": "Restore designated Windows Actions runner and Supabase migration connector; build candidate and verify physical-phone sync before dev publication.",
-  "updated_at": "2026-10-17T16:20:00Z"
+  "next_step": "Build on owner-approved hosted Windows Actions; verify APK identity and publish to development; shared database repair and phone acceptance remain pending.",
+  "updated_at": "2026-10-17T18:03:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -25,7 +25,7 @@ Canonical specs: Google Drive. Operational state: Supabase. Implementation/check
 
 ## Release blockers
 - Approved narrow migration `20261017145227_health_batch_unique_run_key.sql` fixes the reproduced P0001 minute-key collision causing multi-batch uploads to fail. Shared Supabase application returned Invalid or expired requestState twice; readback confirmed the repair trigger is absent. This is a connector failure, not missing authorization. Existing phone error remains unresolved live. Do not blindly retry or apply unrelated migrations.
-- Designated Windows Actions host DESKTOP-RG1HH2I is online, but scoped discovery found no runner service/process/installation. Android job remains unassigned; no new APK exists. Restore/register the designated runner, then verify signer, manifest/version, immutable source SHA, ARM64, embedded JS and checksum before device tests.
+- User explicitly approved switching Android compilation to GitHub-hosted Windows on 17 October 20:01 Berlin. Workflow now uses windows-2022 with unchanged frozen dependency and signer/manifest/source/ABI/checksum gates. Build/publication evidence pending. Local runner is no longer a prerequisite.
 - Actual authenticated two-user and Android background/reboot/offline/replay acceptance remain outstanding. Build workflow uploads verified artifacts only; distribution uses reviewed GitHub MCP changes.
 
 ## Boundaries and retained context
