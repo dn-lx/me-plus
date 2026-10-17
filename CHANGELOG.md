@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
 - Android opt-in Health Connect background sync targets every three hours, catches up on resume, shows the last successful automatic sync, and resumes acknowledged hourly backfill checkpoints. Android power/network restrictions can defer execution; native acceptance is pending.
 - Antigravity CLI is the selected Me+ app implementation platform; GitHub MCP owns repository operations and the Windows Android toolchain produces APKs.
 

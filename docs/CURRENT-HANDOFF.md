@@ -43,3 +43,8 @@ The preview APK was downloaded independently over HTTPS and its SHA-256 exactly 
 - Netlify dev logs at 14:38 UTC show three P0001 failures after one completed 50-reading batch. Live source-sync guard uses minute keys; PR #38 repair was never applied. Narrow migration recovered into PR #81; shared DB and production remain unchanged.
 - Current development app had no automatic sync. Candidate targets 180-minute Android WorkManager scheduling with explicit background permission, owner/permission-scoped Changes cursors and resumable hourly backfill. Native target 0.4.1/code7; verified download remains 0.3.1. PR #79 must reconcile versionCode before future publication.
 - Antigravity CLI provider quota exhausted during read-only Android analysis; implementation continued in coordinator. No successful CLI implementation/build is claimed.
+
+## Companion brand kit — ME2-BRAND-018
+- User selected the Companion navy/apricot symbol. Brand resources and usage guide are in `brand/companion/`, delivered through PR #82 to dev using GitHub MCP.
+- SVG redraws, color/monochrome logos, Android adaptive layers, web icons and custom download badges are asset-only. Current UI and installed APK are unchanged; integration/device mask validation require follow-up.
+- Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.
