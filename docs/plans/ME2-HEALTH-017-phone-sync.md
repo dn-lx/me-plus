@@ -20,7 +20,7 @@ Investigation confirmed. Implementation and isolated/hosted verification in prog
 
 ## Verification checkpoint
 - 2026-10-17: isolated PGlite/PostgreSQL reproduced source_sync_already_completed before repair; repaired same-minute batches, idempotent replay, source leases, ordinary duplicate protection, atomic rollback, manual correction/freshness and denied-client tests passed, including applying the trigger repair twice. Dedicated hosted PostgreSQL 17.6 workflow added.
-- 19 targeted health tests passed; all workspace typechecks, Next.js build and Expo mobile web export passed. Broad local suite: 122 pass, 7 skip; 6 failures caused by intentionally incomplete local mirror (omitted skill catalog and verified APK bytes). Hosted full-repository checks remain authoritative.
+- 13 targeted health tests passed; all workspace typechecks, Next.js build and Expo mobile web export passed. The partial local mirror omits the skill catalog and verified APK bytes; hosted full-repository checks are authoritative.
 - Independent security reviewer found and verified fixes for seed-before-snapshot gap, retry-after-cancellation and manual scan/account cache mismatch. No remaining security blocker by source review. Schedule/stop operations are serialized.
 - Browser runtime could not launch: Chromium absent; attempted download returned a truncated archive. No visual or native permission/worker success is claimed. Physical phone tests, reboot/force-stop, granted/denied background permission, offline/retry and observed three-hour execution remain required.
 - Native source target 0.4.1 / versionCode 7 / me-plus-0.4.1.apk. Existing 0.3.1 download/provenance untouched. PR #79 must reconcile code7 before any subsequent APK release.

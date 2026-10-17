@@ -1,5 +1,5 @@
 import type { SensorReading } from '@me-plus/contracts';
-import type { HealthChangePage } from './drain-health-changes';
+import type { HealthConnectChanges as HealthChangePage } from './health-connect';
 
 type Bootstrap = { start: number; end: number; next: number; seed: string };
 export type HealthSyncDependencies = {

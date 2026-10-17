@@ -10,7 +10,7 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
   "base": "dev",
   "branch": "fix/health-sync-three-hour",
   "pr": 81,
-  "status": "testing",
+  "status": "blocked",
   "last_verified_sha": null,
   "next_step": "Verify isolated batch-run-key regression and hosted checks; obtain shared DB application authorization; native build/physical-phone acceptance pending.",
   "updated_at": "2026-10-17T14:55:00Z"
@@ -48,3 +48,5 @@ The preview APK was downloaded independently over HTTPS and its SHA-256 exactly 
 - User selected the Companion navy/apricot symbol. Brand resources and usage guide are in `brand/companion/`, delivered through PR #82 to dev using GitHub MCP.
 - SVG redraws, color/monochrome logos, Android adaptive layers, web icons and custom download badges are asset-only. Current UI and installed APK are unchanged; integration/device mask validation require follow-up.
 - Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.
+
+- PR #81 candidate: targeted health regression suite 13/13, workspace types, web build, mobile web export and isolated baseline/repair/replay/denied-role checks passed. Independent security review clear after fixes. Hosted PostgreSQL contract, version, agent-stack and security passed at 71f23ca; final cleanup head needs fresh hosted checks. Windows Android job 39043175273 remains queued without an assigned runner; native APK/phone/background/UI acceptance remain unverified. Shared DB application awaits explicit authorization.
