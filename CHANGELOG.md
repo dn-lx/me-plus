@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
+
 - Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.
 
 ### Added

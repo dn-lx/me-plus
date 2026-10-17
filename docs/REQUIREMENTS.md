@@ -49,7 +49,7 @@ Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the revi
 
 - Independent bounded batches from one source must upload in the same minute, preserve revision idempotency, manual corrections and source-wide overlap protection.
 - Phone schedules background Health Connect read/upload every 180 minutes after explicit permission, resumes saved progress and catches up when opened; disable/sign-out stops further batches. UI shows last successful automatic sync and Android deferral constraints.
-- Document Antigravity CLI as selected app implementation platform and actual build/execution responsibilities.
+- Document ChatGPT/Codex as selected app builder (owner continuation supersedes the original Antigravity choice), and actual build/execution responsibilities.
 - Acceptance: isolated baseline failure then passing repair/replay/negative tests, hosted workspace checks, verified versioned APK and physical-phone background/reboot/denial/offline/sign-out tests. Shared database application needs explicit authorization because dev and prod share the same project.
 
 Plan/evidence: `docs/plans/ME2-HEALTH-017-phone-sync.md`; PR #81. Not complete until deployment and device acceptance are observed.
