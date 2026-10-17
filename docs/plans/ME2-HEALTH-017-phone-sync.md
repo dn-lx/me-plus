@@ -1,5 +1,7 @@
 # ME2-HEALTH-017 — Reliable phone health sync
 
+Continuation: owner selected ChatGPT/Codex and expanded this task to preserved Me+ 2.0 core plus rolling24h recovery. Current scope/authorization/evidence: `ME2-APP-019-native-core-sync.md`. Antigravity references below describe the earlier checkpoint. Shared database repair is now authorized but connector writes failed with expired requestState; it remains unapplied.
+
 ## Outcome and evidence
 Fix the authenticated upload 500 and schedule phone Health Connect sync every 180 minutes. Document Antigravity CLI as Me+ app implementation platform. Development branch only; no production deployment.
 

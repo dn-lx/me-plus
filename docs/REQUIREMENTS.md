@@ -32,6 +32,17 @@ Order work so lower-priority features do not depend on unreliable or incorrect f
 
 # Active requirements
 
+## [ ] ME2-APP-019 — Me+ 2.0 native core and loss-aware phone sync
+
+Use the retained 14 October UI/UX v2 prototype for the native Today/Plan/Capture/Review/More core. Preserve real owner state, honest loading/error/receipt states and the selected Companion identity. ChatGPT/Codex builds the app; GitHub MCP owns GitHub operations.
+
+Phone sync targets 180 minutes; every due run replays at least 24 hours. A longer outage extends recovery to the last acknowledged time; interrupted windows never slide forward. Supabase must deduplicate owner/source/external-ID/provider revisions and preserve distinct sources and corrections. No AI guesses determine duplicate identity.
+
+Acceptance: behavioral owner/race/replay tests, exact-head hosted checks, rendered synthetic UI flows at phone/desktop widths, signed immutable-source Android artifact and real-device sync/catch-up verification. No claim of a fully implemented 64-screen prototype or complete Me+ architecture is made by the core slice.
+
+Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the reviewed native controller from PR #79.
+
+
 ## [ ] ME2-HEALTH-017 — Reliable phone uploads and three-hour automatic sync
 
 **Priority:** P0 · Health / Android reliability

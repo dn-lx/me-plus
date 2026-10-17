@@ -76,3 +76,30 @@ test('expired changes token bootstraps a fresh window and pagination cycles fail
   await assert.rejects(collectHealthChanges(deps),/did not advance/);
   assert.equal(state.get('cursor'),'cycle');
 });
+test('each due sync replays at least one day and extends to an older acknowledged watermark', async () => {
+  for (const hours of [3,24,72]) {
+    const {deps,calls}=harness();
+    deps.replayFrom=deps.now()-hours*3_600_000;
+    await collectHealthChanges(deps);
+    assert.equal(calls.length,Math.max(24,hours));
+    assert.equal(calls[0][0],deps.now()-Math.max(24,hours)*3_600_000);
+    assert.equal(calls.at(-1)[1],deps.now());
+  }
+});
+test('failed day replay retains its original unsent window across later attempts', async () => {
+  const {deps,state}=harness(); const start=deps.now()-86_400_000;
+  deps.replayFrom=start;let scanned=0;
+  deps.scan=async()=>{if(++scanned===3)throw Error('offline');return [];};
+  await assert.rejects(collectHealthChanges(deps),/offline/);
+  const pending=JSON.parse(state.get('replay'));
+  assert.equal(pending.next,start+2*3_600_000);
+  assert.equal(state.get('cursor'),'one');
+  const originalEnd=pending.end;const windows=[];
+  deps.now=()=>originalEnd+2*86_400_000;
+  deps.replayFrom=deps.now()-86_400_000;
+  deps.scan=async(a,b)=>{windows.push([a,b]);return [];};
+  await collectHealthChanges(deps);
+  assert.equal(windows[0][0],pending.next);
+  assert.equal(windows.at(-1)[1],originalEnd);
+  assert.equal(state.has('replay'),false);
+});

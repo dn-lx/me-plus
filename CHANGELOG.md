@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- Me+ 2.0 native core adopts the retained UI/UX v2 light design, Today/Plan/Capture/Review/More navigation, server-confirmed decisions and owner-scoped notes/history. Companion icon is wired into the Android configuration.
+- Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
+
+### Changed
+- ChatGPT/Codex is now the app builder. Android compilation remains on the designated Windows Actions host; builds no longer commit lockfiles or APKs back to source branches.
+
+
+### Added
 - Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
 - Android opt-in Health Connect background sync targets every three hours, catches up on resume, shows the last successful automatic sync, and resumes acknowledged hourly backfill checkpoints. Android power/network restrictions can defer execution; native acceptance is pending.
 - Antigravity CLI is the selected Me+ app implementation platform; GitHub MCP owns repository operations and the Windows Android toolchain produces APKs.

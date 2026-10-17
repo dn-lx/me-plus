@@ -99,7 +99,7 @@ export default function HealthConnectScreen() {
     try {
       cancelHealthSync();
       await stopBackgroundHealthSync();
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) {
         throw error;
       }
@@ -187,9 +187,9 @@ export default function HealthConnectScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>HEALTH CONNECT · ME+ SYNC</Text>
-      <Text style={styles.title}>Bring your watch data into Me+ without losing where it came from.</Text>
+      <Text style={styles.title}>Your health data, kept in sync.</Text>
       <Text style={styles.lede}>
-        Me+ reads Health Connect on this phone, paginates the full seven-day window, preserves source-app and device provenance, and uploads authenticated batches into Me+.
+        Sync every three hours when Android allows. A rolling day is replayed safely, with older pending progress retained until the server confirms it.
       </Text>
 
       <View style={styles.statusCard}>
@@ -355,25 +355,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: 64,
     paddingBottom: 48,
-    backgroundColor: "#0b0f14",
+    backgroundColor: "#f4f7f9",
   },
   eyebrow: {
     marginBottom: spacing.md,
-    color: "#9db7d5",
+    color: "#526875",
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1.5,
   },
   title: {
     marginBottom: spacing.md,
-    color: "#f5f7fa",
+    color: "#152d3a",
     fontSize: typography.title,
     fontWeight: "700",
     lineHeight: 36,
   },
   lede: {
     marginBottom: spacing.lg,
-    color: "#b8c2cf",
+    color: "#526875",
     fontSize: typography.body,
     lineHeight: 24,
   },
@@ -381,19 +381,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: "#344456",
+    borderColor: "#e0e8eb",
     borderRadius: radius.lg,
-    backgroundColor: "#141c27",
+    backgroundColor: "#ffffff",
   },
   statusLabel: {
     marginBottom: spacing.sm,
-    color: "#8fc8fa",
+    color: "#2464d9",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.3,
   },
   statusText: {
-    color: "#e9eef5",
+    color: "#152d3a",
     fontSize: typography.label,
     lineHeight: 21,
   },
@@ -401,9 +401,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: "#273343",
+    borderColor: "#e0e8eb",
     borderRadius: radius.lg,
-    backgroundColor: "#101821",
+    backgroundColor: "#ffffff",
   },
   authHeader: {
     marginBottom: spacing.sm,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   authTitle: {
-    color: "#f5f7fa",
+    color: "#152d3a",
     fontSize: typography.body,
     fontWeight: "700",
   },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   },
   authBody: {
     marginBottom: spacing.md,
-    color: "#aab6c4",
+    color: "#526875",
     fontSize: 13,
     lineHeight: 20,
   },
@@ -445,10 +445,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: "#344456",
+    borderColor: "#e0e8eb",
     borderRadius: radius.md,
-    backgroundColor: "#0b0f14",
-    color: "#f5f7fa",
+    backgroundColor: "#f4f7f9",
+    color: "#152d3a",
     fontSize: typography.label,
   },
   compactButton: {
@@ -456,16 +456,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 11,
     borderWidth: 1,
-    borderColor: "#526578",
+    borderColor: "#cfdde5",
     borderRadius: radius.md,
-    backgroundColor: "#1a2633",
+    backgroundColor: "#edf3ff",
   },
   connectButton: {
     borderColor: "#2b7aae",
-    backgroundColor: "#1d5f8c",
+    backgroundColor: "#2464d9",
   },
   compactButtonText: {
-    color: "#f5f7fa",
+    color: "#152d3a",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -474,10 +474,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 15,
     borderRadius: radius.md,
-    backgroundColor: "#1d5f8c",
+    backgroundColor: "#2464d9",
   },
   secondaryButton: {
-    backgroundColor: "#27384b",
+    backgroundColor: "#526875",
   },
   uploadButton: {
     marginBottom: spacing.xl,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   buttonText: {
-    color: "#f5f7fa",
+    color: "#ffffff",
     fontSize: typography.label,
     fontWeight: "700",
   },
@@ -513,13 +513,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: spacing.sm,
-    color: "#f5f7fa",
+    color: "#152d3a",
     fontSize: 20,
     fontWeight: "700",
   },
   inventoryMeta: {
     marginBottom: spacing.md,
-    color: "#93a2b3",
+    color: "#526875",
     fontSize: 12,
     lineHeight: 18,
   },
@@ -530,9 +530,9 @@ const styles = StyleSheet.create({
   recordCard: {
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: "#273343",
+    borderColor: "#e0e8eb",
     borderRadius: radius.md,
-    backgroundColor: "#141c27",
+    backgroundColor: "#ffffff",
   },
   recordHeader: {
     marginBottom: spacing.sm,
@@ -541,17 +541,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   recordType: {
-    color: "#e9eef5",
+    color: "#152d3a",
     fontSize: typography.label,
     fontWeight: "700",
   },
   recordCount: {
-    color: "#9fd0ff",
+    color: "#2464d9",
     fontSize: 18,
     fontWeight: "800",
   },
   recordMeta: {
-    color: "#99a7b6",
+    color: "#526875",
     fontSize: 12,
     lineHeight: 19,
   },
@@ -564,16 +564,16 @@ const styles = StyleSheet.create({
   noteCard: {
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: "#141c27",
+    backgroundColor: "#ffffff",
   },
   noteTitle: {
     marginBottom: spacing.sm,
-    color: "#f5f7fa",
+    color: "#152d3a",
     fontSize: typography.body,
     fontWeight: "700",
   },
   noteBody: {
-    color: "#b8c2cf",
+    color: "#526875",
     fontSize: typography.label,
     lineHeight: 21,
   },

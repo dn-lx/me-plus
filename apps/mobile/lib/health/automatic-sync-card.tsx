@@ -60,16 +60,16 @@ export function AutomaticHealthSyncCard() {
       setMessage('Could not change background sync. Check Health Connect permissions and try again.');
     } finally { setBusy(false); }
   };
-  return <View style={{ padding: 20, borderRadius: 18, borderWidth: 1, borderColor: '#344456', backgroundColor: '#141c27', marginBottom: 24, gap: 12 }}>
-    <Text style={{ color: '#f5f7fa', fontSize: 18, fontWeight: '700' }}>Automatic health sync</Text>
-    <Text style={{ color: '#b8c2cf', lineHeight: 22 }}>
+  return <View style={{ padding: 20, borderRadius: 18, borderWidth: 1, borderColor: '#e0e8eb', backgroundColor: '#ffffff', marginBottom: 24, gap: 12 }}>
+    <Text style={{ color: '#152d3a', fontSize: 18, fontWeight: '700' }}>Automatic health sync</Text>
+    <Text style={{ color: '#526875', lineHeight: 22 }}>
       {enabled && registered ? 'Scheduled every 3 hours' : enabled ? 'Background schedule needs attention' : 'Automatic sync is off'}
-      {'\n'}Android may delay runs for battery or network conditions. Open Me+ after a force-stop to resume.
+      {'\n'}Android may delay runs for battery or network conditions. Every due sync replays at least 24 hours; older unsent progress is retained. Open Me+ after a force-stop to resume.
     </Text>
-    <Text style={{ color: '#b8c2cf', lineHeight: 22 }}>Last successful automatic sync: {lastSuccess ? new Date(lastSuccess).toLocaleString() : 'Not yet'}{'\n'}Status: {state === 'retry' ? 'Will retry from saved progress' : state === 'permission_required' ? 'Health Connect permission needed' : state}</Text>
-    <Pressable accessibilityRole="button" disabled={!owner || busy} onPress={() => { void toggle(); }} style={{ backgroundColor: '#1d5f8c', opacity: !owner || busy ? 0.45 : 1, borderRadius: 12, padding: 16 }}>
-      <Text style={{ color: '#f5f7fa', fontWeight: '700' }}>{busy ? 'Updating…' : enabled ? 'Turn off automatic sync' : 'Enable sync every 3 hours'}</Text>
+    <Text style={{ color: '#526875', lineHeight: 22 }}>Last successful automatic sync: {lastSuccess ? new Date(lastSuccess).toLocaleString() : 'Not yet'}{'\n'}Status: {state === 'retry' ? 'Will retry from saved progress' : state === 'permission_required' ? 'Health Connect permission needed' : state}</Text>
+    <Pressable accessibilityRole="button" disabled={!owner || busy} onPress={() => { void toggle(); }} style={{ backgroundColor: '#2464d9', opacity: !owner || busy ? 0.45 : 1, borderRadius: 12, padding: 16 }}>
+      <Text style={{ color: '#ffffff', fontWeight: '700' }}>{busy ? 'Updating…' : enabled ? 'Turn off automatic sync' : 'Enable sync every 3 hours'}</Text>
     </Pressable>
-    {message ? <Text accessibilityLiveRegion="polite" style={{ color: '#e9eef5', lineHeight: 22 }}>{message}</Text> : null}
+    {message ? <Text accessibilityLiveRegion="polite" style={{ color: '#152d3a', lineHeight: 22 }}>{message}</Text> : null}
   </View>;
 }

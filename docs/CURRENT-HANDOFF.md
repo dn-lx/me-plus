@@ -5,12 +5,12 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "ME2-HEALTH-017",
+  "task_id": "ME2-APP-019",
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "fix/health-sync-three-hour",
   "pr": 81,
-  "status": "blocked",
+  "status": "testing",
   "last_verified_sha": null,
   "next_step": "Verify isolated batch-run-key regression and hosted checks; obtain shared DB application authorization; native build/physical-phone acceptance pending.",
   "updated_at": "2026-10-17T14:55:00Z"
@@ -18,7 +18,7 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
 <!-- AGENT_TASK_STATE_END -->
 
 ## Development handoff
-- User authorized web app/APK publication to development only. All coordinator GitHub writes use GitHub MCP. No prod, schema, live-data test writes or provider activation.
+- User authorized web app/APK publication to development only. All coordinator GitHub writes use GitHub MCP. No production app deployment, unrelated schema changes, live-data test writes or provider activation. Narrow health repair authorization is recorded under ME2-APP-019.
 - ME2-WEB-016 separates the core responsive web app and verified existing Android download from pending native work. Plan: `docs/plans/ME2-WEB-016-core-app-download.md`.
 - Mobile PR #79 at c887843 targets 0.4.0 / versionCode 6 / me-plus-0.4.0.apk. Four hosted checks green; Android run 39038848460 queued because designated Windows runner DESKTOP-RG1HH2I is offline. No installed runner was found to restart. New APK is not built or available.
 - Existing 0.3.1 APK remains labeled with its actual version/code/hash. Web build validates metadata and bytes; no relabeling to 0.4.0. Native/authenticated two-user acceptance remains pending.
@@ -50,3 +50,10 @@ The preview APK was downloaded independently over HTTPS and its SHA-256 exactly 
 - Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.
 
 - PR #81 candidate: targeted health regression suite 13/13, workspace types, web build, mobile web export and isolated baseline/repair/replay/denied-role checks passed. Independent security review clear after fixes. Hosted PostgreSQL contract, version, agent-stack and security passed at 71f23ca; final cleanup head needs fresh hosted checks. Windows Android job 39043175273 remains queued without an assigned runner; native APK/phone/background/UI acceptance remain unverified. Shared DB application awaits explicit authorization.
+
+## ME2-APP-019 — ChatGPT continuation
+- Owner selected ChatGPT/Codex as builder and directed preserved Me+ 2.0 design plus three-hour / one-day catch-up sync. This supersedes Antigravity as a required implementation host.
+- PR #81 now integrates PR #79 native controller source and its tests, v2 light native core navigation and Companion icons, stable-ID notes/verified history and rolling-day health recovery. Plan `docs/plans/ME2-APP-019-native-core-sync.md` is the current scope/evidence source. PR #79 remains unmerged; reconcile it only after this candidate is accepted.
+- Shared DB repair attempts returned Invalid or expired requestState twice; harmless readback confirms no repair trigger was installed. This is a connector failure, not missing user authorization. Do not apply unrelated migrations or create live test records.
+- Windows computer is online but scoped discovery found no Actions runner service/process/installation. New signed APK and physical-phone acceptance are blocked. Existing verified 0.3.1 remains downloadable; no fabricated 0.4.1 artifact.
+- Local Chromium archive downloads are truncated and package sandbox cannot change system users; use hosted browser acceptance and inspect its artifacts. No current UI screenshot/device acceptance claim yet.

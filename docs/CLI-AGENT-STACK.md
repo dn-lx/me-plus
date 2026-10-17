@@ -4,11 +4,11 @@ This starter can use a deliberately small set of complementary local coding host
 
 ## Me+ app implementation platform
 
-Antigravity CLI is the selected Me+ app implementation platform. Verified installation: version 1.4.0 at `D:\Tools\Antigravity\bin\agy.exe`; isolated workspace `D:\Development\me-plus-antigravity`. It follows AGENTS.md and the same review/security boundaries. Credentials remain outside Git.
+ChatGPT/Codex is the selected Me+ app builder, per owner direction on 17 October 2026. It preserves the existing Expo/React Native monorepo and the accepted Me+ 2.0 UI/UX v2 prototype. GitHub MCP owns repository/PR/CI operations. No Antigravity provider call is required to build or change the app.
 
-Keep responsibilities explicit: Antigravity CLI implements app code; GitHub MCP performs repository, PR and CI operations; GitHub Actions on the designated Windows Android host runs Expo prebuild/Gradle and verifies signed APK provenance; Netlify serves development web/API and verified downloads. Desktop Commander is limited to Android build/runtime work. Antigravity CLI does not replace the Android compiler or hosting platform.
+Antigravity CLI 1.4.0 remains an installed optional host at `D:\Tools\Antigravity\bin\agy.exe` with workspace `D:\Development\me-plus-antigravity`. Its earlier analysis attempt hit provider quota; this is historical, not an active delivery dependency.
 
-On 2026-10-17 the headless Android analysis attempt first hit a command-permission denial; a read-only retry hit provider RESOURCE_EXHAUSTED / individual quota. No successful Antigravity implementation or native build is claimed for ME2-HEALTH-017. Coordinator implementation/verification can continue while its quota is unavailable; record the actual executor in delivery evidence.
+Android compilation remains the designated Windows Actions pipeline from an immutable committed SHA. The pipeline uses a frozen lockfile, verifies package/version/signer/ARM64/embedded bundle and uploads artifacts without mutating the source branch. GitHub MCP performs any reviewed distribution write separately. Netlify hosts web/API and verified downloads. Desktop Commander remains Android-host troubleshooting only; no production deployment is authorized.
 
 ## Optional baseline
 

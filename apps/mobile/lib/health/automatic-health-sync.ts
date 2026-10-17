@@ -83,6 +83,10 @@ async function run(background: boolean, force: boolean) {
       },
       upload: async readings => { await syncHealthConnectReadings(readings, {}, { ownerId: owner, assertActive }); },
       now: Date.now,
+      // Replaying overlaps is safe: Supabase keys by owner/source/external ID
+      // and provider revision. Longer outages extend back to last acknowledgement.
+      replayFrom: Math.min(Date.now() - 86_400_000,
+        current.lastSuccess && Number.isFinite(Date.parse(current.lastSuccess)) ? Date.parse(current.lastSuccess) : Date.now() - 86_400_000),
     });
     await assertActive();
     saveStatus('synced', new Date().toISOString());

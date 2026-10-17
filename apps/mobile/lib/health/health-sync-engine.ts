@@ -11,6 +11,7 @@ export type HealthSyncDependencies = {
   scan: (start: number, end: number) => Promise<readonly SensorReading[]>;
   upload: (readings: readonly SensorReading[]) => Promise<void>;
   now: () => number;
+  replayFrom?: number;
 };
 
 // Checkpoints contain only provider cursors/times. Never persist raw health payloads.
@@ -27,6 +28,27 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
     }
     await deps.assertActive();
   };
+
+  // Every due sync reconciles at least a rolling day. A persisted fixed window
+  // resumes after a killed worker; it must never slide forward over unsent data.
+  if (deps.replayFrom !== undefined || deps.get('replay')) {
+    const saved = deps.get('replay');
+    const end = deps.now();
+    const replay = saved ? JSON.parse(saved) as { next: number; end: number } :
+      { next: Math.min(deps.replayFrom ?? end - 86_400_000, end - 86_400_000), end };
+    if (!Number.isFinite(replay.next) || !Number.isFinite(replay.end) || replay.next > replay.end) {
+      throw new Error('Invalid health replay checkpoint.');
+    }
+    deps.set('replay', JSON.stringify(replay));
+    while (replay.next < replay.end) {
+      await deps.assertActive();
+      const until = Math.min(replay.next + 3_600_000, replay.end);
+      await upload(await deps.scan(replay.next, until));
+      replay.next = until;
+      deps.set('replay', JSON.stringify(replay));
+    }
+    await deps.assertActive();
+  }
 
   for (;;) {
     await deps.assertActive();
@@ -77,6 +99,9 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
     // Failed uploads or account/permission changes never advance a cursor.
     deps.set('cursor', page.nextChangesToken);
     token = page.nextChangesToken;
-    if (!page.hasMore) return { readings, pages };
+    if (!page.hasMore) {
+      deps.remove('replay');
+      return { readings, pages };
+    }
   }
 }

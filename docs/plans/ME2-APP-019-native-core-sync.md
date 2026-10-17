@@ -1,0 +1,24 @@
+# ME2-APP-019 — Native Me+ 2.0 core with resilient health sync
+
+## Authority and design
+Owner direction 17 October 2026: ChatGPT/Codex is the app builder; preserve existing Me+ 2.0 design, sync every three hours and resend one day on missed runs. This continues PR #81, integrates the source/controller/tests from PR #79 at 4f08a81, and keeps deployment on dev. No production app deployment or new paid service.
+
+Design truth recovered from the 14 October UI/UX Review v2: https://docs.google.com/document/d/1X-sJhX_lipo33g4UYmXhFUSNBhW_h5XaU6tvj6Wtxug . Retained Library prototype: `Me+ UX Reviews/v2 - 2026-10-14/MePlus_interactive_prototype_v2.html` and matching ZIP/contact sheets. Native tokens retain light #f4f7f9, white 20px cards, ink #152d3a, muted #526875, blue #2464d9 and teal #087d69. Navigation: Today, Plan, Capture, Review, More. Selected Companion assets come from dev PR #82.
+
+## Delivered candidate
+- Today/Plan use the reviewed owner-scoped controller, conservative calendar/freshness logic and canonical decision readback. Action detail records actual complete/partial/skip. No simulated health benefits or invented full/minimum variants are connected to real records.
+- Capture writes an explicit manual note under current-owner RLS, retains one ID for retries and confirms exact owner/content through readback. Account changes invalidate draft operations. Notes do not silently become tasks. Drafts are in memory and are cleared on account change; this is not a durable offline outbox.
+- Review reads bounded owner execution history with honest unloaded/error states and raw event counts, not an invented completion denominator. More exposes phone health/settings and local-only disconnect.
+- Health worker targets 180 minutes and each due attempt reconciles at least 24 hours, extending to the last acknowledged watermark after longer gaps. Fixed hourly replay/backfill checkpoints persist across worker interruption. Cursors only advance after upload acknowledgement. The rolling replay remains checkpointed until the changes drain completes so a time-limited worker does not restart the same day forever.
+- Supabase existing owner/source/external-ID/provider-revision keys deduplicate repeated uploads, preserve corrections/newest revisions and retain distinct sources. Cross-provider ambiguity is not resolved by deleting similar measurements or by an AI guess. The prepared run-key trigger is still needed to unblock multi-batch ingestion.
+- App target remains 0.4.1 / Android code 7; Companion launcher/adaptive layers wired into Expo configuration. APK compilation remains immutable-SHA Windows Actions. Build jobs now upload verified artifacts without changing lockfile/source/APK branches; reviewed distribution remains separate through GitHub MCP.
+
+## Verification and release order
+1. Tests: owner/query/race/receipt safety from PR #79; capture exact acknowledgement and denial; rolling24h, multi-day, interrupted replay and existing ingestion atomic/negative cases.
+2. Workspace types, Expo web + Android JS export and hosted integration/security/version checks. Synthetic browser acceptance at 360/1363 covers sign-in, action receipt, Plan, note, Review, More with zero real network/data writes. Inspect screenshots before claiming visual acceptance.
+3. Apply the already reviewed health-only migration to shared Supabase; user continuation authorizes this narrow repair. Two connector writes returned Invalid or expired requestState; readback proved repair absent. Do not retry blindly or mark deployed.
+4. Restore/register the designated Windows Actions runner, compile committed source, verify signer/manifest/ARM64/embedded JS/hash and then install/test actual background permissions, reboot, force-stop/resume, offline/catch-up and repeat idempotent upload. No runner service/process/installation was found in the scoped known locations; Desktop itself is online.
+5. Review final immutable head, integrate dev, verify actual API and published versioned download bytes. No prod merge/publish. Existing 0.3.1 download stays truthful until a new signed artifact exists.
+
+## Limits and rollback
+This core slice does not claim all 64 prototype states or the entire Me+ 2.0 architecture are implemented. Timers, full/minimum occurrence schema, routine editing, rescheduling, goals and further domain depth retain their own acceptance. No real account/data tests were fabricated. Revert candidate UI/worker changes to roll back; unregister worker on disable/sign-out. Database trigger is additive and separately reversible; preserve existing records. Health Connect retention/permissions govern how far a device can recover; never claim unlimited historical recovery.
