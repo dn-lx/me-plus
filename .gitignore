@@ -35,3 +35,7 @@ CLAUDE.local.md
 .claude/settings.local.json
 .gemini/settings.json
 .mcp.json
+
+# Framework build output
+.next/
+*.tsbuildinfo
