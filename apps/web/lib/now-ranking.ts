@@ -6,4 +6,4 @@ export {
   type CalendarAvailability,
   type CalendarEventLike,
   type RecommendationLike,
-} from "@me-plus/domain";
+} from "../../../packages/domain/src/now-ranking.ts";

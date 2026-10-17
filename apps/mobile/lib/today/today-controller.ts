@@ -2,7 +2,7 @@ import {
   chooseNowAction,
   evaluateCalendarAvailability,
   isRecommendationValid,
-} from "@me-plus/domain";
+} from "../../../../packages/domain/src/now-ranking.ts";
 import type {
   ActionDecisionResult,
   ActionDecisionType,
