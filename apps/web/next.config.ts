@@ -8,9 +8,13 @@ const nextConfig: NextConfig = {
     "@me-plus/ui",
   ],
   outputFileTracingIncludes: {
-    "/download": ["../../releases/android/**", "./releases/android/**"],
-    "/": ["../../releases/android/**", "./releases/android/**"],
+    "/download": ["../../releases/android/*.json", "./releases/android/*.json"],
+    "/": ["../../releases/android/*.json", "./releases/android/*.json"],
+  },
+  outputFileTracingExcludes: {
+    "/*": ["../../releases/android/parts/**", "./releases/android/parts/**"],
   },
 };
 
 export default nextConfig;
+
