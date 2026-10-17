@@ -1,7 +1,7 @@
 # Current Handoff
 
 **Last updated:** 2026-10-17
-Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implementation/checks: GitHub.
+Canonical specs: Google Drive. Operational state: Supabase. Implementation/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
@@ -10,50 +10,27 @@ Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implemen
   "base": "dev",
   "branch": "fix/health-sync-three-hour",
   "pr": 81,
-  "status": "testing",
+  "status": "blocked",
   "last_verified_sha": null,
-  "next_step": "Verify isolated batch-run-key regression and hosted checks; obtain shared DB application authorization; native build/physical-phone acceptance pending.",
-  "updated_at": "2026-10-17T14:55:00Z"
+  "next_step": "Restore designated Windows Actions runner and Supabase migration connector; build candidate and verify physical-phone sync before dev publication.",
+  "updated_at": "2026-10-17T16:20:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Development handoff
-- User authorized web app/APK publication to development only. All coordinator GitHub writes use GitHub MCP. No production app deployment, unrelated schema changes, live-data test writes or provider activation. Narrow health repair authorization is recorded under ME2-APP-019.
-- ME2-WEB-016 separates the core responsive web app and verified existing Android download from pending native work. Plan: `docs/plans/ME2-WEB-016-core-app-download.md`.
-- Mobile PR #79 at c887843 targets 0.4.0 / versionCode 6 / me-plus-0.4.0.apk. Four hosted checks green; Android run 39038848460 queued because designated Windows runner DESKTOP-RG1HH2I is offline. No installed runner was found to restart. New APK is not built or available.
-- Existing 0.3.1 APK remains labeled with its actual version/code/hash. Web build validates metadata and bytes; no relabeling to 0.4.0. Native/authenticated two-user acceptance remains pending.
-- Antigravity workspace `D:\Development\me-plus-antigravity`; original dirty `D:\Development\me-plus` untouched. Approved telemetry path repair retained the hook.
+## Current task
+- User selected ChatGPT/Codex as builder, preserving Me+ 2.0 design with three-hour phone sync and one-day recovery. Antigravity is optional historical tooling. Current plan and full scope/evidence: `docs/plans/ME2-APP-019-native-core-sync.md`.
+- Draft PR #81 integrates PR #79 controller/tests, original v2 light core Today/Plan/Capture/Review/More, Companion icons and resilient health sync. Native target 0.4.1/code7. PR #79 remains unmerged and must not independently publish its older code6 target.
+- Each due health run replays at least 24 hours, extends to last acknowledged success after longer outages, and retains interrupted checkpoints. Android schedules 180-minute minimum intervals; exact execution depends on OS constraints and permissions. Supabase existing revision keys handle duplicate retries while retaining distinct providers and corrections.
+- At 0f046c1: 45 focused local tests and all workspace types pass; Expo web and Android JS exports pass. Hosted synthetic browser acceptance at 360/1363 and PostgreSQL health contracts/security pass. Policy/runtime checks found startup context exceeded budget; this handoff is condensed to fix it without weakening checks. No physical-phone acceptance yet.
 
-## Release boundaries
-- Promotion `dev → prod`; no current production approval. Netlify primary published deploy is locked. Supabase project wbqnctrvxohxwiaignhg is shared by dev/prod; branches do not isolate records.
-- Android compiles on designated Windows Actions runner; Netlify distributes verified bytes. Verify manifest/code/name, source SHA, embedded JS, ARM64 ABI, signer continuity and checksum.
-- Dev cf90a19 includes PR #76 native retry repair source, not its live deployment. Never blindly replay recovered migrations. PR #69 restricted privileged RPCs; #70–#74 added Today/Now/Review/atomic decisions.
-- Independent PRs #38/#66/#75/#77/#78 remain outside this task. Prior evidence: `docs/handoffs/2026-10-07.md`, `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
+## Release blockers
+- Approved narrow migration `20261017145227_health_batch_unique_run_key.sql` fixes the reproduced P0001 minute-key collision causing multi-batch uploads to fail. Shared Supabase application returned Invalid or expired requestState twice; readback confirmed the repair trigger is absent. This is a connector failure, not missing authorization. Existing phone error remains unresolved live. Do not blindly retry or apply unrelated migrations.
+- Designated Windows Actions host DESKTOP-RG1HH2I is online, but scoped discovery found no runner service/process/installation. Android job remains unassigned; no new APK exists. Restore/register the designated runner, then verify signer, manifest/version, immutable source SHA, ARM64, embedded JS and checksum before device tests.
+- Actual authenticated two-user and Android background/reboot/offline/replay acceptance remain outstanding. Build workflow uploads verified artifacts only; distribution uses reviewed GitHub MCP changes.
 
-## Web PR #80 review
-- Web-only source: no native application or version bump; shared new ranking helpers are not exported by the existing native package entrypoint. The Android path filter still queues a build for shared-package additions; its offline status is not evidence that a new native APK exists.
-- Before final documentation/CSS commit: 117 passed, 7 skipped, 0 failed; all workspace typechecks and Next.js build passed. Four hosted checks green at d526bcc; branch deployment 6ad383242f5e5cb9be99924c ready for that SHA. Final head requires fresh checks.
-- Browser at available 500 CSS-pixel viewport: Home and Download render without horizontal overflow; version, code, filename, size and SHA shown; Today redirects to login with safe next; blank sign-in focuses the required email field. Only browser-extension metadata errors observed. Full desktop/360px, authenticated Today/Review interaction and physical Android remain unverified.
-- Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
-
-The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
-
-
-## ME2-HEALTH-017
-- Netlify dev logs at 14:38 UTC show three P0001 failures after one completed 50-reading batch. Live source-sync guard uses minute keys; PR #38 repair was never applied. Narrow migration recovered into PR #81; shared DB and production remain unchanged.
-- Current development app had no automatic sync. Candidate targets 180-minute Android WorkManager scheduling with explicit background permission, owner/permission-scoped Changes cursors and resumable hourly backfill. Native target 0.4.1/code7; verified download remains 0.3.1. PR #79 must reconcile versionCode before future publication.
-- Antigravity CLI provider quota exhausted during read-only Android analysis; implementation continued in coordinator. No successful CLI implementation/build is claimed.
-
-## Companion brand kit — ME2-BRAND-018
-- User selected the Companion navy/apricot symbol. Brand resources and usage guide are in `brand/companion/`, delivered through PR #82 to dev using GitHub MCP.
-- SVG redraws, color/monochrome logos, Android adaptive layers, web icons and custom download badges are asset-only. Current UI and installed APK are unchanged; integration/device mask validation require follow-up.
-- Local verification: 50 SVG/PNG resources render; platform dimensions, transparent/opaque roles, ICO entries and adaptive/maskable safe-zone padding pass; SHA256SUMS verifies. Exact-head hosted checks recorded in PR #82.
-
-- PR #81 candidate: targeted health regression suite 13/13, workspace types, web build, mobile web export and isolated baseline/repair/replay/denied-role checks passed. Independent security review clear after fixes. Hosted PostgreSQL contract, version, agent-stack and security passed at 71f23ca; final cleanup head needs fresh hosted checks. Windows Android job 39043175273 remains queued without an assigned runner; native APK/phone/background/UI acceptance remain unverified. Shared DB application awaits explicit authorization.
-
-## ME2-APP-019 — ChatGPT continuation
-- Owner selected ChatGPT/Codex as builder and directed preserved Me+ 2.0 design plus three-hour / one-day catch-up sync. This supersedes Antigravity as a required implementation host.
-- PR #81 now integrates PR #79 native controller source and its tests, v2 light native core navigation and Companion icons, stable-ID notes/verified history and rolling-day health recovery. Plan `docs/plans/ME2-APP-019-native-core-sync.md` is the current scope/evidence source. PR #79 remains unmerged; reconcile it only after this candidate is accepted.
-- Shared DB repair attempts returned Invalid or expired requestState twice; harmless readback confirms no repair trigger was installed. This is a connector failure, not missing user authorization. Do not apply unrelated migrations or create live test records.
-- Windows computer is online but scoped discovery found no Actions runner service/process/installation. New signed APK and physical-phone acceptance are blocked. Existing verified 0.3.1 remains downloadable; no fabricated 0.4.1 artifact.
-- Local Chromium archive downloads are truncated and package sandbox cannot change system users; use hosted browser acceptance and inspect its artifacts. No current UI screenshot/device acceptance claim yet.
+## Boundaries and retained context
+- Development app/APK publication authorized; no production deployment. GitHub operations use GitHub MCP only. No live synthetic records, unrelated schemas or provider activation.
+- Supabase wbqnctrvxohxwiaignhg is shared by dev/prod; branch separation does not isolate data. Netlify primary published deploy remains locked. Promote dev to prod only with authorization.
+- Existing verified download remains 0.3.1/code4, 44,362,126 bytes, SHA256 0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b. Do not relabel it as the candidate.
+- Dev 9997fa7 includes Companion kit from PR #82; preserve its assets and guide. Reviewed web work/evidence: `docs/plans/ME2-WEB-016-core-app-download.md`. Prior health investigation: `docs/plans/ME2-HEALTH-017-phone-sync.md`. Historical recovery: `docs/plans/ME2-NATIVE-001-contract-recovery.md`, `docs/handoffs/2026-10-07.md`.
+- Original dirty Windows checkout remains untouched; optional Antigravity workspace is separate. No successful Antigravity build is claimed. Independent PRs #38/#66/#75/#77/#78 remain outside this change.

@@ -22,3 +22,8 @@ Design truth recovered from the 14 October UI/UX Review v2: https://docs.google.
 
 ## Limits and rollback
 This core slice does not claim all 64 prototype states or the entire Me+ 2.0 architecture are implemented. Timers, full/minimum occurrence schema, routine editing, rescheduling, goals and further domain depth retain their own acceptance. No real account/data tests were fabricated. Revert candidate UI/worker changes to roll back; unregister worker on disable/sign-out. Database trigger is additive and separately reversible; preserve existing records. Health Connect retention/permissions govern how far a device can recover; never claim unlimited historical recovery.
+
+## Recorded candidate checks — 17 October
+At 0f046c1, 45 focused local tests, workspace typechecks, Expo web and Android JS bundles passed. Hosted synthetic browser run 39048634792 passed sign-in, action receipt, Plan, Capture, Review, More and overflow/error checks at 360/1363. All four screenshots were inspected: readable light v2 cards, visible navigation, no overlap or clipping in captured views. This verifies exported native components with synthetic replies, not physical Android rendering or real-account end-to-end behavior. PostgreSQL health contract and security workflows also passed. Version/agent-stack/runtime initially failed only the shared startup-context budget; condensed CURRENT-HANDOFF restores the budget without changing thresholds. New exact-head CI must confirm.
+
+Independent security review found no remaining security/data-loss blocker after account-lifetime Capture guards; 37 relevant tests passed in that review. Supabase connector failure and unavailable designated native runner remain release blockers.
