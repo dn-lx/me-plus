@@ -4,7 +4,7 @@ mkdir -p artemis-evidence
 adb devices -l > artemis-evidence/devices.txt
 adb shell getprop ro.product.cpu.abilist > artemis-evidence/emulator-abis.txt
 adb shell getprop ro.dalvik.vm.native.bridge >> artemis-evidence/emulator-abis.txt
-adb install --no-streaming -r .artemis-candidate/me-plus-0.4.3.apk
+adb install --no-streaming -r .artemis-candidate/me-plus-0.4.3-emulator-x86_64.apk
 adb shell dumpsys package app.meplus.mobile > artemis-evidence/package.txt
 adb logcat -c
 adb shell monkey -p app.meplus.mobile -c android.intent.category.LAUNCHER 1
