@@ -10,21 +10,40 @@ export type HealthSyncDependencies = {
   readChanges: (token?: string) => Promise<HealthChangePage>;
   scan: (start: number, end: number) => Promise<readonly SensorReading[]>;
   upload: (readings: readonly SensorReading[]) => Promise<void>;
+  fingerprint: (reading: SensorReading) => Promise<string>;
   now: () => number;
   replayFrom?: number;
 };
 
-// Checkpoints contain only provider cursors/times. Never persist raw health payloads.
+// Checkpoints contain provider cursors/times and SHA-256 acknowledgement digests,
+// never raw health payloads. Digests are scoped to one fixed scan or changes token.
 // Callers scope this storage by owner and exact Health Connect permission set.
 export async function collectHealthChanges(deps: HealthSyncDependencies) {
   let token = deps.get('cursor');
   let pages = 0;
   let readings = 0;
-  const upload = async (items: readonly SensorReading[]) => {
+  const upload = async (items: readonly SensorReading[], scope: string) => {
+    let acknowledged = new Set<string>();
+    try {
+      const saved = JSON.parse(deps.get('acknowledged') ?? 'null');
+      if (saved?.scope === scope && Array.isArray(saved.hashes) &&
+          saved.hashes.every((hash: unknown) => typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash))) {
+        acknowledged = new Set(saved.hashes);
+      }
+    } catch { /* Corrupt optional receipt cache safely replays, never skips. */ }
     for (let i = 0; i < items.length; i += 50) {
       await deps.assertActive();
-      await deps.upload(items.slice(i, i + 50));
-      readings += Math.min(50, items.length - i);
+      const batch = items.slice(i, i + 50);
+      const hashes = await Promise.all(batch.map(item => deps.fingerprint(item)));
+      if (hashes.some(hash => !/^[a-f0-9]{64}$/.test(hash))) throw new Error('Invalid health receipt digest.');
+      const pending = batch.filter((_item, index) => !acknowledged.has(hashes[index]!));
+      if (!pending.length) continue;
+      await deps.assertActive();
+      await deps.upload(pending);
+      await deps.assertActive();
+      hashes.forEach(hash => acknowledged.add(hash));
+      deps.set('acknowledged', JSON.stringify({ scope, hashes: [...acknowledged] }));
+      readings += pending.length;
     }
     await deps.assertActive();
   };
@@ -43,9 +62,10 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
     while (replay.next < replay.end) {
       await deps.assertActive();
       const until = Math.min(replay.next + 3_600_000, replay.end);
-      await upload(await deps.scan(replay.next, until));
+      await upload(await deps.scan(replay.next, until), `replay:${replay.next}:${until}`);
       replay.next = until;
       deps.set('replay', JSON.stringify(replay));
+      deps.remove('acknowledged');
     }
     await deps.assertActive();
   }
@@ -75,9 +95,10 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
       while (state.next < state.end) {
         await deps.assertActive();
         const end = Math.min(state.next + 3_600_000, state.end);
-        await upload(await deps.scan(state.next, end));
+        await upload(await deps.scan(state.next, end), `bootstrap:${state.next}:${end}`);
         state.next = end;
         deps.set('bootstrap', JSON.stringify(state));
+        deps.remove('acknowledged');
       }
       await deps.assertActive();
       token = state.seed;
@@ -95,9 +116,10 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
     if (!page.nextChangesToken || (page.hasMore && page.nextChangesToken === token)) {
       throw new Error('Health changes cursor did not advance.');
     }
-    await upload(page.readings);
+    await upload(page.readings, `changes:${token}`);
     // Failed uploads or account/permission changes never advance a cursor.
     deps.set('cursor', page.nextChangesToken);
+    deps.remove('acknowledged');
     token = page.nextChangesToken;
     if (!page.hasMore) {
       deps.remove('replay');
@@ -105,3 +127,4 @@ export async function collectHealthChanges(deps: HealthSyncDependencies) {
     }
   }
 }
+

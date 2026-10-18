@@ -1,3 +1,5 @@
+import { SiteNav } from '../components/site-nav';
+
 export const metadata = {
   title: "Privacy · Me+",
   description: "Privacy information for the Me+ personal intelligence application.",
@@ -6,6 +8,7 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <main className="shell legalPage">
+      <SiteNav current="privacy" />
       <header className="hero legalHero">
         <p className="eyebrow">ME+ PRIVACY</p>
         <h1>Privacy</h1>
@@ -100,3 +103,4 @@ export default function PrivacyPage() {
     </main>
   );
 }
+
