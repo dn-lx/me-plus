@@ -55,7 +55,7 @@ create trigger trg_health_observation_quality_v1 before insert or update of doma
 on public.observations for each row execute function private.apply_health_observation_quality_v1();
 create table public.fact_corrections(user_id uuid,entity_type text,entity_id uuid);
 create table unit_cases(label text primary key,observation_id uuid,raw_before jsonb);
-create function public.unit_fixture(p_label text,metric text,unit_name text,val double precision,provider text default 'health-connect')
+create function public.unit_fixture(p_label text,metric text,unit_name text,val numeric,provider text default 'health-connect')
 returns uuid language plpgsql as $$
 declare reading jsonb; result jsonb; oid uuid;
 begin
@@ -73,6 +73,7 @@ begin
 end $$;
 select public.unit_fixture('legacy-oxygen','oxygen-saturation','percent',98);
 select public.unit_fixture('legacy-energy','total-calories-burned','kilocalories',100);
+select public.unit_fixture('legacy-precision','total-calories-burned','kilocalories',123.1234567890123456789::numeric);
 select public.unit_fixture('legacy-zero','active-calories-burned','kilocalories',0);
 select public.unit_fixture('legacy-weight','weight','kilograms',75);
 select public.unit_fixture('legacy-invalid','oxygen-saturation','percent',12);
@@ -90,5 +91,10 @@ update public.observations set provenance=provenance||'{"userCorrectedFields":["
 where id=(select observation_id from unit_cases where label='legacy-corrected');
 insert into public.fact_corrections select '459ab99b-d99d-492b-bb23-95144dbb1e47','observation',observation_id from unit_cases where label='legacy-history';
 do $$begin
- if (select count(*) from public.observations where quality='rejected_for_decision_use')<>10 then raise exception 'baseline alias bug not reproduced'; end if;
+ if (select count(*) from public.observations where quality='rejected_for_decision_use')<>11 then raise exception 'baseline alias bug not reproduced'; end if;
+ if not exists(select 1 from unit_cases c join public.observations o on o.id=c.observation_id
+   join public.raw_events r on r.id=o.raw_event_id where c.label='legacy-precision'
+   and r.payload->'value' is distinct from to_jsonb(o.value_number)
+   and (r.payload->>'value')::double precision=o.value_number)
+ then raise exception 'numeric roundtrip mismatch not reproduced'; end if;
 end $$;

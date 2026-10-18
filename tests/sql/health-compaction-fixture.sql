@@ -3,6 +3,16 @@ create table public.profiles(id uuid primary key references auth.users(id),timez
 insert into public.profiles values ('459ab99b-d99d-492b-bb23-95144dbb1e47','Europe/Berlin');
 create table public.derived_features(user_id uuid,feature_key text,as_of timestamptz,value_number double precision,
  value_text text,value_json jsonb,unit text,quality text,method_version text,input_refs jsonb);
+create table public.audit_events(user_id uuid,actor_type text,event_type text,entity_type text,
+ entity_id uuid,occurred_at timestamptz,metadata jsonb);
+create table public.compact_test_heartbeats(user_id uuid,scheduler_key text,status text,policy_version text,
+ error jsonb,expected_cadence_minutes integer,allowed_lateness_minutes integer,run_id uuid,automation_id text);
+create function public.record_scheduler_heartbeat(p_user_id uuid,p_scheduler_key text,p_status text,
+ p_policy_version text,p_error jsonb,p_expected_cadence_minutes integer,p_allowed_lateness_minutes integer,
+ p_run_id uuid,p_automation_id text) returns void language sql as $$
+ insert into public.compact_test_heartbeats values(p_user_id,p_scheduler_key,p_status,p_policy_version,p_error,
+  p_expected_cadence_minutes,p_allowed_lateness_minutes,p_run_id,p_automation_id)
+$$;
 create function public.get_health_context(p_user_id uuid,p_as_of timestamptz default now())returns jsonb language sql as $$select '{}'::jsonb$$;
 revoke all on function public.get_health_context(uuid,timestamptz)from public,anon,authenticated;
 grant execute on function public.get_health_context(uuid,timestamptz)to service_role;

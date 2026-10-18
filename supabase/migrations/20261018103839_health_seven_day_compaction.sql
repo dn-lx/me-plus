@@ -44,6 +44,7 @@ create table if not exists public.health_daily_summaries (
   sample_count integer not null,usable_count integer not null,rejected_count integer not null,
   minimum double precision,maximum double precision,mean double precision,
   first_at timestamptz,last_at timestamptz,last_value double precision,last_usable_at timestamptz,
+  last_quality text,last_confidence numeric,
   input_digest text not null,method_version text not null default 'health-7d-packed-v1',
   updated_at timestamptz not null default now()
 );
@@ -64,18 +65,23 @@ begin
   if not found then return; end if;
   if r.entries='{}'::jsonb then delete from private.health_compaction_receipts where id=p_id;return;end if;
   insert into public.health_daily_summaries(id,user_id,data_source_id,local_day,timezone,metric,unit,source_package,device,
-    sample_count,usable_count,rejected_count,minimum,maximum,mean,first_at,last_at,last_value,last_usable_at,input_digest)
+    sample_count,usable_count,rejected_count,minimum,maximum,mean,first_at,last_at,last_value,last_usable_at,last_quality,last_confidence,input_digest)
   select r.id,r.user_id,r.data_source_id,r.local_day,r.timezone,r.metric,r.unit,r.source_package,r.device,
     count(*)::integer,count(*)filter(where usable)::integer,count(*)filter(where not usable)::integer,
     min(value)filter(where usable),max(value)filter(where usable),avg(value)filter(where usable),
     min(at),max(at),(array_agg(value order by at desc,identity_key)filter(where usable))[1],
-    max(at)filter(where usable),encode(sha256(convert_to(r.entries::text,'UTF8')),'hex')
+    max(at)filter(where usable),
+    (array_agg(quality order by at desc,identity_key)filter(where usable))[1],
+    (array_agg(confidence order by at desc,identity_key)filter(where usable))[1],
+    encode(sha256(convert_to(r.entries::text,'UTF8')),'hex')
   from (select key identity_key,(value->>'value')::double precision value,(value->>'observedAt')::timestamptz at,
+    coalesce(value->>'quality','source') quality,(value->>'confidence')::numeric confidence,
     coalesce(value->>'quality','source') in ('source','accepted','accepted_with_warning') usable
     from jsonb_each(r.entries)) s
   on conflict(id)do update set sample_count=excluded.sample_count,usable_count=excluded.usable_count,
     rejected_count=excluded.rejected_count,minimum=excluded.minimum,maximum=excluded.maximum,mean=excluded.mean,
     first_at=excluded.first_at,last_at=excluded.last_at,last_value=excluded.last_value,last_usable_at=excluded.last_usable_at,
+    last_quality=excluded.last_quality,last_confidence=excluded.last_confidence,
     input_digest=excluded.input_digest,updated_at=clock_timestamp();
 end $$;
 
@@ -120,16 +126,43 @@ begin
   return false;
 end $$;
 
+-- Observation-only FK children need protection even when they do not also
+-- reference raw_events. In particular, never cascade-delete future evidence.
+create or replace function private.health_observation_has_references(p_observation uuid)
+returns boolean language plpgsql stable security invoker set search_path='' as $$
+declare fk record; present boolean;
+begin
+  for fk in select n.nspname,c.relname,a.attname
+    from pg_catalog.pg_constraint k join pg_catalog.pg_class c on c.oid=k.conrelid
+    join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+    cross join lateral unnest(k.conkey,k.confkey) u(local_column,foreign_column)
+    join pg_catalog.pg_attribute a on a.attrelid=k.conrelid and a.attnum=u.local_column
+    join pg_catalog.pg_attribute target on target.attrelid=k.confrelid and target.attnum=u.foreign_column
+    where k.contype='f' and k.confrelid='public.observations'::regclass and target.attname='id'
+  loop
+    execute format('select exists(select 1 from %I.%I where %I=$1)',fk.nspname,fk.relname,fk.attname) into present using p_observation;
+    if present then return true;end if;
+  end loop;
+  return false;
+end $$;
+
 create or replace function private.compact_health_seven_days(p_limit integer default 5000)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare source record; group_row record; candidate jsonb; receipt_id uuid; total integer:=0; cutoff timestamptz;
+  observation_count integer;raw_count integer;revision_count integer;summary_ids jsonb;
+  failures integer:=0;error_state text;
 begin
-  if p_limit<1 or p_limit>10000 then raise exception 'invalid_compaction_limit';end if;
+  if p_limit is null or p_limit<1 or p_limit>10000 then raise exception 'invalid_compaction_limit';end if;
   for source in select ds.id,ds.user_id,coalesce(p.timezone,'UTC') timezone
     from public.data_sources ds join public.health_storage_policies hp on hp.user_id=ds.user_id and hp.enabled
     join public.profiles p on p.id=ds.user_id where ds.provider='health-connect'
   loop
     perform pg_advisory_xact_lock(hashtextextended(source.user_id::text||':'||source.id::text,0));
+    perform public.record_scheduler_heartbeat(source.user_id,'health_seven_day_compaction:'||source.id::text,'invoked','health-7d-packed-v1',null,1440,120,null,'supabase:health_seven_day_compaction');
+    -- Each source is atomic. Failed writes/deletions roll back before recording
+    -- sanitized failure evidence; another source can still make progress.
+    begin
+    summary_ids:='[]'::jsonb;
     cutoff:=date_trunc('day',(clock_timestamp()-interval '7 days') at time zone source.timezone) at time zone source.timezone;
     select coalesce(jsonb_agg(to_jsonb(rows)),'[]'::jsonb) into candidate from (
       select o.id observation_id,r.id raw_id,r.external_record_id,
@@ -158,6 +191,7 @@ begin
         and not exists(select 1 from public.fact_corrections fc where fc.user_id=o.user_id and fc.entity_type='observation' and fc.entity_id=o.id)
         and not exists(select 1 from public.observations sibling where sibling.raw_event_id=r.id and sibling.id<>o.id)
         and not private.health_raw_has_other_references(r.id)
+        and not private.health_observation_has_references(o.id)
       order by o.observed_at,o.id limit p_limit for update of o,r skip locked
     ) rows;
     for group_row in select (x->>'local_day')::date local_day,x->>'metric' metric,x->>'unit' unit,x->>'source_package' source_package,
@@ -170,22 +204,45 @@ begin
         set entries=private.health_compaction_receipts.entries||excluded.entries,updated_at=clock_timestamp()
       returning id into receipt_id;
       perform private.refresh_health_compaction_summary(receipt_id);
+      summary_ids:=summary_ids||jsonb_build_array(receipt_id);
     end loop;
     delete from public.observations o where o.id in(select (x->>'observation_id')::uuid from jsonb_array_elements(candidate)x);
+    get diagnostics observation_count=row_count;
     delete from public.raw_event_revisions rev using public.raw_events r
       where r.id in(select (x->>'raw_id')::uuid from jsonb_array_elements(candidate)x)
         and rev.user_id=r.user_id and rev.data_source_id=r.data_source_id and rev.external_record_id=r.external_record_id;
+    get diagnostics revision_count=row_count;
     delete from public.raw_events r where r.id in(select (x->>'raw_id')::uuid from jsonb_array_elements(candidate)x);
-    total:=total+jsonb_array_length(candidate);
+    get diagnostics raw_count=row_count;
+    if observation_count<>jsonb_array_length(candidate) or raw_count<>observation_count then
+      raise exception 'health_compaction_delete_count_mismatch';
+    end if;
+    insert into public.audit_events(user_id,actor_type,event_type,entity_type,entity_id,occurred_at,metadata)
+    values(source.user_id,'system','health_seven_day_compaction','data_source',source.id,clock_timestamp(),
+      jsonb_build_object('data_source_id',source.id,'cutoff_at',cutoff,'timezone',source.timezone,
+        'method_version','health-7d-packed-v1','raw_days',7,'observations_deleted',observation_count,
+        'raw_events_deleted',raw_count,'raw_event_revisions_deleted',revision_count,'summary_ids',summary_ids));
+    perform public.record_scheduler_heartbeat(source.user_id,'health_seven_day_compaction:'||source.id::text,
+      case when observation_count=0 then 'no_op' else 'completed' end,'health-7d-packed-v1',null,1440,120,null,'supabase:health_seven_day_compaction');
     update public.health_storage_policies set last_compacted_at=clock_timestamp(),last_compacted_rows=jsonb_array_length(candidate) where user_id=source.user_id;
+    total:=total+jsonb_array_length(candidate);
+    exception when others then
+      get stacked diagnostics error_state=returned_sqlstate;
+      failures:=failures+1;
+      insert into public.audit_events(user_id,actor_type,event_type,entity_type,entity_id,occurred_at,metadata)
+      values(source.user_id,'system','health_seven_day_compaction_failed','data_source',source.id,clock_timestamp(),
+        jsonb_build_object('data_source_id',source.id,'cutoff_at',cutoff,'method_version','health-7d-packed-v1','error_code',error_state));
+      perform public.record_scheduler_heartbeat(source.user_id,'health_seven_day_compaction:'||source.id::text,'failed','health-7d-packed-v1',
+        jsonb_build_object('error_code',error_state),1440,120,null,'supabase:health_seven_day_compaction');
+    end;
   end loop;
-  return jsonb_build_object('compacted_rows',total,'raw_days',7,'method','health-7d-packed-v1');
+  return jsonb_build_object('compacted_rows',total,'failed_sources',failures,'raw_days',7,'method','health-7d-packed-v1');
 end $$;
 
 revoke all on function private.refresh_health_compaction_summary(uuid),private.health_compacted_revision_handled(uuid,uuid,jsonb,text),
-  private.health_raw_has_other_references(uuid),private.compact_health_seven_days(integer) from public,anon,authenticated;
+  private.health_raw_has_other_references(uuid),private.health_observation_has_references(uuid),private.compact_health_seven_days(integer) from public,anon,authenticated;
 grant execute on function private.refresh_health_compaction_summary(uuid),private.health_compacted_revision_handled(uuid,uuid,jsonb,text),
-  private.health_raw_has_other_references(uuid),private.compact_health_seven_days(integer) to service_role;
+  private.health_raw_has_other_references(uuid),private.health_observation_has_references(uuid),private.compact_health_seven_days(integer) to service_role;
 
 -- The owner authorized this policy for the existing single-owner project only.
 -- Future profiles are not silently opted in.
@@ -716,7 +773,8 @@ begin
   loop
     if not(v_latest?v_summary.metric) or (v_latest->v_summary.metric->>'observed_at')::timestamptz<v_summary.last_usable_at then
       v_latest:=v_latest||jsonb_build_object(v_summary.metric,jsonb_build_object('observed_at',v_summary.last_usable_at,
-        'value_number',v_summary.last_value,'unit',v_summary.unit,'quality','source','confidence',0.6,
+        'value_number',v_summary.last_value,'unit',v_summary.unit,'quality',v_summary.last_quality,
+        'confidence',case when v_summary.last_confidence is null then null else least(v_summary.last_confidence,0.6) end,
         'provider','health-connect','source',v_summary.display_name,'compacted',true,'method_version',v_summary.method_version));
     end if;
   end loop;
