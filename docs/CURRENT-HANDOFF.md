@@ -1,49 +1,36 @@
 # Current Handoff
 
-**Last updated:** 2026-10-17
-
-Latest user request: audit Me+ 2.0 architecture, fill roadmap gaps and include **N26 + ING**. **Planning/documentation only; no implementation.** This supersedes N26 deferral for planning priority. Provider authorization remains a separate later action. Canonical human-readable design is in Drive; source/plans/evidence in GitHub; runtime facts in Supabase.
+**Last updated:** 2026-10-18
+Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "ME2-ARCH-007",
-  "repository": "dn-lx/me-plus",
+  "task_id": null,
+  "repository": null,
   "base": "dev",
-  "branch": "chore/me2-architecture-roadmap",
-  "pr": 78,
-  "status": "blocked",
-  "last_verified_sha": "96fa1506cf4e9b450cb7139c8f0c94609ca7d701",
-  "next_step": "Planning deliverables are complete for review. Before merging draft PR #78, separately authorize a bootstrap test-fixture repair: the inherited test expects incomplete product docs and fails after placeholders are removed. Preserve strict validation; no implementation is authorized now. Reconcile overlapping docs with PR #77.",
-  "updated_at": "2026-10-16T23:00:00Z"
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-10-18T00:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Verified baseline and pending dependencies
+## Current delivery
+- PR#84 / ME2-APP-020: website aligned with native v2 light design and Companion logo/icons. Today, Plan, Capture, Review, More. Capture confirms exact owner/content; drafts clear on account changes. More reads owner-scoped server upload acknowledgements. Plan/evidence: docs/plans/ME2-APP-020-sync-web-brand.md.
+- Native target0.4.2/code8: expire interrupted running state after5minutes and explicit retry. Saved cursors/replay windows and last successful acknowledgement remain intact. A newly compiled/verified artifact is required; do not relabel0.4.1.
+- Dev-only app publication authorized. GitHub operations MCP only. Supabase projectwbqnctrvxohxwiaignhg is shared; no production app merge/deployment or unrelated schema/live test writes.
 
-- Planning branch starts at current dev `cf90a19`. PR #77 is open/draft at `4335907`, 11 commits ahead and zero behind; its five final-head workflows passed. It contains prepared backend/control/agent packages and records earlier deployment evidence; it is not yet consolidated into dev.
-- PR #38 remains open at `6e85778`. Its incremental foreground Health Connect flow and signed artifact are separate work. Required batch migration `20260930073538` is absent from the read-only live ledger checked in this session; reconcile it before release. Deletion handling and real phone acceptance remain open.
-- PR #66 history-aware planner and PR #75 tracing/model changes need separate scope review. PR #67 is merged; the previous requirements merge checkbox was stale. No fresh routing latency benchmark was run.
-- Read-only Supabase inventory verified the Me+ project, PostgreSQL 17 and current function versions: gateway26, reasoning41, HealthSync28, Calendar19, MCP2, Todoist30. Metadata differs from several source-manifest entries. No exact-source recovery, redeploy, schema/data write, credential read or provider activation occurred.
-- Detailed findings and limits: [architecture audit](ARCHITECTURE-AUDIT-2026-10-17.md). Current target: [architecture](ARCHITECTURE.md), proposed [ADR 0002](adr/0002-meplus2-modular-core-and-adapters.md), [roadmap](ROADMAP.md), [N26 + ING plan](plans/ME2-BANK-012-n26-ing.md).
+## Unresolved health upload blocker
+- Live19:36UTC logs17October: source_sync_already_completed. Readback: approved a_health_batch_run_key_before_insert trigger still absent. Fresh apply_migration again fails Invalid or expired requestState. Connector reads work. Root-cause repair is not live; do not claim uploads fixed. Narrow migration already owner-approved; alternate browser fallback needs user approval under browser connector policy.
+- Existing reviewed migration20261017145227_health_batch_unique_run_key.sql gives distinct health batch run keys while source leases and raw revision deduplication remain. Independent review found no migration blocker; nullable SQL assertions strengthened. No unrelated migrations may be applied.
 
-## Planning decisions
+## Verified previous installer
+- Published0.4.1/code7 built from1f534d1;44,808,768bytes;SHA25611eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Companion launcher independently checked. Dev distribution uses six parts and fail-closed assembly. Prior details:docs/plans/ME2-APP-019-native-core-sync.md.
+- Android hosted Windows builder authorized17October; no local runner prerequisite. Netlify primary production deploy6ab8d3e80c341219b5881e92 stays locked. Promote dev→prod only with specific approval. PR#79 older0.4.0 remains superseded/unmerged.
+- Physical phone/background/reboot/offline and actual authenticated two-user acceptance remain pending. Synthetic browser/SQL checks cannot establish device acceptance.
+- Temporary Netlify branch allowlist fix/me2-sync-web-brand for exact-head preview must be removed after development publication; keep dev,v2 and prod unchanged.
 
-- Retain Next.js, Expo/React Native, Supabase and existing deployment providers. Finish contracts, source provenance, owner/session boundaries, durable jobs and real acceptance before adding mandatory services.
-- Separate provider/institution/owner-connection/account identities for both banks. Enable Banking is the first candidate; exact ING country/product/entitlement/cost is not verified. Assume ING Germany retail only for planning.
-- Add missing plans for immutable delivery, phone/source fidelity, cross-device/offline/notification behavior, backup/restore/export/deletion, structured-output evaluation and selective optional runtime adoption.
-- Slack is optional collaboration. No channel post, private-message search or Slack product integration was performed. No extra plugin is required for planning.
-
-## Continuation and release boundaries
-
-Review the planning revision and resolve the documented decisions before implementing. Reconcile overlapping documentation with PR #77 on merge, preserving its completion/deployment provenance and these new unchecked acceptance requirements. Prior dev context is preserved in [handoff archive](handoffs/2026-10-16-before-architecture-audit.md); the prepared integration branch retains its own detailed handoff.
-
-Supabase is shared across code lanes. Only dev may target prod, and the specific reviewed production release requires explicit user approval. Android builds remain on the designated Windows Actions runner. Do not infer provider/device readiness from configuration or CI. This task changes documentation only.
-
-## Planning delivery evidence
-
-- Draft documentation PR: https://github.com/dn-lx/me-plus/pull/78 . All changed repository paths are Markdown; no app/schema/dependency/workflow source changed.
-- Canonical Drive architecture updated with Section 34 and a current-revision banner; V1 roadmap updated with a current 2.0 overlay. Native readback confirmed exact inserted text, heading types and preservation of all previous text. Existing history remains explicitly labeled.
-- Local strict documentation, task-state, version, agent-stack and startup-context checks passed; focused documentation/task-state tests: 8/8. Final checkpoint changes require their final-head CI before merge; no merge performed.
-- No provider/account authorization, deployment, runtime mutation, paid provisioning or Slack message occurred. No personal record contents were read.
-
-Known hosted gate: at planning head `96fa1506`, Agent Stack, Version lifecycle tests and Runtime fail the same `bootstrap-project-e2e.test.mjs:87` assertion because it assumes copied product requirements are incomplete. Security passed. The docs are now complete and strict validation succeeds. Plan a separate explicit-fixture test repair; do not reintroduce fake requirements or weaken the guard. No test/workflow implementation was changed.
+## Backend source reconciliation — 18 October
+PR77 source/fixtures restore already-applied owner APIs, scoped MCP and dormant integration controls. Historical migrations are provenance, not a deployment request; do not replay them. Optional Letta/n8n/Langfuse stay disabled pending real scoped acceptance. Plans: docs/plans/ME2-BACKEND-002-integrations.md and docs/plans/ME2-AGENTS-006-letta-n8n.md.

@@ -1,6 +1,6 @@
 # Project Memory
 
-> Maintained current project facts; original bootstrap metadata predates the implemented stack. Keep this compact and distinguish proposed design from runtime evidence.
+> Generated from `bootstrap.me-plus.json`. Keep this compact and durable; update it when architecture or operating contracts materially change.
 
 ## Identity
 
@@ -12,13 +12,13 @@
 
 ## Architecture
 
-- **Clients:** Next.js/React web and Expo/React Native Android in one TypeScript monorepo, managed by pnpm.
+- **Clients:** First-class TypeScript web and mobile applications in one monorepo.
 - **Web role:** Dashboard, deep analysis, configuration, memory management, integrations and administration.
 - **Mobile role:** Daily interaction, notifications, quick capture and platform/device integrations such as health/sensor data.
 - **Shared layer:** Domain logic, contracts, reusable UI where appropriate, configuration and reasoning interfaces live under `packages/` and must not depend on platform-specific APIs.
 - **Backend/runtime:** Shared application/domain services plus narrowly scoped server-side functions; AI providers are reasoning dependencies, not the system of record.
 - **Database/storage:** Supabase Postgres is the durable source of truth; repository-managed migrations; Storage only where needed.
-- **Hosting/deployment:** Netlify web/Node functions and Supabase Edge Functions. Android compilation uses the designated Windows GitHub Actions runner. Published runtime identity and installed-device acceptance require explicit verification.
+- **Hosting/deployment:** Netlify web/N26 backend and Supabase Edge Functions. Supabase data is shared across code branches.
 - **Authentication:** Supabase Auth with explicit authorization boundaries.
 - **Key boundaries:** `apps/web` and `apps/mobile` stay thin. Platform-native capabilities sit behind typed adapters. Shared domain code talks to contracts, not browser/native APIs. Supabase owns canonical state. Models reason over retrieved context but do not own canonical state. Domain policies constrain reasoning and external side effects.
 
@@ -39,20 +39,18 @@
 
 | Purpose | Command |
 | --- | --- |
-| Install | pnpm install --no-frozen-lockfile (current CI; tightening planned) |
+| Install | pnpm install --frozen-lockfile |
 | Development | pnpm dev:web / pnpm dev:mobile |
 | Test | pnpm test:integration |
 | Build | pnpm build:web |
-| Typecheck | pnpm typecheck |
-| Browser/device E2E | Owner/provider/device acceptance remains pending; roadmap defines gates |
-| Documentation | node scripts/validate-docs.mjs / node scripts/task-state.mjs --check |
-| Performance | Roadmap targets are proposed; no current user-latency guarantee |
+| Lint/typecheck | pnpm typecheck |
+| Browser/E2E | Provider authorization, signed-in app and physical-device E2E pending |
+| Performance | No UI performance acceptance established |
 
 ## Runtime environments
 
 - **Code promotion path:** `dev → prod`.
 - Branches are code-promotion lanes, not proof of runtime/data isolation.
-- The canonical Supabase project is shared by dev/production. Reconcile source/migration/deployment provenance before writes; use synthetic isolated fixtures for acceptance.
 - Record concrete local, preview/staging and production targets before external writes.
 - Web and mobile may deploy through different providers, but they share the same product contracts and backend data model.
 
@@ -72,22 +70,27 @@
 - Private records are private by default; minimize collection, redact logs, separate raw observations from derived insights and require explicit authorization for external writes.
 - Mobile permission grants do not imply permission to persist or share all accessible device data; ingest only data required by an explicit Me+ workflow.
 
+## Integration control
+
+- Native task/routine/feedback/workspace and scoped MCP contracts are in Supabase. Client tokens are opaque, scoped, hashed, expiring and revocable; no service keys go to agents.
+- Google connectors have one server account per provider; owner controls refuse multi-owner activation until separate credentials exist. Authorization proofs are server-recorded and expiring; recurring clocks require a successful own-source sync.
+- Provider authorization and physical-device acceptance remain manual gates. Optional Letta/n8n/Langfuse are replaceable and gated; no paid infrastructure is required.
+- API/rollout runbooks: `docs/plans/ME2-BACKEND-002-integrations.md`, `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
+
 ## External systems
 
 See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside Git.
 
-## Planning baseline
+## App build platform
 
-- N26 and ING are both required by the 17 October 2026 planning request. Read-only AIS, independent connection controls and fresh-start policy; exact ING country/product coverage remains a gate.
-- PR #77 contains further backend/control/MCP and optional runtime preparation. Source prepared, deployed, authorized and user-accepted are distinct states; current GitHub/runtime evidence overrides old summaries.
-- Optional Letta/n8n/Langfuse remain replaceable and gated by measured benefit, least privilege, recovery/privacy and approved cost. ChatGPT plugins do not supply Me+ runtime credentials automatically.
-- Proposed modular-core refinements and complete execution order: `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/ARCHITECTURE-AUDIT-2026-10-17.md`. This planning request does not authorize implementation.
+- Selected app builder: ChatGPT/Codex. Antigravity is optional and no longer a dependency. Build/execution responsibilities: `docs/CLI-AGENT-STACK.md`.
+- GitHub operations use GitHub MCP. Android compilation/provenance uses GitHub-hosted Windows 2022 Actions (owner-approved 17 October 2026); Netlify hosts web/API and verified APK bytes. Deploy application changes to `dev` only unless a specific production release is approved.
+- Phone health sync target: every 180 minutes with Health Connect background-read permission and foreground catch-up. Each due run replays at least 24 hours and extends to the last acknowledgement after longer gaps; fixed unsent windows resume without sliding forward. Supabase source/external-ID/revision keys deduplicate overlaps. Android execution is deferrable, not an exact alarm. Acceptance and shared database repair status: `docs/plans/ME2-HEALTH-017-phone-sync.md`.
 
 ## Durable decisions
 
 - `docs/adr/0001-agent-independent-engineering.md`
 - `docs/ARCHITECTURE.md`
-- Proposed, not yet implemented: `docs/adr/0002-meplus2-modular-core-and-adapters.md`
 
 ## Context freshness
 

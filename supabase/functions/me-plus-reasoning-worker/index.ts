@@ -1,10 +1,20 @@
 import { withSupabase } from "npm:@supabase/server@^1";
+import { exportLangfuseTrace } from "./langfuse.ts";
 
-const FALLBACK_MODEL = Deno.env.get("MEPLUS_AI_MODEL") ?? "gpt-6.1-sol";
+const FALLBACK_MODEL = Deno.env.get("MEPLUS_AI_MODEL") ?? "gpt-6-luna";
 const OPENAI_BASE_URL = (Deno.env.get("OPENAI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/$/, "");
-const PROMPT_CONTRACT_VERSION = "meplus-scheduler-reasoning-v10-incomplete-safe-daily-planner";
-const ROUTING_POLICY_VERSION = "meplus-ai-routing-v1";
+const PROMPT_CONTRACT_VERSION = "meplus-scheduler-reasoning-v11-compact-candidate-budget";
+const ROUTING_POLICY_VERSION = "meplus-ai-routing-v4-luna-adaptive-effort";
 const MAX_DISPATCHES_PER_WAKE = 1;
+const LANGFUSE_CONFIG = {
+  enabled: Deno.env.get("MEPLUS_LANGFUSE_ENABLED") === "true",
+  privacyApproved: Deno.env.get("MEPLUS_LANGFUSE_PRIVACY_APPROVED") === "true",
+  retentionApproved: Deno.env.get("MEPLUS_LANGFUSE_RETENTION_APPROVED") === "true",
+  approvedModels: (Deno.env.get("MEPLUS_LANGFUSE_APPROVED_MODELS") ?? "").split(',').map(v=>v.trim()).filter(Boolean),
+  publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY") ?? undefined,
+  secretKey: Deno.env.get("LANGFUSE_SECRET_KEY") ?? undefined,
+  host: Deno.env.get("LANGFUSE_HOST") ?? undefined,
+};
 
 const decisionSchema = {
   type: "object",
@@ -114,7 +124,7 @@ Rules for this scheduler decision:
 - Prefer reduced/minimum variants over abandoning an important action when overloaded, but skip/recovery can still be correct when the evidence supports it.
 - preferred_window is a coarse preference only. Never invent exact clock times, dates, recurrence, or calendar placement; deterministic scheduling owns those.
 - The daily plan must be explainable: rationale should identify the most important trade-off or evidence, without pretending weak correlations are facts.
-- Keep each daily_plan decision rationale concise (target <= 320 characters), summary <= 600 characters, and each watch_out short. Do not repeat the same evidence across multiple candidate rationales.
+- Keep each daily_plan decision rationale to one short evidence-based clause (target <= 120 characters), summary <= 240 characters, and each watch_out <= 90 characters. Do not repeat evidence across candidates. Include every required candidate decision rather than truncating the plan.
 - Always return a mutations array; use [] unless an authenticated todoist_routine_comment_intent clearly calls for a low-risk create/update/remove of the CURRENT routine occurrence.
 - For authenticated Todoist routine comments, you may create, update, or unsurface current child tasks when the request is clear, specific, low-risk, reversible, and scoped to the referenced routine parent. Never target an action_id that is not listed in that signal's child_actions.
 - For create mutations, set target_action_id to an empty string. For update/remove, copy the exact target action_id from the authenticated signal.
@@ -160,7 +170,7 @@ Rules for this scheduler decision:
 - Actual observed behavior and confirmed outcomes are stronger evidence than planned tasks or assumed adherence.
 - Missing, stale, suspect, contradictory or weak evidence must reduce confidence; ask only for the smallest additional input that would materially change the decision.
 - Prior recommendation feedback and outcomes, when supplied, should influence whether a similar recommendation is likely to be useful now.
-- Keep titles under 180 characters, rationales under 900 characters, instructions under 1200 characters, minimum_action under 500 characters, and constraints_considered to at most 12 short strings.`;
+- Be compact while retaining actionable details: titles <= 100 characters, rationales <= 260 characters, instructions <= 400 characters, minimum_action <= 150 characters, and constraints_considered <= 5 short strings. Avoid restating facts already in other fields.`;
 
 function responseText(payload: any): string | null {
   if (typeof payload?.output_text === "string" && payload.output_text.trim()) return payload.output_text.trim();
@@ -186,16 +196,22 @@ function refusalText(payload: any): string | null {
 }
 
 function reasoningOutputBudget(routing: any, plannerContext: any, attempt: number) {
-  const routeBudget = Math.max(1200, Number(routing?.max_output_tokens ?? 2200));
+  const routeBudget = Math.max(600, Number(routing?.max_output_tokens ?? 1200));
   const planning = plannerContext?.request_planning === true;
   if (!planning) {
-    return Math.min(6000, routeBudget + (attempt > 1 ? 800 : 0));
+    // Higher-effort reasoning consumes part of the same output-token budget.
+    // Keep high effort behind the trusted, explicitly requested review route.
+    if (routing?.route_key === "critical_review") return attempt > 1 ? 5200 : 4000;
+    if (routing?.route_key === "deep_cross_domain") return attempt > 1 ? 3200 : 2400;
+    return Math.min(1200, routeBudget + (attempt > 1 ? 200 : 0));
   }
 
   const candidateCount = Array.isArray(plannerContext?.candidates) ? plannerContext.candidates.length : 0;
-  const firstPassBudget = Math.min(10000, 4500 + candidateCount * 350);
-  const retryBoost = attempt > 1 ? 2000 : 0;
-  return Math.min(12000, Math.max(routeBudget, firstPassBudget + retryBoost));
+  // More candidates require more JSON fields. The ceiling includes reasoning
+  // tokens; use a bounded candidate-aware budget rather than cutting off JSON.
+  const firstPassBudget = Math.min(5200, Math.max(2800, 2600 + candidateCount * 105));
+  const retryBoost = attempt > 1 ? Math.min(800, (attempt - 1) * 400) : 0;
+  return Math.min(6000, Math.max(routeBudget, firstPassBudget + retryBoost));
 }
 
 function structuredOutputError(payload: any, text: string | null, parseError?: unknown) {
@@ -497,7 +513,16 @@ async function loadRouting(admin:any, boundedContext:any) {
   const uncertainty=hasMaterialUncertainty(boundedContext);
   const reasonCount=Array.isArray(boundedContext?.dispatch?.reasons)?boundedContext.dispatch.reasons.length:0;
   let routeKey="standard_guidance";
-  if(isSimpleAuthenticatedRoutineComment(boundedContext) && observedDomains.length<=2 && !uncertainty) {
+  // A critical review must be explicitly requested by a trusted server-side
+  // dispatch. Never infer it from user-supplied titles, comments, documents,
+  // attachments, or free-text scheduler reasons.
+  const dispatchPayload=boundedContext?.dispatch?.payload;
+  const trustedCriticalReview=dispatchPayload?.trusted_review_tier==="critical_review"
+    && dispatchPayload?.trusted_review_source==="meplus_server"
+    && dispatchPayload?.trusted_review_authorized===true;
+  if(trustedCriticalReview) {
+    routeKey="critical_review";
+  } else if(isSimpleAuthenticatedRoutineComment(boundedContext) && observedDomains.length<=2 && !uncertainty) {
     routeKey="fast_operational";
   } else if(observedDomains.length>=5 || (observedDomains.length>=3 && uncertainty) || reasonCount>=3) {
     routeKey="deep_cross_domain";
@@ -1336,6 +1361,17 @@ export default {
           p_response_id: responseBody?.id ?? null
         });
         if (completeError) throw new Error(`complete_dispatch_failed: ${completeError.message}`);
+        // Optional, best-effort, metadata-only OTLP trace; never blocks canonical success.
+        try {
+          await exportLangfuseTrace({
+            dispatchId,attempt,startedAt,completedAt,
+            route:routing.route_key,model:routing.model.api_model,status:"completed",
+            inputTokens:metrics.input_tokens,outputTokens:metrics.output_tokens,
+            costUsd:metrics.estimated_cost_usd
+          },LANGFUSE_CONFIG);
+        } catch {
+          console.warn("langfuse_trace_unavailable_nonblocking");
+        }
 
         results.push({
           dispatch_id: dispatchId,
@@ -1363,6 +1399,17 @@ export default {
           error: err
         });
         if (failedUsage.error) console.error("failed usage telemetry write", failedUsage.error);
+        // A trace export failure must never prevent scheduler retry handling.
+        try {
+          await exportLangfuseTrace({
+            dispatchId,attempt,startedAt,completedAt:new Date().toISOString(),
+            route:selectedRouting?.route_key ?? "unknown",
+            model:selectedRouting?.model?.api_model ?? FALLBACK_MODEL,
+            status:"failed"
+          },LANGFUSE_CONFIG);
+        } catch {
+          console.warn("langfuse_trace_unavailable_nonblocking");
+        }
         const retry = await admin.rpc("reschedule_ai_scheduler_dispatch", { p_dispatch_id: dispatchId, p_error: err });
         if (retry.error) console.error("reschedule failed", retry.error);
         results.push({ dispatch_id: dispatchId, status: "failed", attempt, error_type: err.error_type });
@@ -1372,3 +1419,4 @@ export default {
     return Response.json({ ok: true, worker: "me-plus-reasoning-worker", routing_policy: ROUTING_POLICY_VERSION, processed: results.length, results });
   })
 };
+

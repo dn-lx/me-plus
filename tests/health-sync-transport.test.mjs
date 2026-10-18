@@ -48,3 +48,13 @@ test('heart-rate samples preserve all raw values with linear payload growth',()=
 test('server rejects batches larger than 100 readings before writing',()=>{
   assert.throws(()=>parseHealthIngestRequest({...payload,readings:Array.from({length:101},()=>reading)}),/limited to 100 readings/);
 });
+test('logout or disable during retry backoff prevents another HTTP upload', async () => {
+  let active = true; let requests = 0;
+  await assert.rejects(postHealthBatch(payload, 'test-token', 'https://example.test/api', {
+    assertActive: async () => { if (!active) throw new Error('sync cancelled'); },
+    fetch: async () => { requests++; return new Response('retry', {status:500}); },
+    wait: async () => { active = false; },
+  }), /sync cancelled/);
+  assert.equal(requests, 1);
+});
+

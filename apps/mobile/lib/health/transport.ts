@@ -29,11 +29,14 @@ export async function postHealthBatch(
     fetch?: typeof fetch;
     wait?: (milliseconds: number) => Promise<void>;
     timeoutMs?: number;
+    assertActive?: () => Promise<void>;
   } = {},
 ): Promise<HealthIngestResult> {
   const fetchBatch = options.fetch ?? fetch;
   const wait = options.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    // Never begin a fresh request after logout, disable or permission change.
+    await options.assertActive?.();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
     let retryable = true;
@@ -71,3 +74,4 @@ export async function postHealthBatch(
   }
   throw new Error("Health upload failed after bounded retries");
 }
+

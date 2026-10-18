@@ -1,0 +1,111 @@
+{
+  "name": "Me+ tasks read-only acceptance v1",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "read",
+      "name": "Read Me+ tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": false,
+      "onError": "stopWorkflow",
+      "parameters": {
+        "method": "POST",
+        "url": "https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/me-plus-mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/event-stream"
+            },
+            {
+              "name": "MCP-Protocol-Version",
+              "value": "2025-11-25"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"read_state\",\"arguments\":{\"sections\":[\"tasks\"],\"limit\":10}}}",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate and summarize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nif (r.jsonrpc !== '2.0' || r.id !== 1 || r.error || !r.result || r.result.isError) throw new Error('Me+ read failed');\nlet state;\ntry { state = JSON.parse(r.result.content[0].text); } catch { throw new Error('Invalid Me+ response'); }\nif (state.contract !== 'meplus-workspace-v1' || !Array.isArray(state.tasks)) throw new Error('Unexpected Me+ contract');\nreturn [{json: {ok: true, contract: state.contract, task_count: state.tasks.length}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Read Me+ tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Me+ tasks": {
+      "main": [
+        [
+          {
+            "node": "Validate and summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "executionTimeout": 60
+  },
+  "pinData": {}
+}

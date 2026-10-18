@@ -83,7 +83,9 @@ test('full starter copy bootstraps and passes strict validation', async () => {
   const syncOutput = run(projectRoot, ['scripts/sync-claude-skills.mjs', '--write'])
   assert.match(syncOutput, /Claude skill adapters valid:/)
 
-  // A new project must finish its identity and requirements before strict validation.
+  // Explicit incomplete fixtures avoid coupling this guard to real product progress.
+  await writeFile(join(projectRoot, 'README.md'), '# Agent Project Starter\n\nTODO: project identity\n', 'utf8')
+  await writeFile(join(projectRoot, 'docs/REQUIREMENTS.md'), '# Requirements\n\n## [ ] REQ-001 — Short requirement title\n', 'utf8')
   assert.throws(() => run(projectRoot, ['scripts/validate-docs.mjs', '--strict-project']))
 
   await writeFile(join(projectRoot, 'README.md'),

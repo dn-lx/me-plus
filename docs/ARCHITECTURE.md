@@ -2,6 +2,8 @@
 
 **Revision:** 17 October 2026. Current-source facts and proposed improvements are distinguished below. The target design is described in [ADR 0002](adr/0002-meplus2-modular-core-and-adapters.md), currently proposed. This documentation revision changes no runtime.
 
+> Delivery update18October: PR77 backend source and PR84 light web/native0.4.2 are integrated. Android uses hosted Windows; the current collector supports180-minute background scheduling and acknowledged replay checkpoints. Historical audit observations below describe17October and must not override current source or runtime evidence.
+
 ## System shape
 
 Me+ is one personal-intelligence product with first-class web and native clients, conversational access and canonical Supabase state. Preserve its small modular core and make provider/runtime adapters replaceable.
