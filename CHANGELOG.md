@@ -6,6 +6,7 @@
 - Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
 
 ### Fixed
+- Android 0.4.3/code9 checkpoints acknowledged SHA-256 reading digests within dense scan/change windows so a worker deadline cannot repeatedly starve the remaining samples. Same-account token refresh no longer cancels a healthy sync.
 - Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The reviewed server batch-key repair is now applied and real multi-batch uploads succeed.
 - Normalize typed Health Connect unit aliases before existing quality validation; repair only proven automatic unit rejections while retaining raw evidence and manual corrections.
 - Publish the exact signed 0.4.2 installer and complete Companion navigation across legal/banking pages. Server status distinguishes batch acknowledgement from full phone catch-up.
