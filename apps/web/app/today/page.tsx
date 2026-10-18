@@ -103,7 +103,7 @@ export default async function TodayPage() {
 
       {queryError ? (
         <section className="appCard calmAlert" role="alert">
-          <h2 style={{ fontSize: "1.15rem", marginBottom: 6, color: "#fca5a5" }}>
+          <h2 style={{ fontSize: "1.15rem", marginBottom: 6, color: "#a12836" }}>
             Unable to Load Priorities
           </h2>
           <p style={{ margin: 0 }}>

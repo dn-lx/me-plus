@@ -31,6 +31,22 @@ export function AutomaticHealthSyncCard() {
     const timer = setInterval(() => { void refresh().catch(() => {}); }, 2000);
     return () => { active = false; clearInterval(timer); };
   }, []);
+  useEffect(() => {
+    if (state === 'synced') setMessage('All pending health uploads are confirmed.');
+    else if (state === 'running') setMessage('Uploading from saved progress…');
+    else if (state === 'retry') setMessage('The last upload was not confirmed. Your saved progress is retained.');
+  }, [state]);
+  const retry = async () => {
+    if (!owner || busy) return;
+    setBusy(true); setMessage('Retrying from saved progress…');
+    try {
+      const session = await supabase.auth.getSession();
+      if (session.data.session?.user.id !== owner) throw new Error('Account changed.');
+      await runAutomaticHealthSync(false, true);
+      setMessage('Sync attempt finished. Check the last successful sync above.');
+    } catch { setMessage('Upload not confirmed. Your progress is saved; please retry later.'); }
+    finally { setBusy(false); }
+  };
   const toggle = async () => {
     if (!owner) return;
     setBusy(true);
@@ -66,10 +82,11 @@ export function AutomaticHealthSyncCard() {
       {enabled && registered ? 'Scheduled every 3 hours' : enabled ? 'Background schedule needs attention' : 'Automatic sync is off'}
       {'\n'}Android may delay runs for battery or network conditions. Every due sync replays at least 24 hours; older unsent progress is retained. Open Me+ after a force-stop to resume.
     </Text>
-    <Text style={{ color: '#526875', lineHeight: 22 }}>Last successful automatic sync: {lastSuccess ? new Date(lastSuccess).toLocaleString() : 'Not yet'}{'\n'}Status: {state === 'retry' ? 'Will retry from saved progress' : state === 'permission_required' ? 'Health Connect permission needed' : state}</Text>
+    <Text style={{ color: '#526875', lineHeight: 22 }}>Last successful automatic sync: {lastSuccess ? new Date(lastSuccess).toLocaleString() : 'Not yet'}{'\n'}Status: {state === 'running' ? 'Uploading from saved progress' : state === 'retry' ? 'Will retry from saved progress' : state === 'permission_required' ? 'Health Connect permission needed' : state}</Text>
     <Pressable accessibilityRole="button" disabled={!owner || busy} onPress={() => { void toggle(); }} style={{ backgroundColor: '#2464d9', opacity: !owner || busy ? 0.45 : 1, borderRadius: 12, padding: 16 }}>
       <Text style={{ color: '#ffffff', fontWeight: '700' }}>{busy ? 'Updating…' : enabled ? 'Turn off automatic sync' : 'Enable sync every 3 hours'}</Text>
     </Pressable>
+    {enabled ? <Pressable accessibilityRole="button" disabled={!owner || busy || state === 'running'} onPress={() => { void retry(); }} style={{ minHeight: 48, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#bfced8', opacity: busy || state === 'running' ? 0.45 : 1 }}><Text style={{ color: '#2464d9', fontWeight: '700' }}>{busy ? 'Working…' : 'Retry sync now'}</Text></Pressable> : null}
     {message ? <Text accessibilityLiveRegion="polite" style={{ color: '#152d3a', lineHeight: 22 }}>{message}</Text> : null}
   </View>;
 }

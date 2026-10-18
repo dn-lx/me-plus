@@ -16,6 +16,7 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      EXPO_PUBLIC_ME_PLUS_API_URL: https://api.example.test
       EXPO_NO_TELEMETRY: '1'
       CI: 'true'
     steps:

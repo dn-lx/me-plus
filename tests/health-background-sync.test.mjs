@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { collectHealthChanges } from '../apps/mobile/lib/health/health-sync-engine.ts';
-import { syncIsDue, HEALTH_SYNC_INTERVAL_MINUTES } from '../apps/mobile/lib/health/sync-policy.ts';
+import { syncIsDue, normalizeHealthSyncStatus, HEALTH_SYNC_INTERVAL_MINUTES } from '../apps/mobile/lib/health/sync-policy.ts';
 
 test('three-hour cadence is due at 180 minutes and recovers invalid/future timestamps', () => {
   const now = Date.parse('2026-10-17T12:00:00Z');
@@ -103,3 +103,11 @@ test('failed day replay retains its original unsent window across later attempts
   assert.equal(windows.at(-1)[1],originalEnd);
   assert.equal(state.has('replay'),false);
 });
+
+ test('interrupted worker status expires without advancing the success watermark',()=>{
+ const now=Date.parse('2026-10-18T00:00:00Z'), lastSuccess='2026-10-17T12:00:00Z';
+ for(const updatedAt of [undefined,'invalid',new Date(now-300000).toISOString(),new Date(now+1000).toISOString()]) assert.deepEqual(normalizeHealthSyncStatus({state:'running',lastSuccess,updatedAt},now).state,'retry');
+ assert.equal(normalizeHealthSyncStatus({state:'running',lastSuccess,updatedAt:new Date(now-299999).toISOString()},now).state,'running');
+ assert.equal(normalizeHealthSyncStatus({state:'running',lastSuccess},now).lastSuccess,lastSuccess);
+ assert.deepEqual(normalizeHealthSyncStatus({state:'bogus',lastSuccess:'bad'},now),{state:'idle',lastSuccess:null});
+ });

@@ -131,7 +131,7 @@ export default function DownloadPage() {
         </section>
       ) : (
         <section className="appCard calmAlert" role="alert">
-          <h2 style={{ fontSize: "1.2rem", marginBottom: 8, color: "#fca5a5" }}>
+          <h2 style={{ fontSize: "1.2rem", marginBottom: 8, color: "#a12836" }}>
             Android Package Unavailable
           </h2>
           <p style={{ margin: 0 }}>

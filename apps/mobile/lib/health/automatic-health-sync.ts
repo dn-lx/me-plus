@@ -5,7 +5,7 @@ import { getHealthConnectPermissionState, readHealthConnectChanges, scanHealthCo
 import { syncHealthConnectReadings } from './sync-health-readings';
 import { collectHealthChanges } from './health-sync-engine';
 import { healthSyncScope } from './health-sync-scope';
-import { syncIsDue, type SyncStatus } from './sync-policy';
+import { syncIsDue, normalizeHealthSyncStatus, type SyncStatus } from './sync-policy';
 
 const enabledKey = (owner: string) => `me-plus.health.auto.v1:${owner}`;
 const statusKey = (owner: string) => `me-plus.health.status.v1:${owner}`;
@@ -25,8 +25,7 @@ export function cancelHealthSync() { generation += 1; }
 
 export function getHealthSyncStatus(owner: string): SyncStatus {
   try {
-    const saved = JSON.parse(localStorage.getItem(statusKey(owner)) ?? 'null') as SyncStatus | null;
-    if (saved && ['idle', 'running', 'synced', 'retry', 'permission_required'].includes(saved.state)) return saved;
+    return normalizeHealthSyncStatus(JSON.parse(localStorage.getItem(statusKey(owner)) ?? 'null'));
   } catch { /* use empty status */ }
   return { state: 'idle', lastSuccess: null };
 }
@@ -47,7 +46,7 @@ async function run(background: boolean, force: boolean) {
   if (!force && !syncIsDue(current.lastSuccess)) return;
   const permissions = await getHealthConnectPermissionState();
   const saveStatus = (state: SyncStatus['state'], lastSuccess = current.lastSuccess) => {
-    localStorage.setItem(statusKey(owner), JSON.stringify({ state, lastSuccess }));
+    localStorage.setItem(statusKey(owner), JSON.stringify({ state, lastSuccess, updatedAt: new Date().toISOString() }));
   };
   if (!permissions.recordReadTypes.length || (background && !permissions.backgroundRead)) {
     saveStatus('permission_required');
