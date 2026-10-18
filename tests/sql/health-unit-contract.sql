@@ -3,8 +3,12 @@ do $$
 declare oid uuid; row public.observations%rowtype;
 begin
  if (select count(*) from public.observations o join unit_cases c on c.observation_id=o.id
-     where c.label in ('legacy-oxygen','legacy-energy','legacy-weight') and o.quality='source' and o.confidence=1 and not(o.provenance?'qualityReason'))<>3
+     where c.label in ('legacy-oxygen','legacy-energy','legacy-weight','legacy-precision') and o.quality='source' and o.confidence=1 and not(o.provenance?'qualityReason'))<>4
  then raise exception 'valid legacy aliases were not rehabilitated'; end if;
+ if not exists(select 1 from public.observations o join unit_cases c on c.observation_id=o.id
+   where c.label='legacy-precision' and o.unit='kcal'
+   and c.raw_before->'value'='123.1234567890123456789'::jsonb)
+ then raise exception 'high precision calorie alias not normalized'; end if;
  if not exists(select 1 from public.observations o join unit_cases c on c.observation_id=o.id where c.label='legacy-zero' and o.unit='kcal'
    and o.quality='accepted_with_warning' and o.confidence=0.6 and o.provenance->>'qualityReason'='zero_energy_value_requires_context')
  then raise exception 'zero energy warning was lost'; end if;

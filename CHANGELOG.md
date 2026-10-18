@@ -15,6 +15,7 @@
 - SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
 
 ### Added
+- Owner-approved seven-day high-frequency Health Connect row/payload compaction: retain packed normalized provenance and quality-aware daily summaries, preserve corrections/references, deduplicate archived revisions, and record bounded daily maintenance audits/heartbeats.
 - Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
 
 ### Fixed
