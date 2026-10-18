@@ -8,17 +8,19 @@ declare
 begin
   input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
   result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('a',64))));
-  if result ? 'error' then raise exception 'First batch failed: %',result; end if;
+  if result ? 'error' or (result->>'recordsCreated')::int is distinct from 1 or result->>'syncRunId' is null then raise exception 'First batch failed: %',result; end if;
   ds := (result->>'dataSourceId')::uuid; first_run := (result->>'syncRunId')::uuid;
   reading := reading || '{"externalId":"two"}';
   input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
   -- The unfixed guard rejects this with source_sync_already_completed / P0001.
   result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('b',64))));
-  if result ? 'error' or (result->>'recordsCreated')::int <> 1 then raise exception 'Second batch failed: %',result; end if;
+  if result ? 'error' or (result->>'recordsCreated')::int is distinct from 1 then raise exception 'Second batch failed: %',result; end if;
   if (select metadata->>'runKey' from public.source_sync_runs where id=first_run) =
      (select metadata->>'runKey' from public.source_sync_runs where id=(result->>'syncRunId')::uuid) then raise exception 'Batch run keys collided'; end if;
+  if (select metadata->>'runKey' from public.source_sync_runs where id=first_run) is distinct from ('health_batch:' || first_run::text)
+     or (select metadata->>'runKey' from public.source_sync_runs where id=(result->>'syncRunId')::uuid) is distinct from ('health_batch:' || (result->>'syncRunId')) then raise exception 'Missing or incorrect health run key'; end if;
   result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('b',64))));
-  if (result->>'recordsCreated')::int <> 0 or (select count(*) from public.observations where data_source_id=ds) <> 2 then raise exception 'Retry duplicated records'; end if;
+  if result ? 'error' or (result->>'recordsCreated')::int is distinct from 0 or (select count(*) from public.observations where data_source_id=ds) <> 2 then raise exception 'Retry duplicated records'; end if;
   if exists(select 1 from private.source_sync_leases where data_source_id=ds) then raise exception 'Completed batch retained lease'; end if;
   -- Ordinary sync callers retain their completed-run protection.
   insert into public.source_sync_runs(user_id,data_source_id,status,metadata) values(owner,ds,'running','{"runKey":"ordinary","syncPurpose":"ordinary"}');

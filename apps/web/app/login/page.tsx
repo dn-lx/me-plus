@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "../../lib/supabase/client";
 import { SiteNav } from "../components/site-nav";
 
-const ALLOWED_NEXT_PATHS = ["/today", "/review"] as const;
+const ALLOWED_NEXT_PATHS = ["/today", "/plan", "/capture", "/review", "/more"] as const;
 
 function sanitizeNextPath(raw: string | null): string {
   if (!raw) return "/today";
@@ -105,7 +105,7 @@ function LoginForm() {
                 borderRadius: 10,
                 background: "rgba(248, 113, 113, 0.14)",
                 border: "1px solid rgba(248, 113, 113, 0.3)",
-                color: "#fca5a5",
+                color: "#a12836",
                 fontSize: "0.85rem",
               }}
             >

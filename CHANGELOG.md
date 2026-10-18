@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
+
+### Fixed
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The separate server batch repair remains pending connector recovery.
+
 - Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
 
 - Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.

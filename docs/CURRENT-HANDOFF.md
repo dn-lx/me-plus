@@ -5,15 +5,15 @@ Canonical specs: Google Drive. Operational state: Supabase. Implementation/check
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-APP-020",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-17T18:30:00Z"
+  "branch": "fix/me2-sync-web-brand",
+  "pr": 84,
+  "status": "testing",
+  "last_verified_sha": "d8a154bcb0b419e2e579b0904921ef934c329336",
+  "next_step": "Verify v2 web/health status and build Android0.4.2; live repair blocked by Supabase connector requestState.",
+  "updated_at": "2026-10-18T00:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
