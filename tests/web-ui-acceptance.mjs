@@ -1,7 +1,11 @@
 // Hosted-only browser QA: a loopback Supabase fixture, never a live account.
 import {createServer} from 'node:http';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,readdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+const releaseDir=new URL('../releases/android/',import.meta.url);
+const releaseNames=(await readdir(releaseDir)).filter(name=>/^\d+\.\d+\.\d+\.json$/.test(name)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+assert(releaseNames.length>0,'A published release metadata file is required');
+const expectedRelease=JSON.parse((await readFile(new URL(releaseNames.at(-1),releaseDir),'utf8')).replace(/^\uFEFF/,''));
 const playwright=await import(process.env.PLAYWRIGHT_MODULE);
 const {chromium}=playwright.default??playwright;
 const out=process.env.UI_QA_OUTPUT||'/tmp/meplus-web-ui';await mkdir(out,{recursive:true});
@@ -25,7 +29,13 @@ try{for(const width of [360,1363]){
  const base='http://localhost:8765';await page.goto(base);await page.getByRole('heading',{name:'A calmer day. One useful next step.'}).waitFor();
  assert.equal(await page.locator('img.brandMark').evaluate(img=>img.complete&&img.naturalWidth>0),true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await page.screenshot({path:`${out}/home-${width}.png`,fullPage:true});
- await page.getByRole('link',{name:'Get the Android app',exact:true}).click();await page.getByRole('heading',{name:'Download Me+',exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`${out}/download-${width}.png`,fullPage:true});
+ await page.getByRole('link',{name:'Get the Android app',exact:true}).click();await page.getByRole('heading',{name:'Download Me+',exact:true}).waitFor();
+ await page.getByRole('heading',{name:`Me+ ${expectedRelease.version}`,exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:`Download ${expectedRelease.filename}`,exact:false}).getAttribute('href'),expectedRelease.publicDownloadPath);
+ assert((await page.locator('main').innerText()).includes(expectedRelease.sha256));
+ const apkResponse=await fetch(base+expectedRelease.publicDownloadPath);assert.equal(apkResponse.status,200);
+ const apkBytes=Buffer.from(await apkResponse.arrayBuffer());assert.equal(apkBytes.length,expectedRelease.sizeBytes);
+ assert.equal((await import('node:crypto')).createHash('sha256').update(apkBytes).digest('hex'),expectedRelease.sha256);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`${out}/download-${width}.png`,fullPage:true});
  await page.getByRole('link',{name:'Plan',exact:true}).click();await page.getByRole('heading',{name:'Sign in to Me+',exact:true}).waitFor();assert(new URL(page.url()).searchParams.get('next')==='/plan');
  const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');const token=`${enc({alg:'HS256',typ:'JWT'})}.${enc({sub:owner,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated'})}.qa-only`;
  const session={access_token:token,token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,refresh_token:'qa-only',user};
