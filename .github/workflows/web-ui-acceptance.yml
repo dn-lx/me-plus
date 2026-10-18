@@ -2,7 +2,7 @@ name: Me+ v2 web browser acceptance
 on:
   pull_request:
     branches: [dev]
-    paths: ['apps/web/**', 'tests/web-ui-acceptance.mjs', '.github/workflows/web-ui-acceptance.yml']
+    paths: ['apps/web/**', 'tests/web-ui-acceptance.mjs', '.github/workflows/web-ui-acceptance.yml', 'scripts/verify-web-server-traces.mjs']
 permissions:
   contents: read
 concurrency:
@@ -30,6 +30,8 @@ jobs:
           node-version: '22'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:web
+      - name: Verify static installers stay out of server bundles
+        run: node scripts/verify-web-server-traces.mjs
       - name: Install isolated browser harness
         run: |
           npm install --prefix /tmp/meplus-web-ui-runtime playwright@1.58.2

@@ -12,7 +12,12 @@ const nextConfig: NextConfig = {
     "/": ["../../releases/android/*.json", "./releases/android/*.json"],
   },
   outputFileTracingExcludes: {
-    "/*": ["../../releases/android/parts/**", "./releases/android/parts/**"],
+    "/*": [
+      "../../releases/android/parts/**",
+      "./releases/android/parts/**",
+      "./public/downloads/**",
+      "../../apps/web/public/downloads/**",
+    ],
   },
 };
 
