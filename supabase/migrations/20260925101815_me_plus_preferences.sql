@@ -1,0 +1,10 @@
+create table public.preferences (id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,key text not null,value jsonb not null,scope text not null default 'general',created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(user_id,key,scope));
+create index preferences_user_idx on public.preferences(user_id);
+create trigger preferences_updated before update on public.preferences for each row execute function public.set_updated_at();
+alter table public.preferences enable row level security;
+grant select,insert,update,delete on public.preferences to authenticated;
+revoke all on public.preferences from anon;
+create policy preferences_select on public.preferences for select to authenticated using ((select auth.uid())=user_id);
+create policy preferences_insert on public.preferences for insert to authenticated with check ((select auth.uid())=user_id);
+create policy preferences_update on public.preferences for update to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy preferences_delete on public.preferences for delete to authenticated using ((select auth.uid())=user_id);

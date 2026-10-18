@@ -1,146 +1,33 @@
 # Current Handoff
 
-**Last updated:** 2026-09-27
-
-This file is the compact recovery record for unfinished work. GitHub/source/tests remain authoritative when they disagree with this handoff.
+**Last updated:** 2026-10-18
+Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "netlify-dev-build",
-  "repository": "dn-lx/me-plus",
+  "task_id": null,
+  "repository": null,
   "base": "dev",
-  "branch": "dev",
-  "pr": 11,
-  "status": "netlify_runtime_fix_merged",
-  "last_verified_sha": "f7fd33e1f6a11ca8573fe0790178bb63bc7af148",
-  "next_step": "Wait for the Netlify dev branch deploy from PR #11, then verify /, /privacy, /terms, and the N26 callback. The Next.js runtime adapter is now explicitly installed because Netlify had detected 0 frameworks and was serving raw .next output as static files.",
-  "updated_at": "2026-09-27T09:01:00Z"
+  "branch": null,
+  "pr": null,
+  "status": "idle",
+  "last_verified_sha": null,
+  "next_step": null,
+  "updated_at": "2026-10-18T00:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Current state
+## Current delivery
+- PR#84 / ME2-APP-020: website aligned with native v2 light design and Companion logo/icons. Today, Plan, Capture, Review, More. Capture confirms exact owner/content; drafts clear on account changes. More reads owner-scoped server upload acknowledgements. Plan/evidence: docs/plans/ME2-APP-020-sync-web-brand.md.
+- Native target0.4.2/code8: expire interrupted running state after5minutes and explicit retry. Saved cursors/replay windows and last successful acknowledgement remain intact. A newly compiled/verified artifact is required; do not relabel0.4.1.
+- Dev-only app publication authorized. GitHub operations MCP only. Supabase projectwbqnctrvxohxwiaignhg is shared; no production app merge/deployment or unrelated schema/live test writes.
 
-The runtime scaffold remains open as draft PR #4 (`feature/runtime-scaffold` → `dev`). GitHub Actions jobs on that work have been failing before a runner/steps are assigned, so CI has not validated the workspace.
+## Unresolved health upload blocker
+- Live19:36UTC logs17October: source_sync_already_completed. Readback: approved a_health_batch_run_key_before_insert trigger still absent. Fresh apply_migration again fails Invalid or expired requestState. Connector reads work. Root-cause repair is not live; do not claim uploads fixed. Narrow migration already owner-approved; alternate browser fallback needs user approval under browser connector policy.
+- Existing reviewed migration20261017145227_health_batch_unique_run_key.sql gives distinct health batch run keys while source leases and raw revision deduplication remain. Independent review found no migration blocker; nullable SQL assertions strengthened. No unrelated migrations may be applied.
 
-The focused N26 integration is being built on `feature/n26-open-banking`, based on the runtime scaffold rather than `prod` or `dev`.
-
-Implemented on the N26 branch:
-- Enable Banking server client with RS256 application JWT authentication
-- signed short-lived callback state
-- authenticated N26 connection-start endpoint
-- authorization callback that exchanges the code for a provider session
-- read-only normalization of N26 accounts, balances and recent transactions into the existing finance tables
-- source/consent/sync/raw provenance recording
-- authenticated resync endpoint
-- server-only configuration placeholders
-- setup/security documentation
-
-No live N26 authorization has been performed yet. No N26 credentials, PIN, TAN or provider private key are stored in the repository. The integration remains read-only.
-
-## Supabase status
-
-The live Me+ schema was inspected before implementation. Existing tables already support this first N26 slice:
-- `data_sources`
-- `consents`
-- `source_sync_runs`
-- `raw_events`
-- `financial_accounts`
-- `financial_transactions`
-- `financial_snapshots`
-- `recurring_financial_commitments`
-
-No live Supabase DDL/schema changes were made for the N26 integration.
-
-## Validation boundary
-
-Do not claim the N26 connection is complete until all of the following are verified:
-1. Enable Banking application created and restricted production activated for the owner's N26 account.
-2. Server secrets configured outside the repository.
-3. Workspace install/typecheck/web build pass.
-4. Explicit N26 consent completes through the redirect flow.
-5. Initial account/balance/transaction sync is checked against N26.
-6. RLS/user ownership is verified for the resulting finance rows.
-
-## Recovery rule
-
-Resume `feature/n26-open-banking`. Do not recreate the integration or mutate the live finance schema unless source inspection proves it is required. Keep the integration read-only until a separate, explicit payment-initiation decision is made.
-
-## Production path
-
-The dependency chain is currently:
-
-`feature/n26-open-banking` → `feature/runtime-scaffold` → `dev` → `prod`
-
-Production promotion remains explicit human approval only.
-
-
-## Netlify callback
-
-A Netlify project was created for Me+ on 2026-09-27. The requested name `me-plus` was unavailable, so Netlify assigned `me-plus-personal-intelligence`.
-
-Use this permanent callback URL for Enable Banking:
-
-`https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
-
-The Netlify project exists but the Me+ runtime has not yet been deployed/validated there. Do not treat the callback as live until deployment and server-secret configuration are complete.
-
-The Netlify project was renamed to `me-plus-personal-intelligence` for a stable, descriptive project/site name.
-
-
-## Deployment preparation — 2026-09-27
-
-Implemented and committed on `feature/n26-open-banking`:
-- public `/privacy` page for the current read-only banking integration
-- public `/terms` page for the current personal-use scope
-- homepage links to Privacy and Terms
-- root `netlify.toml` for the pnpm/Next.js web build
-
-Netlify project `me-plus-personal-intelligence`:
-- public visitor access is enabled so Open Banking redirects and legal pages are not blocked by Netlify team SSO
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ENABLE_BANKING_REDIRECT_URL`, and `ME_PLUS_ALLOW_FIXTURE_INGEST=false` are configured
-- GitHub repository is not yet linked; deployment is waiting for that explicit user action
-- `SUPABASE_SECRET_KEY`, `ENABLE_BANKING_APPLICATION_ID`, `ENABLE_BANKING_PRIVATE_KEY`, and `ENABLE_BANKING_STATE_SECRET` are still intentionally unset
-
-Permanent URLs after deployment:
-- `https://me-plus-personal-intelligence.netlify.app/privacy`
-- `https://me-plus-personal-intelligence.netlify.app/terms`
-- `https://me-plus-personal-intelligence.netlify.app/api/finance/n26/callback`
-
-
-## Netlify repository link correction — 2026-09-27
-
-Netlify is now connected to GitHub repository `dn-lx/me-plus`, but the first production deploy used GitHub branch `prod` at commit `be476f54b375df963003fb391d91236546feaa70`. That branch predates the runtime scaffold and produced a ready deploy with no Next.js functions, so the primary site returns Netlify's 404 page.
-
-Required user-side Netlify setting:
-- change the Netlify production branch from `prod` to `feature/n26-open-banking`
-- trigger a new deploy
-
-Do not merge or modify the GitHub `prod` branch for this fix.
-
-
-## Dev CI repair — 2026-09-27
-
-A focused fix branch `fix/dev-ci-validation` and PR #7 were created from `dev`.
-
-Repository-side CI corrections:
-- stable `actions/checkout@v4`, `actions/setup-node@v4`, and `actions/setup-python@v5`
-- corrected pnpm action to `pnpm/action-setup@v4`
-- dependency audit now understands the pnpm workspace instead of requiring an npm lockfile
-- runtime validation no longer tries to commit/push a generated lockfile from CI
-- runtime validation uses read-only permissions and validates PRs/pushes for `dev`
-
-Verification after these fixes still shows every GitHub Actions job failing before a runner is assigned: job steps are null/empty and no logs are produced. This persists across security, runtime, version, and agent-stack workflows. Therefore the remaining red status is an external GitHub-hosted-runner/account/repository Actions availability issue, not a demonstrated workflow-step or application-test failure.
-
-Do not weaken or remove the validation jobs merely to make checks green. Merge the repository-side repair to `dev`, keep `prod` unchanged, and rerun when GitHub runner availability is restored.
-
-
-## Netlify dependency fixes — 2026-09-27
-
-Two dev-only fixes were merged after real Netlify build logs exposed dependency bootstrap issues:
-
-- PR #8 moved Netlify to Node 24, retained pnpm 12.6.0, and removed redundant Corepack/manual install commands from the Netlify build command.
-- PR #9 replaced invalid `workspace:catalog` dependency specifiers with pnpm's `catalog:` protocol in web/mobile/reasoning/ui package manifests.
-
-Current `dev` SHA: `24756b4a1426c46e7d95205b67677ae0323ac7bb`.
-
-Next validation: rerun the Netlify build from `dev`. Do not promote new fixes to `prod` until the dev build reaches the actual application compilation step and succeeds.
+## Verified previous installer
+- Published0.4.1/code7 built from1f534d1;44,808,768bytes;SHA25611eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Companion launcher independently checked. Dev distribution uses six parts and fail-closed assembly. Prior details:docs/plans/ME2-APP-019-native-core-sync.md.
+- Android hosted Windows builder authorized17October; no local runner prerequisite. Netlify primary production deploy6ab8d3e80c341219b5881e92 stays locked. Promote dev→prod only with specific approval. PR#79 older0.4.0 remains superseded/unmerged.
+- Physical phone/background/reboot/offline and actual authenticated two-user acceptance remain pending. Synthetic browser/SQL checks cannot establish device acceptance.
+- Temporary Netlify branch allowlist fix/me2-sync-web-brand for exact-head preview must be removed after development publication; keep dev,v2 and prod unchanged.

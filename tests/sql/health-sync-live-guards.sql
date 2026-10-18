@@ -1,40 +1,10 @@
-create table if not exists private.source_sync_leases (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  data_source_id uuid not null references public.data_sources(id) on delete cascade,
-  sync_purpose text not null check (char_length(sync_purpose) between 1 and 80),
-  run_key text not null check (char_length(run_key) between 1 and 240),
-  sync_run_id uuid not null,
-  attempt integer not null check (attempt between 1 and 20),
-  max_attempts integer not null check (max_attempts between 1 and 20),
-  acquired_at timestamptz not null default now(),
-  expires_at timestamptz not null,
-  updated_at timestamptz not null default now(),
-  primary key (user_id, data_source_id, sync_purpose),
-  constraint source_sync_leases_run_fkey
-    foreign key (sync_run_id)
-    references public.source_sync_runs(id)
-    on delete cascade
-    deferrable initially deferred
-);
-
-alter table private.source_sync_leases enable row level security;
-revoke all on private.source_sync_leases from public, anon, authenticated, service_role;
-
-create index if not exists source_sync_runs_run_key_idx
-  on public.source_sync_runs (
-    user_id,
-    data_source_id,
-    ((metadata->>'syncPurpose')),
-    ((metadata->>'runKey'))
-  )
-  where metadata ? 'runKey';
-
-create or replace function private.guard_source_sync_run_insert()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
+-- Read-only catalog recovery 2026-10-17 from Me+; no private row data.
+CREATE OR REPLACE FUNCTION private.guard_source_sync_run_insert()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
 declare
   v_now timestamptz := clock_timestamp();
   v_purpose text;
@@ -206,14 +176,14 @@ begin
 
   return new;
 end;
-$$;
+$function$;
 
-create or replace function private.release_source_sync_lease()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
+CREATE OR REPLACE FUNCTION private.release_source_sync_lease()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
 declare
   v_purpose text;
 begin
@@ -229,19 +199,5 @@ begin
 
   return new;
 end;
-$$;
+$function$;
 
-drop trigger if exists source_sync_run_guard_before_insert on public.source_sync_runs;
-create trigger source_sync_run_guard_before_insert
-before insert on public.source_sync_runs
-for each row execute function private.guard_source_sync_run_insert();
-
-drop trigger if exists source_sync_run_release_after_terminal on public.source_sync_runs;
-create trigger source_sync_run_release_after_terminal
-after update of status on public.source_sync_runs
-for each row execute function private.release_source_sync_lease();
-
-revoke all on function private.guard_source_sync_run_insert()
-from public, anon, authenticated, service_role;
-revoke all on function private.release_source_sync_lease()
-from public, anon, authenticated, service_role;

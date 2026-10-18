@@ -1,6 +1,6 @@
 {
   "name": "me-plus",
-  "version": "0.1.0",
+  "version": "0.4.2",
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "engines": {
@@ -9,9 +9,13 @@
   "scripts": {
     "dev:web": "pnpm --filter @me-plus/web dev",
     "dev:mobile": "pnpm --filter @me-plus/mobile start",
-    "build:web": "pnpm --filter @me-plus/web build",
+    "build:web": "node scripts/ensure-next-install.mjs && node scripts/build-web.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
-    "check": "pnpm typecheck"
+    "check": "pnpm test:integration && pnpm typecheck",
+    "test:finance": "node --experimental-strip-types --test tests/n26-account-identity.test.mjs",
+    "test:health": "node --experimental-strip-types --test tests/health-freshness.test.mjs tests/health-ingestion-consistency.test.mjs tests/health-sync-transport.test.mjs",
+    "test:integration": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:gateway": "node --experimental-strip-types --test tests/meplus-gateway.test.mjs"
   },
   "devDependencies": {
     "typescript": "6.0.3",

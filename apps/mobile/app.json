@@ -3,18 +3,55 @@
     "name": "Me+",
     "slug": "me-plus",
     "scheme": "meplus",
-    "version": "0.1.0",
+    "version": "0.4.2",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router", "expo-sqlite"],
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26,
+            "buildArchs": [
+              "arm64-v8a"
+            ]
+          }
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "android": {
-      "package": "app.meplus.mobile"
+      "package": "app.meplus.mobile",
+      "versionCode": 8,
+      "permissions": [
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_OXYGEN_SATURATION",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "../../brand/companion/android/adaptive-foreground.png",
+        "backgroundImage": "../../brand/companion/android/adaptive-background.png",
+        "monochromeImage": "../../brand/companion/android/adaptive-monochrome.png",
+        "backgroundColor": "#121C32"
+      }
     },
     "ios": {
       "bundleIdentifier": "app.meplus.mobile"
-    }
+    },
+    "icon": "../../brand/companion/android/launcher-1024.png"
   }
 }

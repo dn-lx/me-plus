@@ -4,6 +4,12 @@ import type { FinanceSyncResult } from "@me-plus/contracts";
 
 import { createAdminClient } from "../supabase/admin";
 import {
+  isN26IdentityBootstrapMatch,
+  n26RawTransactionExternalRecordId,
+  previousExternalAccountRefs,
+  resolveProviderAccountIdentityHashes,
+} from "./n26-account-identity";
+import {
   getEnableBankingAccountBalances,
   getEnableBankingAccountDetails,
   getEnableBankingAccountTransactions,
@@ -23,6 +29,33 @@ function throwIfError(error: { message: string } | null, context: string): void 
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+async function withProviderStage<T>(
+  stage: "account_details" | "account_balances" | "account_transactions",
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_provider_error";
+    throw new Error(`Enable Banking stage ${stage} failed: ${message}`);
+  }
+}
+
+function userCorrectedFields(metadata: unknown): ReadonlySet<string> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return new Set();
+  }
+
+  const value = (metadata as Record<string, unknown>).userCorrectedFields;
+  if (!Array.isArray(value)) {
+    return new Set();
+  }
+
+  return new Set(
+    value.filter((field): field is string => typeof field === "string" && field.length > 0),
+  );
 }
 
 function toTimestamp(value: string | undefined): string | null {
@@ -210,8 +243,13 @@ async function syncFinancialAccount(
   userId: string,
   dataSourceId: string,
   account: EnableBankingAccount,
+  sessionAccount: EnableBankingAccount,
   balances: readonly EnableBankingBalance[],
-): Promise<{ id: string; created: boolean }> {
+): Promise<{
+  id: string;
+  created: boolean;
+  providerAccountIdentityHash: string | null;
+}> {
   const currentBalance = pickBalance(balances, ["CLBD", "ITBD", "CLAV"]);
   const availableBalance = pickBalance(balances, ["CLAV", "ITAV", "FWAV"]);
   const balanceReference =
@@ -220,49 +258,193 @@ async function syncFinancialAccount(
     availableBalance?.last_change_date_time ??
     availableBalance?.reference_date;
   const balanceAsOf = toTimestamp(balanceReference) ?? new Date().toISOString();
+  const providerAccountIdentityHashes = resolveProviderAccountIdentityHashes(
+    account,
+    sessionAccount,
+  );
+  const preferredProviderAccountIdentityHash =
+    providerAccountIdentityHashes[0] ?? null;
+  const normalizedAccountType = accountType(account.cash_account_type);
+  const normalizedCurrency =
+    account.currency ??
+    currentBalance?.balance_amount.currency ??
+    availableBalance?.balance_amount.currency ??
+    "EUR";
+  const normalizedMaskedIban = maskedIban(account);
 
-  const values = {
-    provider: "n26",
-    account_type: accountType(account.cash_account_type),
-    display_name: account.name || account.product || "N26 account",
-    currency:
-      account.currency ??
-      currentBalance?.balance_amount.currency ??
-      availableBalance?.balance_amount.currency ??
-      "EUR",
-    current_balance: amountFromBalance(currentBalance),
-    available_balance: amountFromBalance(availableBalance),
-    balance_as_of: balanceAsOf,
-    active: true,
-    metadata: {
-      upstreamProvider: "enable-banking",
-      usage: account.usage ?? null,
-      product: account.product ?? null,
-      cashAccountType: account.cash_account_type ?? null,
-      psuStatus: account.psu_status ?? null,
-      maskedIban: maskedIban(account),
-      accountServicer: account.account_servicer?.name ?? "N26",
-    },
-  };
-
-  const existing = await client
+  const existingByUid = await client
     .from("financial_accounts")
-    .select("id")
+    .select(
+      "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
+    )
     .eq("user_id", userId)
     .eq("data_source_id", dataSourceId)
     .eq("external_account_ref", account.uid)
     .maybeSingle();
 
-  throwIfError(existing.error, `Unable to look up N26 account ${account.uid}`);
+  throwIfError(existingByUid.error, `Unable to look up N26 account ${account.uid}`);
 
-  if (existing.data?.id) {
+  let existing = existingByUid.data;
+  let identityMatchReason: string | null = existing ? "session_uid" : null;
+
+  if (!existing && providerAccountIdentityHashes.length > 0) {
+    const existingByIdentity = await client
+      .from("financial_accounts")
+      .select(
+        "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
+      )
+      .eq("user_id", userId)
+      .eq("data_source_id", dataSourceId)
+      .in("provider_account_identity_hash", [...providerAccountIdentityHashes])
+      .maybeSingle();
+
+    throwIfError(
+      existingByIdentity.error,
+      "Unable to reconcile N26 account by provider identity",
+    );
+    existing = existingByIdentity.data;
+    if (existing) {
+      identityMatchReason = "identification_hash";
+    }
+  }
+
+  // The production account predates stable-identity persistence. Allow exactly
+  // one deliberately reconciled active legacy row to bootstrap its first
+  // provider hash; never guess from masked IBAN alone.
+  if (!existing && preferredProviderAccountIdentityHash) {
+    const legacyCandidates = await client
+      .from("financial_accounts")
+      .select(
+        "id,external_account_ref,provider_account_identity_hash,account_type,display_name,currency,metadata",
+      )
+      .eq("user_id", userId)
+      .eq("data_source_id", dataSourceId)
+      .eq("provider", "n26")
+      .eq("active", true)
+      .is("provider_account_identity_hash", null)
+      .limit(3);
+
+    throwIfError(
+      legacyCandidates.error,
+      "Unable to inspect legacy N26 account identity candidates",
+    );
+
+    const matches = (legacyCandidates.data ?? []).filter((candidate) =>
+      isN26IdentityBootstrapMatch(candidate, {
+        accountType: normalizedAccountType,
+        currency: normalizedCurrency,
+        maskedIban: normalizedMaskedIban,
+        product: account.product ?? null,
+      }),
+    );
+
+    if (matches.length > 1) {
+      throw new Error(
+        "Unable to bootstrap N26 account identity safely: multiple reconciled legacy accounts match",
+      );
+    }
+
+    if (matches.length === 1) {
+      const [matchedLegacyAccount] = matches;
+      if (matchedLegacyAccount) {
+        existing = matchedLegacyAccount;
+        identityMatchReason = "reconciled_legacy_bootstrap";
+      }
+    }
+  }
+
+  const canonicalProviderAccountIdentityHash =
+    existing?.provider_account_identity_hash ??
+    preferredProviderAccountIdentityHash;
+  const previousExternalRef = existing?.external_account_ref ?? null;
+  const previousRefs = previousExternalAccountRefs(
+    existing?.metadata,
+    previousExternalRef,
+    account.uid,
+  );
+  const existingMetadata =
+    existing?.metadata &&
+    typeof existing.metadata === "object" &&
+    !Array.isArray(existing.metadata)
+      ? (existing.metadata as Record<string, unknown>)
+      : {};
+  const correctedFields = userCorrectedFields(existingMetadata);
+  const existingIdentityHashes = Array.isArray(
+    existingMetadata.providerAccountIdentityHashes,
+  )
+    ? existingMetadata.providerAccountIdentityHashes.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    : [];
+  const identityHashesSeen = [
+    ...new Set([
+      ...existingIdentityHashes,
+      ...providerAccountIdentityHashes,
+    ]),
+  ];
+  const identityRotated =
+    Boolean(existing?.id) &&
+    Boolean(previousExternalRef) &&
+    previousExternalRef !== account.uid;
+
+  const values = {
+    provider: "n26",
+    provider_account_identity_hash: canonicalProviderAccountIdentityHash,
+    account_type:
+      correctedFields.has("account_type") && existing?.account_type
+        ? existing.account_type
+        : normalizedAccountType,
+    display_name:
+      correctedFields.has("display_name") && existing?.display_name
+        ? existing.display_name
+        : account.name || account.product || "N26 account",
+    currency:
+      correctedFields.has("currency") && existing?.currency
+        ? existing.currency
+        : normalizedCurrency,
+    current_balance: amountFromBalance(currentBalance),
+    available_balance: amountFromBalance(availableBalance),
+    balance_as_of: balanceAsOf,
+    active: true,
+    metadata: {
+      ...existingMetadata,
+      upstreamProvider: "enable-banking",
+      usage: account.usage ?? null,
+      product: account.product ?? null,
+      cashAccountType: account.cash_account_type ?? null,
+      psuStatus: account.psu_status ?? null,
+      maskedIban: normalizedMaskedIban,
+      accountServicer: account.account_servicer?.name ?? "N26",
+      previousExternalAccountRefs: previousRefs,
+      providerAccountIdentityHashes: identityHashesSeen,
+      ...(identityRotated
+        ? {
+            accountIdentityReconciledAt: new Date().toISOString(),
+            accountIdentityReconciliationReason:
+              identityMatchReason === "reconciled_legacy_bootstrap"
+                ? "Enable Banking account UID rotated; bootstrapped stable identity from previously reconciled canonical account"
+                : "Enable Banking account UID rotated; matched by provider identification hash",
+          }
+        : {}),
+    },
+  };
+
+  if (existing?.id) {
     const updated = await client
       .from("financial_accounts")
-      .update(values)
-      .eq("id", existing.data.id);
+      .update({
+        external_account_ref: account.uid,
+        ...values,
+      })
+      .eq("id", existing.id);
 
     throwIfError(updated.error, `Unable to update N26 account ${account.uid}`);
-    return { id: existing.data.id, created: false };
+    return {
+      id: existing.id,
+      created: false,
+      providerAccountIdentityHash: canonicalProviderAccountIdentityHash,
+    };
   }
 
   const inserted = await client
@@ -282,7 +464,11 @@ async function syncFinancialAccount(
     throw new Error(`Unable to resolve N26 account ${account.uid}`);
   }
 
-  return { id: inserted.data.id, created: true };
+  return {
+    id: inserted.data.id,
+    created: true,
+    providerAccountIdentityHash: canonicalProviderAccountIdentityHash,
+  };
 }
 
 async function syncRawTransaction(
@@ -290,10 +476,15 @@ async function syncRawTransaction(
   userId: string,
   dataSourceId: string,
   accountUid: string,
+  providerAccountIdentityHash: string | null,
   externalTransactionId: string,
   transaction: EnableBankingTransaction,
 ): Promise<{ id: string; created: boolean }> {
-  const providerRecordId = `${accountUid}:${externalTransactionId}`;
+  const providerRecordId = n26RawTransactionExternalRecordId(
+    providerAccountIdentityHash,
+    accountUid,
+    externalTransactionId,
+  );
   const observedAt =
     toTimestamp(transaction.booking_date) ??
     toTimestamp(transaction.transaction_date) ??
@@ -418,6 +609,7 @@ async function syncFinancialTransaction(
   dataSourceId: string,
   financialAccountId: string,
   accountUid: string,
+  providerAccountIdentityHash: string | null,
   transaction: EnableBankingTransaction,
 ): Promise<{ created: boolean; normalized: boolean }> {
   const providerTransactionId =
@@ -429,6 +621,7 @@ async function syncFinancialTransaction(
     userId,
     dataSourceId,
     accountUid,
+    providerAccountIdentityHash,
     providerTransactionId,
     transaction,
   );
@@ -479,6 +672,7 @@ async function syncFinancialTransaction(
       upstreamProvider: "enable-banking",
       institution: "n26",
       accountUid,
+      providerAccountIdentityHash,
       rawEventId: rawEvent.id,
       providerStatus: transaction.status ?? null,
       entryReference: transaction.entry_reference ?? null,
@@ -489,7 +683,9 @@ async function syncFinancialTransaction(
 
   const existing = await client
     .from("financial_transactions")
-    .select("id")
+    .select(
+      "id,merchant,description,category,transaction_type,recurring_candidate,metadata",
+    )
     .eq("financial_account_id", financialAccountId)
     .eq("external_transaction_id", providerTransactionId)
     .maybeSingle();
@@ -500,9 +696,39 @@ async function syncFinancialTransaction(
   );
 
   if (existing.data?.id) {
+    const existingMetadata =
+      existing.data.metadata &&
+      typeof existing.data.metadata === "object" &&
+      !Array.isArray(existing.data.metadata)
+        ? (existing.data.metadata as Record<string, unknown>)
+        : {};
+    const correctedFields = userCorrectedFields(existingMetadata);
+    const reconciledValues = {
+      ...values,
+      merchant: correctedFields.has("merchant")
+        ? existing.data.merchant
+        : values.merchant,
+      description: correctedFields.has("description")
+        ? existing.data.description
+        : values.description,
+      category: correctedFields.has("category")
+        ? existing.data.category
+        : values.category,
+      transaction_type: correctedFields.has("transaction_type")
+        ? existing.data.transaction_type
+        : values.transaction_type,
+      recurring_candidate: correctedFields.has("recurring_candidate")
+        ? existing.data.recurring_candidate
+        : values.recurring_candidate,
+      metadata: {
+        ...existingMetadata,
+        ...values.metadata,
+      },
+    };
+
     const updated = await client
       .from("financial_transactions")
-      .update(values)
+      .update(reconciledValues)
       .eq("id", existing.data.id);
     throwIfError(
       updated.error,
@@ -588,13 +814,18 @@ export async function syncN26Session(
 
   try {
     for (const authorizedAccount of session.accounts) {
-      const account = await getEnableBankingAccountDetails(authorizedAccount.uid);
-      const balances = await getEnableBankingAccountBalances(authorizedAccount.uid);
+      const account = await withProviderStage("account_details", () =>
+        getEnableBankingAccountDetails(authorizedAccount.uid),
+      );
+      const balances = await withProviderStage("account_balances", () =>
+        getEnableBankingAccountBalances(authorizedAccount.uid),
+      );
       const financialAccount = await syncFinancialAccount(
         client,
         userId,
         dataSourceId,
         account,
+        authorizedAccount,
         balances,
       );
 
@@ -608,13 +839,15 @@ export async function syncN26Session(
       let pageCount = 0;
 
       do {
-        const page = await getEnableBankingAccountTransactions(
-          authorizedAccount.uid,
-          {
-            dateFrom: utcDateDaysAgo(90),
-            dateTo: new Date().toISOString().slice(0, 10),
-            ...(continuationKey ? { continuationKey } : {}),
-          },
+        const page = await withProviderStage("account_transactions", () =>
+          getEnableBankingAccountTransactions(
+            authorizedAccount.uid,
+            {
+              dateFrom: utcDateDaysAgo(90),
+              dateTo: new Date().toISOString().slice(0, 10),
+              ...(continuationKey ? { continuationKey } : {}),
+            },
+          ),
         );
 
         for (const transaction of page.transactions ?? []) {
@@ -625,6 +858,7 @@ export async function syncN26Session(
             dataSourceId,
             financialAccount.id,
             authorizedAccount.uid,
+            financialAccount.providerAccountIdentityHash,
             transaction,
           );
 

@@ -1,0 +1,59 @@
+name: Me+ privileged RPC grants
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'supabase/migrations/*sec_008*'
+      - 'supabase/tests/sec_008_privileged_rpc_grants.sql'
+      - 'tests/sql/sec008-*.sql'
+      - '.github/workflows/meplus-privileged-rpc-grants.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sec008-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-contract:
+    name: security / isolated RPC grants
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: sec008_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: sec008_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify denied clients, allowed server and repeatable migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = sec008_test
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/sec008-fixture.sql
+          # The vulnerable fixture must fail the regression before the fix.
+          if psql -X -v ON_ERROR_STOP=1 -f supabase/tests/sec_008_privileged_rpc_grants.sql; then
+            echo 'Regression failed to detect vulnerable grants'; exit 1
+          fi
+          for attempt in 1 2; do
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014151223_sec_008_restrict_privileged_rpc_grants.sql
+            psql -X -v ON_ERROR_STOP=1 -f supabase/tests/sec_008_privileged_rpc_grants.sql
+            psql -X -v ON_ERROR_STOP=1 -f tests/sql/sec008-calls.sql
+          done

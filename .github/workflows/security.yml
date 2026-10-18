@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - name: Scan repository for secrets
         run: |
-          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 detect --source=/repo --redact --exit-code 1
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 detect --source=/repo --redact --verbose --exit-code 1
 
   semgrep:
     name: security / semgrep
@@ -70,3 +70,4 @@ jobs:
           else
             echo "No root requirements.txt; skipping pip-audit."
           fi
+

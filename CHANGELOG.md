@@ -2,6 +2,83 @@
 
 ## [Unreleased]
 
+### Added
+- Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
+
+### Fixed
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The separate server batch repair remains pending connector recovery.
+
+- Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
+
+- Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.
+
+### Added
+- Me+ 2.0 native core adopts the retained UI/UX v2 light design, Today/Plan/Capture/Review/More navigation, server-confirmed decisions and owner-scoped notes/history. Companion icon is wired into the Android configuration.
+- Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
+
+### Changed
+- ChatGPT/Codex is now the app builder. Android compilation uses owner-approved GitHub-hosted Windows Actions; builds upload verified artifacts without committing lockfiles or APKs back to source branches.
+
+
+### Added
+- Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
+- Android opt-in Health Connect background sync targets every three hours, catches up on resume, shows the last successful automatic sync, and resumes acknowledged hourly backfill checkpoints. Android power/network restrictions can defer execution; native acceptance is pending.
+- Antigravity CLI is the selected Me+ app implementation platform; GitHub MCP owns repository operations and the Windows Android toolchain produces APKs.
+
+### Fixed
+- Recover the unapplied atomic-health batch run-key repair: independent 50-reading batches no longer collide under the source-sync minute guard after the migration is approved and applied. Shared database deployment is pending.
+- Automatic sync binds uploads/cursors to the initiating account and current read permissions; disabling sync or signing out cancels further batches.
+
+### Changed
+- Native source target is 0.4.1 / versionCode 7 / me-plus-0.4.1.apk. Existing verified download remains 0.3.1 until actual new bytes pass native provenance checks.
+
+
+### Added
+- Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
+- Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
+
+### Fixed
+- Web Now fails closed on calendar errors and evaluates freshness after reads. Action decisions require confirmed canonical readback.
+
+
+### Added
+- ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
+- Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
+- Me+ password sign-in and a Connect N26 page for starting the read-only authorization from the browser.
+- Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
+
+### Fixed
+- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair is staged for release, not deployed.
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Live deployment remains a separate release gate.
+- N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
+- Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
+
+## [0.3.1] - 2026-09-29
+
+### Fixed
+- Health uploads validate acknowledgements, abort timed-out requests, retry bounded transient failures, and refresh the session for each batch.
+- Heart-rate payloads retain sample/provider context without repeating the full sample series.
+- Provider revision keys use fixed-size SHA-256 digests.
+- Health ingestion uses a server-only source-serialized database transaction so retries cannot overwrite newer revisions; failures roll back health writes while retaining attempt history and manual corrections.
+- Health Connect uploads now use 50-reading mobile batches to avoid oversized backend lookup requests.
+- The health ingestion API limits a single request to 100 readings.
+- Health ingestion preserves provider revision history, resumes incomplete equal revisions, and selects the newest provider revision deterministically.
+- Android release builds use verified short native dependency paths, Expo-compatible versions and checksum-pinned Ninja on the designated Windows runner.
+- The standalone installer retains the previous ARM64 target and verifies its embedded JavaScript bundle, version, signing identity and architecture before publication.
+
+## [0.3.0] - 2026-09-28
+
+### Added
+- Persistent Me+ Supabase sign-in on Android so the phone can authenticate health uploads to the canonical user account.
+- Full Health Connect pagination across the seven-day scan window instead of stopping at the first 1,000 records.
+- Health Connect mapping for heart rate, resting heart rate, oxygen saturation, sleep duration, steps, exercise duration, active calories, total calories and weight.
+- Batched authenticated phone-to-Me+ health ingestion grouped by original Health Connect data origin, preserving source package, device metadata and raw source payload in `raw_events`.
+- A third Health Connect action that uploads the scanned readings to Me+ and reports created/updated records and source-origin counts.
+
+### Changed
+- Expanded the shared health ingestion contract and backend validator to accept the record types confirmed by physical-device validation.
+- Android app metadata now targets Me+ 0.3.0 with versionCode 3.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added
@@ -58,3 +135,4 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
+

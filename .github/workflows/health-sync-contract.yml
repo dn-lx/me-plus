@@ -1,0 +1,54 @@
+name: Health sync batch contracts
+on:
+  pull_request:
+    branches: [dev]
+    paths: ['supabase/migrations/*health_batch*', 'tests/sql/health-*', '.github/workflows/health-sync-contract.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-contract:
+    name: health / isolated batch run keys
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: health_sync_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: health_sync_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reproduce guard collision then verify repair twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = health_sync_test
+          for file in tests/sql/health-sync-fixture.sql supabase/migrations/20260928122843_health_bulk_upsert_keys.sql supabase/migrations/20260929144000_health_raw_event_revision_history.sql supabase/migrations/20260929230221_health_atomic_ingest_v4.sql tests/sql/health-sync-live-guards.sql tests/sql/health-sync-install-guards.sql; do
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+          done
+          if psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-sync-run-keys.sql > /tmp/health-baseline.log 2>&1; then
+            echo 'Expected baseline collision was not reproduced'; exit 1
+          fi
+          grep -Fq 'source_sync_already_completed' /tmp/health-baseline.log
+          for attempt in 1 2; do
+            psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261017145227_health_batch_unique_run_key.sql
+            psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-sync-run-keys.sql
+            psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-ingestion-atomic.sql
+          done

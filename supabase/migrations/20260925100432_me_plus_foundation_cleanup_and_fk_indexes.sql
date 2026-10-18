@@ -1,0 +1,13 @@
+drop function if exists public.accept_quote(uuid) cascade; drop function if exists public.send_quote(uuid,numeric,numeric,numeric,numeric,text,timestamptz) cascade; drop function if exists public.submit_order_request(uuid,text,jsonb,date,text,text,text,numeric,numeric,text) cascade;
+create index action_events_action_idx on public.action_events(action_id);
+create index actions_goal_idx on public.actions(goal_id);
+create index actions_recommendation_idx on public.actions(recommendation_id);
+create index actions_routine_event_idx on public.actions(routine_event_id);
+create index goals_parent_idx on public.goals(parent_goal_id);
+create index outcomes_action_idx on public.outcomes(action_id);
+create index outcomes_recommendation_idx on public.outcomes(recommendation_id);
+create index recommendation_feedback_recommendation_idx on public.recommendation_feedback(recommendation_id);
+create index recommendations_state_idx on public.recommendations(personal_state_snapshot_id);
+create index routine_events_routine_idx on public.routine_events(routine_id);
+create index routine_schedules_routine_idx on public.routine_schedules(routine_id);
+create index routines_goal_idx on public.routines(goal_id);

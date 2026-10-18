@@ -1,0 +1,16 @@
+{
+    "app":  "me-plus",
+    "platform":  "android",
+    "version":  "0.3.0",
+    "displayVersion":  "0.3",
+    "filename":  "me-plus-0.3.apk",
+    "sha256":  "e6f0f70fc33550d79c9c988d46d1fa0ee68c4d13cb72cdf9bb0ae3a3f8a2fb09",
+    "sizeBytes":  44758430,
+    "packageName":  "app.meplus.mobile",
+    "versionCode":  3,
+    "architecture":  "arm64-v8a",
+    "buildPath":  "desktop-commander",
+    "publishTarget":  "netlify-static",
+    "publicDownloadPath":  "/downloads/me-plus-0.3.apk",
+    "sourceCommit":  "67c365d2e98157f4fcd46cb33bd2e46a2e2ffd95"
+}

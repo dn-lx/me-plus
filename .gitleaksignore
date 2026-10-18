@@ -1,0 +1,3 @@
+# Public Supabase publishable key, verified against the native project key inventory.
+# Scope this false-positive exception to its original commit/path/rule/line only.
+a2577d8f0fd5b69b6009d89c621a0b57da75db8b:.github/workflows/android-local-build.yml:generic-api-key:31

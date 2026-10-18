@@ -1,0 +1,3 @@
+-- Historical migration marker only.
+-- The original remote migration closed a production scheduler acceptance-test run.
+-- Dynamic user/run state is intentionally not replayed from Git.

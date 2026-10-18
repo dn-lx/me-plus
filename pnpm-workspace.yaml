@@ -2,7 +2,30 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# React Native/CMake on Windows requires short physical package paths.
+# pnpm 12 reads this setting here, not from .npmrc.
+nodeLinker: hoisted
+
 catalog:
   react: 19.2.3
   react-dom: 19.2.3
   typescript: 6.0.3
+
+overrides:
+  "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
+  "shell-quote@>=1.8.4 <1.11.0": ">=1.11.0"
+
+minimumReleaseAgeExclude:
+  - '@expo/ui@57.0.21'
+  - expo-constants@57.0.20
+  - expo-modules-core@57.0.20
+  - expo-router@57.0.24
+  - expo@57.0.26
+
+# Temporary, narrowly scoped exceptions for upstream advisories with no patched release.
+# See docs/SECURITY-ADVISORY-EXCEPTIONS.md. Remove each GHSA as soon as the upstream
+# dependency chain no longer contains the affected package/version.
+audit:
+  ignore:
+    - GHSA-86w9-cpqp-85rv
+    - GHSA-vfj7-8cjw-p6xm

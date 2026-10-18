@@ -36,7 +36,18 @@ export interface ActionProposal {
   payload: Readonly<Record<string, unknown>>;
 }
 
-export type HealthMetric = "steps" | "heart-rate" | "sleep-duration";
+export type HealthMetric =
+  | "steps"
+  | "heart-rate"
+  | "resting-heart-rate"
+  | "oxygen-saturation"
+  | "sleep-duration"
+  | "exercise-duration"
+  | "active-calories-burned"
+  | "total-calories-burned"
+  | "weight";
+
+export type HealthUnit = "count" | "bpm" | "percent" | "minutes" | "kilocalories" | "kilograms";
 
 export type SensorPermissionStatus = "granted" | "denied" | "not-requested" | "unavailable";
 
@@ -51,10 +62,11 @@ export interface SensorReading {
   externalId: string;
   metric: HealthMetric;
   value: number;
-  unit: "count" | "bpm" | "minutes";
+  unit: HealthUnit;
   observedAt: IsoTimestamp;
   lastModifiedAt: IsoTimestamp;
   provenance: SensorProvenance;
+  sourcePayload?: Readonly<Record<string, unknown>>;
 }
 
 export interface SensorReconciliationResult {

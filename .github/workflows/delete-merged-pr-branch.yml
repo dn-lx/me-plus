@@ -1,0 +1,32 @@
+name: Delete merged PR branch
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-merged-head:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged head branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_BRANCH" in
+            dev|prod)
+              echo "Refusing to delete protected integration branch: $HEAD_BRANCH"
+              exit 0
+              ;;
+          esac
+          echo "Deleting merged branch: $HEAD_BRANCH"
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${HEAD_BRANCH}" --silent

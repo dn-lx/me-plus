@@ -34,6 +34,7 @@ Load `docs/REQUIREMENTS.md` additionally when the task concerns product/backlog/
 | `docs/DESIGN-STACK.md` | Substantial frontend design/UX direction |
 | `REVIEW.md` | Reviewing a material PR/change |
 | `docs/OPERATIONS-RECOVERY.md` | Production runtime, deploy verification, rollback, backup/restore or incident work |
+| `docs/SECURITY-ADVISORY-EXCEPTIONS.md` | Reviewing or changing temporary dependency-audit exceptions for upstream advisories |
 | `docs/DOCUMENTATION_POLICY.md` | Resolving documentation authority/drift or deciding where knowledge belongs |
 | `docs/STACK-RESPONSIBILITY-MAP.md` | Checking whether a proposed tool/skill/doc duplicates an existing responsibility |
 
@@ -74,3 +75,9 @@ Agent-skill discovery is separate: use `.agents/SKILL-INDEX.md`.
 ## Maintenance
 
 Run `node scripts/validate-docs.mjs` to check documentation structure/references. After adapting the starter into a real project, run `node scripts/validate-docs.mjs --strict-project` to find starter placeholders that should have been replaced.
+
+
+## Application implementation
+
+- `docs/ARCHITECTURE.md` — application architecture
+- `docs/N26-OPEN-BANKING.md` — N26 integration
