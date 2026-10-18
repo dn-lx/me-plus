@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Documentation
+- Audited the Me+ 2.0 source/runtime boundaries, proposed a modular-core architecture, and replaced the starter backlog with an ordered roadmap covering N26 and ING, client/session contracts, durable jobs, health acceptance, delivery, privacy/recovery and optional runtime gates. Planning only; no product/runtime/dependency changes.
+
+
 - Credential-free Letta local App Server task-tool adapter and inactive n8n tasks workflow packages, with fail-closed activation tooling and tasks-only grant metadata. Added disabled metadata-only Langfuse OTLP v4 preparation without worker/model changes. Provider accounts and authenticated hosted acceptance remain deferred.
 - Owner-scoped integration readiness/probe/pause/start controls; recurring sync requires fresh server authorization proof and successful source sync. Added reproducible N26 functions-only deployment artifacts while provider authorization remains deferred.
 - Me+ 2.0 owner-scoped routine scheduling/history, feedback, workspace API and expiring/revocable scoped MCP client tools. Native routine clock is active; external integrations remain pending authorization with disabled clocks.

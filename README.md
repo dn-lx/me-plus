@@ -61,7 +61,9 @@ dev → prod PR
 
 ## Current status
 
-The Agent Project Starter bootstrap is complete. The web/mobile monorepo architecture is now defined. Framework-specific application scaffolding, package-manager/workspace commands, concrete hosting targets, Supabase schema, product-specific CI and the first end-to-end domain slice are the next implementation stage.
+The repository has Next.js web and Expo/React Native clients, Supabase schema/Edge Functions, Netlify server adapters, a pnpm workspace and product-specific CI. Today/Now/Review and health collection exist; prepared backend work, real provider/device acceptance and production delivery must be tracked separately.
+
+The [Me+ 2.0 roadmap](docs/ROADMAP.md) orders the next work. The [architecture audit](docs/ARCHITECTURE-AUDIT-2026-10-17.md) records current gaps, and the [banking plan](docs/plans/ME2-BANK-012-n26-ing.md) includes both N26 and ING. The 17 October planning revision changes documentation only.
 
 ## Agent startup order
 

@@ -83,3 +83,9 @@ Run `node scripts/validate-docs.mjs` to check documentation structure/references
 - `docs/N26-OPEN-BANKING.md` — N26 integration
 
 - `docs/MEPLUS2_LANGFUSE_OBSERVABILITY.md` — optional gated Deno-worker metadata tracing; no activation implied.
+
+- `docs/ARCHITECTURE-AUDIT-2026-10-17.md` — source/runtime/specification audit and prioritized evidence
+- `docs/ROADMAP.md` — current Me+ 2.0 delivery order and acceptance gates
+- `docs/plans/ME2-BANK-012-n26-ing.md` — shared N26 + ING connection, migration and verification plan
+- `docs/adr/0002-meplus2-modular-core-and-adapters.md` — proposed modular-core decision
+- `docs/N26-OPEN-BANKING.md` — existing N26 routes/configuration and current limitations

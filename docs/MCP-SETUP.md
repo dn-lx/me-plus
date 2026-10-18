@@ -9,15 +9,17 @@ External tool access is host-specific. This repository records capability requir
 | Source control / PRs / CI | Required | GitHub | Branches, diffs, pull requests, CI, releases, and durable engineering evidence |
 | Current library/API docs | Required | Context7 / official docs | Verify framework, SDK, AI-provider, and integration behavior before implementation |
 | Database/auth/storage | Required | Supabase | Durable application data, authentication, row-level policies, migrations, and optional storage |
-| Hosting/deployments | Required | Netlify / Supabase Edge Functions | Preview/staging and production deployment with environment isolation |
+| Hosting/deployments | Required | TBD | Preview/staging and production deployment with environment isolation |
 | Browser/computer verification | Required | Playwright / browser tooling | Rendered UI, accessibility, and end-to-end verification |
 | Code relationships | Optional | Graphify | Architecture and change-impact analysis as the codebase grows |
-| Runtime observability | Required | Supabase audit, scheduler health and AI usage ledgers | Privacy-aware errors, runtime health, and integration failure diagnostics |
+| Runtime observability | Required | TBD | Privacy-aware errors, runtime health, and integration failure diagnostics |
 | Product analytics/flags | Optional | TBD | Owner-visible product telemetry only when useful |
 | Payments | Not used | — | Not used |
 | Transactional email | Optional | TBD | Notifications or reports when a concrete workflow requires email |
 | Documents/business files | Optional | Google Drive | Supporting documents and exports; canonical structured state remains in Supabase |
 | Issue/project management | Required | GitHub | Implementation work, decisions, defects, and release readiness |
+| Plan collaboration | Optional | Slack | Links and discussions around canonical Drive/GitHub artifacts; a Me+ Slack product integration requires a selected scope |
+| Bank account information | Required product capability | Enable Banking is the first provider candidate | Independently controlled N26 and ING AIS; verify exact institution/product/entitlements and use server runtime credentials, not a ChatGPT plugin credential |
 
 ## Verification before use
 
@@ -36,3 +38,5 @@ Before relying on any connector:
 - Use typed adapters for integrations and device ingestion so providers remain replaceable.
 - Record material external writes in `docs/CURRENT-HANDOFF.md`.
 - Do not commit credentials or private connector configuration.
+- Development/ChatGPT connectors and product runtime integrations are different access boundaries. A connected Slack, Supabase or banking plugin does not automatically authorize the deployed Me+ application.
+- N26 + ING planning, provider-selection gates and runtime acceptance are in `docs/plans/ME2-BANK-012-n26-ing.md`; this planning revision enables no source or clock.
