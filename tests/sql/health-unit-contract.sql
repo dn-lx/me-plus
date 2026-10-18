@@ -8,8 +8,8 @@ begin
  if not exists(select 1 from public.observations o join unit_cases c on c.observation_id=o.id where c.label='legacy-zero' and o.unit='kcal'
    and o.quality='accepted_with_warning' and o.confidence=0.6 and o.provenance->>'qualityReason'='zero_energy_value_requires_context')
  then raise exception 'zero energy warning was lost'; end if;
- if (select count(*) from public.observations o join unit_cases c on c.observation_id=o.id where c.label in ('legacy-invalid','legacy-corrected','legacy-history')
-   and o.unit='percent' and o.quality='rejected_for_decision_use')<>3 then raise exception 'invalid or corrected legacy record rewritten'; end if;
+ if (select count(*) from public.observations o join unit_cases c on c.observation_id=o.id where c.label in ('legacy-invalid','legacy-corrected','legacy-history','legacy-raw-mismatch','legacy-owner-mismatch','legacy-source-mismatch')
+   and o.unit='percent' and o.quality='rejected_for_decision_use')<>6 then raise exception 'invalid, mismatched or corrected legacy record rewritten'; end if;
  oid:=public.unit_fixture('new-oxygen','oxygen-saturation','percent',98);
  select * into row from public.observations where id=oid;
  if row.unit is distinct from '%' or row.quality is distinct from 'source' then raise exception 'new typed oxygen not normalized'; end if;

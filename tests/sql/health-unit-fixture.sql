@@ -55,19 +55,19 @@ create trigger trg_health_observation_quality_v1 before insert or update of doma
 on public.observations for each row execute function private.apply_health_observation_quality_v1();
 create table public.fact_corrections(user_id uuid,entity_type text,entity_id uuid);
 create table unit_cases(label text primary key,observation_id uuid,raw_before jsonb);
-create function public.unit_fixture(label text,metric text,unit_name text,val double precision,provider text default 'health-connect')
+create function public.unit_fixture(p_label text,metric text,unit_name text,val double precision,provider text default 'health-connect')
 returns uuid language plpgsql as $$
 declare reading jsonb; result jsonb; oid uuid;
 begin
- reading:=jsonb_build_object('externalId',label,'metric',metric,'unit',unit_name,'value',val,
+ reading:=jsonb_build_object('externalId',p_label,'metric',metric,'unit',unit_name,'value',val,
    'observedAt','2026-10-17T12:00:00Z','lastModifiedAt','2026-10-17T13:00:00Z',
    'provenance',jsonb_build_object('provider',provider,'sourcePackage','fixture.local'));
  result:=public.server_ingest_health_batch('459ab99b-d99d-492b-bb23-95144dbb1e47',
    jsonb_build_object('source',jsonb_build_object('provider',provider,'displayName','unit-fixture'),'readings',jsonb_build_array(reading)),
    jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',encode(sha256(convert_to(reading::text,'UTF8')),'hex'))));
  if result ? 'error' then raise exception 'fixture ingestion failed: %',result; end if;
- select o.id into oid from public.observations o join public.raw_events r on r.id=o.raw_event_id where r.external_record_id=label;
- insert into unit_cases select label,oid,r.payload from public.raw_events r join public.observations o on o.raw_event_id=r.id where o.id=oid
+ select o.id into oid from public.observations o join public.raw_events r on r.id=o.raw_event_id where r.external_record_id=p_label;
+ insert into unit_cases select p_label,oid,r.payload from public.raw_events r join public.observations o on o.raw_event_id=r.id where o.id=oid
  on conflict(label) do nothing;
  return oid;
 end $$;
@@ -78,9 +78,17 @@ select public.unit_fixture('legacy-weight','weight','kilograms',75);
 select public.unit_fixture('legacy-invalid','oxygen-saturation','percent',12);
 select public.unit_fixture('legacy-corrected','oxygen-saturation','percent',98);
 select public.unit_fixture('legacy-history','oxygen-saturation','percent',98);
+select public.unit_fixture('legacy-raw-mismatch','oxygen-saturation','percent',98);
+update public.observations set value_number=97 where id=(select observation_id from unit_cases where label='legacy-raw-mismatch');
+select public.unit_fixture('legacy-owner-mismatch','oxygen-saturation','percent',98);
+insert into auth.users values ('86db1e6b-126b-4f46-8a61-f54fae6c22c0');
+update public.observations set user_id='86db1e6b-126b-4f46-8a61-f54fae6c22c0' where id=(select observation_id from unit_cases where label='legacy-owner-mismatch');
+select public.unit_fixture('legacy-source-mismatch','oxygen-saturation','percent',98);
+insert into public.data_sources(user_id,kind,provider,display_name) values ('459ab99b-d99d-492b-bb23-95144dbb1e47','health_sensor','fake-health-connect','mismatch');
+update public.observations set data_source_id=(select id from public.data_sources where display_name='mismatch') where id=(select observation_id from unit_cases where label='legacy-source-mismatch');
 update public.observations set provenance=provenance||'{"userCorrectedFields":["value_number"],"lastUserCorrectionAt":"2026-10-17T14:00:00Z"}'::jsonb
 where id=(select observation_id from unit_cases where label='legacy-corrected');
 insert into public.fact_corrections select '459ab99b-d99d-492b-bb23-95144dbb1e47','observation',observation_id from unit_cases where label='legacy-history';
 do $$begin
- if (select count(*) from public.observations where quality='rejected_for_decision_use')<>7 then raise exception 'baseline alias bug not reproduced'; end if;
+ if (select count(*) from public.observations where quality='rejected_for_decision_use')<>10 then raise exception 'baseline alias bug not reproduced'; end if;
 end $$;
