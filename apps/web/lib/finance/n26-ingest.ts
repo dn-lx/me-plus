@@ -31,6 +31,18 @@ function stableHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+async function withProviderStage<T>(
+  stage: "account_details" | "account_balances" | "account_transactions",
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_provider_error";
+    throw new Error(`Enable Banking stage ${stage} failed: ${message}`);
+  }
+}
+
 function userCorrectedFields(metadata: unknown): ReadonlySet<string> {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return new Set();
@@ -802,8 +814,12 @@ export async function syncN26Session(
 
   try {
     for (const authorizedAccount of session.accounts) {
-      const account = await getEnableBankingAccountDetails(authorizedAccount.uid);
-      const balances = await getEnableBankingAccountBalances(authorizedAccount.uid);
+      const account = await withProviderStage("account_details", () =>
+        getEnableBankingAccountDetails(authorizedAccount.uid),
+      );
+      const balances = await withProviderStage("account_balances", () =>
+        getEnableBankingAccountBalances(authorizedAccount.uid),
+      );
       const financialAccount = await syncFinancialAccount(
         client,
         userId,
@@ -823,13 +839,15 @@ export async function syncN26Session(
       let pageCount = 0;
 
       do {
-        const page = await getEnableBankingAccountTransactions(
-          authorizedAccount.uid,
-          {
-            dateFrom: utcDateDaysAgo(90),
-            dateTo: new Date().toISOString().slice(0, 10),
-            ...(continuationKey ? { continuationKey } : {}),
-          },
+        const page = await withProviderStage("account_transactions", () =>
+          getEnableBankingAccountTransactions(
+            authorizedAccount.uid,
+            {
+              dateFrom: utcDateDaysAgo(90),
+              dateTo: new Date().toISOString().slice(0, 10),
+              ...(continuationKey ? { continuationKey } : {}),
+            },
+          ),
         );
 
         for (const transaction of page.transactions ?? []) {

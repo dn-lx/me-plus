@@ -1,57 +1,41 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { AppState } from "react-native";
-import { supabase } from "../lib/supabase/client";
-
-import {
-  HEALTH_FOREGROUND_POLL_INTERVAL_MS,
-  runForegroundHealthSyncIfDue,
-} from "../lib/health/foreground-health-sync";
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
+import { supabase } from '../lib/supabase/client';
+import { automaticSyncEnabled, runAutomaticHealthSync, cancelHealthSync } from '../lib/health/automatic-health-sync';
+import { scheduleBackgroundHealthSync, stopBackgroundHealthSync } from '../lib/health/background-health-sync';
 
 export default function RootLayout() {
   useEffect(() => {
-    const catchUp = async (force = false) => {
+    let disposed = false;
+    const resume = async () => {
       try {
-        await runForegroundHealthSyncIfDue(force);
-      } catch {
-        // Automatic sync persists a privacy-safe status for the Health Connect screen.
-        // Do not crash the app shell if Health Connect is unavailable or temporarily fails.
-      }
+        const { data } = await supabase.auth.getSession();
+        if (disposed) return;
+        if (!data.session || !automaticSyncEnabled(data.session.user.id)) {
+          await stopBackgroundHealthSync();
+          return;
+        }
+        await scheduleBackgroundHealthSync(data.session.user.id);
+        await runAutomaticHealthSync();
+      } catch { /* Collector stores safe retry state; never crash the app shell. */ }
     };
-
-    void catchUp();
-
-    const appStateSubscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        void catchUp(true);
-      }
+    void resume();
+    const state = AppState.addEventListener('change', next => { if (next === 'active') void resume(); });
+    const timer = setInterval(() => { if (AppState.currentState === 'active') void resume(); }, 60_000);
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      cancelHealthSync();
+      // Supabase auth operations must run outside its callback/lock.
+      setTimeout(() => { void resume(); }, 0);
     });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        // Run outside the auth callback so getSession cannot wait on that callback.
-        setTimeout(() => void catchUp(true), 0);
-      }
-    });
-
-    const foregroundTimer = setInterval(() => {
-      if (AppState.currentState === "active") {
-        void catchUp();
-      }
-    }, HEALTH_FOREGROUND_POLL_INTERVAL_MS);
-
-    return () => {
-      appStateSubscription.remove();
-      authListener.subscription.unsubscribe();
-      clearInterval(foregroundTimer);
-    };
+    return () => { disposed = true; state.remove(); clearInterval(timer); data.subscription.unsubscribe(); cancelHealthSync(); };
   }, []);
-
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </>
   );
 }
+

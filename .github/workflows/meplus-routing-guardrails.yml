@@ -1,0 +1,53 @@
+name: Me+ routing guardrails
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'supabase/patches/eng_007_routing_guardrails.sql'
+      - 'tests/sql/eng007-*.sql'
+      - '.github/workflows/meplus-routing-guardrails.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: eng007-guardrails-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-contract:
+    name: routing / isolated PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: routing_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: routing_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run isolated database behavioral and denied-role tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/eng007-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/patches/eng_007_routing_guardrails.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/eng007-guardrails.sql
+          # Replacement must be repeatable without widened grants or duplicate objects.
+          psql -X -v ON_ERROR_STOP=1 -f supabase/patches/eng_007_routing_guardrails.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/eng007-guardrails.sql

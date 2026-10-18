@@ -26,6 +26,7 @@ For claims about **current implementation**, source/tests/runtime evidence overr
 - Feature/fix/chore branches merge into `dev`, never directly into `prod`.
 - `prod` is production/release.
 - Only this repository's `dev` branch may merge into `prod`, through the release workflow and explicit production approval.
+- A production approval is a direct user instruction for the specific reviewed dev → prod release. Testing, passing checks, a label, an earlier release approval, or a request to fix a PR never authorizes a production merge. Do not enable auto-merge for `prod`.
 - Never push directly to `prod`, force-push it, or bypass Git history with an ad-hoc production deployment.
 
 Read `.agents/skills/release-workflow/SKILL.md` before creating/merging a production PR or changing production deployment policy.

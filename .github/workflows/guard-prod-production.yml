@@ -1,9 +1,11 @@
 name: Production branch guard
 
+# Run the base branch's read-only workflow. This check must be REQUIRED in an
+# active GitHub prod ruleset; a workflow without that setting cannot block merge.
 on:
-  pull_request:
+  pull_request_target:
     branches: [prod]
-    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review, edited]
 
 permissions:
   contents: read
@@ -32,7 +34,7 @@ jobs:
             exit 1
           fi
 
-      - name: Require production-approved label (supplemental gate)
+      - name: Require production-approved label (supplemental gate, not human approval)
         env:
           LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |

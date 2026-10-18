@@ -40,6 +40,7 @@ export type HealthConnectScan = {
 
 export type HealthConnectPermissionState = {
   initialized: boolean;
+  backgroundRead: boolean;
   recordReadPermissionCount: number;
   recordReadTypes: HealthConnectRecordType[];
 };
@@ -127,6 +128,7 @@ export async function getHealthConnectPermissionState(): Promise<HealthConnectPe
 
   return {
     initialized,
+    backgroundRead: grantedTypes.has("BackgroundAccessPermission"),
     recordReadPermissionCount: recordReadTypes.length,
     recordReadTypes,
   };
@@ -179,6 +181,7 @@ export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInv
 export async function scanHealthConnect(
   days = 7,
   recordTypes: readonly HealthConnectRecordType[] = HEALTH_CONNECT_RECORD_TYPES,
+  endAt = new Date(),
 ): Promise<HealthConnectScan> {
   assertAndroid();
   const healthConnect = await import("react-native-health-connect");
@@ -189,7 +192,7 @@ export async function scanHealthConnect(
   }
 
   const grantedPermissions = await healthConnect.getGrantedPermissions();
-  const windowEnd = new Date();
+  const windowEnd = endAt;
   const windowStart = new Date(windowEnd.getTime() - days * 24 * 60 * 60 * 1000);
   const timeRangeFilter = {
     operator: "between" as const,
@@ -281,9 +284,8 @@ async function readAllRecords(
     pageCount += 1;
 
     const nextPageToken = result.pageToken;
-    if (!nextPageToken || nextPageToken === pageToken) {
-      break;
-    }
+    if (!nextPageToken) break;
+    if (nextPageToken === pageToken) throw new Error("Health Connect pagination did not advance.");
 
     pageToken = nextPageToken;
 
@@ -587,3 +589,11 @@ function assertAndroid() {
 function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown Health Connect error";
 }
+
+export async function requestHealthConnectBackgroundPermission() {
+  assertAndroid();
+  const hc = await import("react-native-health-connect");
+  if (!await hc.initialize()) throw new Error("Health Connect is unavailable.");
+  return hc.requestPermission([{ accessType: "read", recordType: "BackgroundAccessPermission" }]);
+}
+

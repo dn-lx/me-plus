@@ -1,7 +1,7 @@
 # Requirements, Issues & Execution Plan
 
 **Status:** Active  
-**Last updated:** YYYY-MM-DD  
+**Last updated:** 2026-10-06  
 **Primary branch:** `dev`
 
 Use this document as the project-level, checkable source of truth for requested features, known issues, planned improvements and completion evidence.
@@ -31,6 +31,42 @@ Order work so lower-priority features do not depend on unreliable or incorrect f
 ---
 
 # Active requirements
+
+## [ ] ME2-APP-019 — Me+ 2.0 native core and loss-aware phone sync
+
+Use the retained 14 October UI/UX v2 prototype for the native Today/Plan/Capture/Review/More core. Preserve real owner state, honest loading/error/receipt states and the selected Companion identity. ChatGPT/Codex builds the app; GitHub MCP owns GitHub operations.
+
+Phone sync targets 180 minutes; every due run replays at least 24 hours. A longer outage extends recovery to the last acknowledged time; interrupted windows never slide forward. Supabase must deduplicate owner/source/external-ID/provider revisions and preserve distinct sources and corrections. No AI guesses determine duplicate identity.
+
+Acceptance: behavioral owner/race/replay tests, exact-head hosted checks, rendered synthetic UI flows at phone/desktop widths, signed immutable-source Android artifact and real-device sync/catch-up verification. No claim of a fully implemented 64-screen prototype or complete Me+ architecture is made by the core slice.
+
+Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the reviewed native controller from PR #79.
+
+
+## [ ] ME2-HEALTH-017 — Reliable phone uploads and three-hour automatic sync
+
+**Priority:** P0 · Health / Android reliability
+
+- Independent bounded batches from one source must upload in the same minute, preserve revision idempotency, manual corrections and source-wide overlap protection.
+- Phone schedules background Health Connect read/upload every 180 minutes after explicit permission, resumes saved progress and catches up when opened; disable/sign-out stops further batches. UI shows last successful automatic sync and Android deferral constraints.
+- Document ChatGPT/Codex as selected app builder (owner continuation supersedes the original Antigravity choice), and actual build/execution responsibilities.
+- Acceptance: isolated baseline failure then passing repair/replay/negative tests, hosted workspace checks, verified versioned APK and physical-phone background/reboot/denial/offline/sign-out tests. Shared database application needs explicit authorization because dev and prod share the same project.
+
+Plan/evidence: `docs/plans/ME2-HEALTH-017-phone-sync.md`; PR #81. Not complete until deployment and device acceptance are observed.
+
+
+## [x] ME2-NATIVE-001 — Reproducible and retry-safe native task writes
+
+**Priority:** P1 · Backend / reliability
+
+Recover exact applied source for native task create/reschedule and request deduplication. Verify owner-scoped writes, denied clients, invalid input, retry safety, routine/closed-task protection and atomic rollback in disposable PostgreSQL. Repair no-op replay so retries preserve newer edits, and isolate deduplication from unrelated event sources. No live replay or deployment is included.
+
+Acceptance: recovered versions/statements match inspected migration history; isolated contract CI reproduces the old no-op failure then passes the repair and existing gates; independent security review has no blocker. Hosted sign-in and full app E2E remain separate acceptance.
+
+Implementation: `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
+
+Completion evidence: PR #76 code head `31f10f4`: all seven CI gates passed; isolated PostgreSQL reproduces the old bug then passes both suites twice; independent review clear. Development implementation verified; live repair deployment and hosted app E2E are explicitly outside this requirement. Final PR head remains subject to CI.
+
 
 ## [ ] REQ-001 — Short requirement title
 
@@ -73,6 +109,40 @@ _Add PR/commit, test/build result, screenshots/device verification or other proo
 ---
 
 # Known issues
+
+## [ ] ISSUE-ENG-007 — Canonical Me+ request routing is too slow
+
+**Priority:** P0
+
+**Observed behavior**  
+Known Me+ intents can trigger repeated specification, Drive, database, connector or entity discovery even when canonical identifiers already exist. This increases latency, tool usage and inconsistency across cold and resumed chats.
+
+**Expected behavior**  
+Known intents use a deterministic fast path: intent/aliases → canonical specification(s) → latest relevant checkpoint → no generic Personal State by default → purpose-specific context/execution surface. Missing/stale registrations and ambiguous intents use an explicit, bounded and diagnosable fallback.
+
+**Acceptance criteria**
+- [x] Root cause identified: routing components existed but were not enforced as one system-wide default path.
+- [x] Private intent-routing registry and service-only deterministic resolver deployed.
+- [x] Live bootstrap v3 uses compact checkpoints and `state_scope=none` by default for known routes.
+- [x] Live gateway source provenance reconciled to Edge Function 25 / `gateway-v1.17.0`.
+- [x] Applied ENG-007 migration provenance reconciled exactly into repository source.
+- [x] Critical `shell-quote` dependency audit blocker fixed without suppressing the advisory; current Security checks pass.
+- [x] Staged guardrail covers intent/topic precedence, whole-word whitespace matching, direct issue lookup, registration validity/revalidation, bounded ambiguity and bootstrap fallback diagnostics.
+- [x] Disposable PostgreSQL regression suite passes 64/64 assertions with denied-role and replay checks.
+- [x] Current live routing regression remains 12/12 and system-wide read-only health shows no ENG-007 regression.
+- [ ] Task PR merged to `dev` and post-merge state reverified.
+- [ ] Guardrail migration generated through the approved Supabase CLI/release workflow and deployed only after explicit reviewed dev→prod approval.
+- [ ] Representative v1.17 cold/resumed interactions provide comparable p50/p95, payload-byte and observed-call evidence.
+
+**Performance budget**
+- Known intent: one gateway bootstrap operation and one gateway→database RPC for route + specs + checkpoint + state decision.
+- Registered known routes default to no generic Personal State and no broad Drive/database/plugin discovery.
+- Fallback discovery is explicit and bounded to at most two follow-up discovery calls.
+- Database-only timings must never be reported as end-to-end user latency.
+
+**Completion evidence**  
+PR #67, current head `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`. Live gateway is Edge Function 25 / `gateway-v1.17.0` with `bootstrap-context-v3`. Isolated routing run `37590204039` reports 64 passed / 0 failed and no production access; current Security, Runtime, Version and Agent Stack workflows are green. Live routing regression remains 12/12. Earlier comparable core measurement: `get_me_context` payload 35,704 → 6,758 bytes (-81.07%) and single-run DB execution 19.673 → 11.268 ms (-42.72%). The inspected 24-hour audit window still lacks v1.17 traffic, so end-to-end p50/p95 remains unverified.
+
 
 ## [ ] ISSUE-001 — Short issue title
 
@@ -143,3 +213,4 @@ Use this section for a quick status view.
 - If a requirement is cancelled, mark it clearly as cancelled with reason/date instead of deleting it.
 - If a requirement moves to another repository, leave a pointer.
 - Keep this document concise enough to scan; implementation notes belong in code/PRs/handoffs.
+

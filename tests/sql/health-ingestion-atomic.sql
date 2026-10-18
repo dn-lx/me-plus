@@ -13,7 +13,7 @@ declare
 begin
   input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
   result := public.server_ingest_health_batch(u,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('a',64))));
-  if result ? 'error' or (result->>'recordsCreated')::int <> 1 then raise exception 'Initial ingestion failed: %',result; end if;
+  if result ? 'error' or (result->>'recordsCreated')::int is distinct from 1 then raise exception 'Initial ingestion failed: %',result; end if;
   ds := (result->>'dataSourceId')::uuid;
   select id into rawid from public.raw_events where data_source_id=ds;
   result := public.server_ingest_health_batch(u,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('a',64))));
@@ -82,5 +82,5 @@ begin
 end;
 $denied$;
 reset role;
-select 'PASS: create/retry/newest/stale/correction/rollback/legacy/two bounded batches/denied-role; all test writes rolled back' as health_acceptance;
+select 'PASS: create/retry/newest/stale/correction/rollback/legacy/denied-role; all test writes rolled back' as health_acceptance;
 rollback;

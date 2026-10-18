@@ -7,7 +7,7 @@
 - **Project name:** Me+
 - **Purpose:** A personal intelligence and control platform that turns durable user-owned records, goals, context, policies, connected services, and device signals into transparent, user-controlled insights and actions.
 - **Primary users:** The owner of the Me+ system; keep the architecture extensible without assuming a multi-tenant product.
-- **Repository:** dn-lx/me-plus-app
+- **Repository:** dn-lx/me-plus
 - **Owner/team:** dn-lx
 
 ## Architecture
@@ -74,6 +74,12 @@
 
 See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside Git.
 
+## App build platform
+
+- Selected app builder: ChatGPT/Codex. Antigravity is optional and no longer a dependency. Build/execution responsibilities: `docs/CLI-AGENT-STACK.md`.
+- GitHub operations use GitHub MCP. Android compilation/provenance uses GitHub-hosted Windows 2022 Actions (owner-approved 17 October 2026); Netlify hosts web/API and verified APK bytes. Deploy application changes to `dev` only unless a specific production release is approved.
+- Phone health sync target: every 180 minutes with Health Connect background-read permission and foreground catch-up. Each due run replays at least 24 hours and extends to the last acknowledgement after longer gaps; fixed unsent windows resume without sliding forward. Supabase source/external-ID/revision keys deduplicate overlaps. Android execution is deferrable, not an exact alarm. Acceptance and shared database repair status: `docs/plans/ME2-HEALTH-017-phone-sync.md`.
+
 ## Durable decisions
 
 - `docs/adr/0001-agent-independent-engineering.md`
@@ -82,3 +88,4 @@ See `docs/MCP-SETUP.md` for the capability profile. Credentials remain outside G
 ## Context freshness
 
 Source, tests and accepted ADRs override stale memory.
+

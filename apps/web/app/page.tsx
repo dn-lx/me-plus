@@ -1,80 +1,25 @@
-﻿import { ME_PLUS_DOMAINS } from "@me-plus/domain";
-
-const domainDescriptions: Record<(typeof ME_PLUS_DOMAINS)[number], string> = {
-  learning: "Goals, plans, practice and progress.",
-  health: "Wearables, activity, recovery and health records.",
-  finance: "Financial context, plans and decision support.",
-  time: "Tasks, routines, calendar context and attention.",
-};
-
-const androidBuild = {
-  version: "0.3.2",
-  displayVersion: "0.3.2",
-  filename: "me-plus-0.3.2.apk",
-  href: "/downloads/me-plus-0.3.2.apk",
-  checksumHref: "/downloads/me-plus-0.3.2.apk.sha256",
-};
-
+import Link from "next/link";
+import { SiteNav } from "./components/site-nav";
+import { getLatestVerifiedArtifact } from "../lib/download-artifact";
+export const dynamic = "force-static";
 export default function HomePage() {
-  return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">ME+ CONTROL SURFACE</p>
-        <h1>Your life data, reasoning and actions in one place.</h1>
-        <p className="lede">
-          This is the first runnable web shell. Canonical state will live in Supabase; model providers remain replaceable reasoning dependencies.
-        </p>
-      </header>
-
-      <section aria-labelledby="android-download-title" className="downloadSection">
-        <div className="sectionHeading">
-          <h2 id="android-download-title">Android app</h2>
-          <span>Development build</span>
-        </div>
-        <article className="card downloadCard">
-          <div>
-            <h3>Me+ {androidBuild.displayVersion}</h3>
-            <p>
-              Install the Android build to validate Health Connect directly on your phone.
-            </p>
-            <small>
-              Version {androidBuild.version} Â· {androidBuild.filename}
-            </small>
-          </div>
-          <div className="downloadActions">
-            <a className="downloadButton" href={androidBuild.href} download>
-              Download APK
-            </a>
-            <a className="checksumLink" href={androidBuild.checksumHref}>
-              SHA-256
-            </a>
-          </div>
-        </article>
-      </section>
-
-      <section aria-labelledby="domains-title">
-        <div className="sectionHeading">
-          <h2 id="domains-title">Domains</h2>
-          <span>Foundation</span>
-        </div>
-        <div className="grid">
-          {ME_PLUS_DOMAINS.map((domain) => (
-            <article className="card" key={domain}>
-              <h3>{domain}</h3>
-              <p>{domainDescriptions[domain]}</p>
-              <small>Shared contracts ready Â· runtime wiring next</small>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <footer className="siteFooter">
-        <a href="/finance/connect">Connect N26</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
-      </footer>
-    </main>
-  );
+    const artifact = getLatestVerifiedArtifact();
+    return <main className="shell">
+ <SiteNav current="home"/>
+ <section className="hero" aria-labelledby="home-title"><div className="heroCopy">
+  <img className="brandHeroLogo" src="/brand/companion.svg" width="64" height="64" alt=""/>
+  <p className="eyebrow">ME+ 2.0 · YOUR DAY, WITH DIRECTION</p><h1 id="home-title">A calmer day.<br /><span>One useful next step.</span></h1>
+  <p className="lede">Bring your priorities, plans and personal context together. Choose what matters now, capture a thought, and reflect on what you actually did.</p>
+  <div className="heroActions"><Link href="/today" className="primaryButton">Open Today <span aria-hidden="true">→</span></Link><Link href="/download" className="secondaryButton">Get the Android app</Link></div>
+  <div className="trustRow"><span>Clear priorities</span><span>Confirmed progress</span><span>You stay in control</span></div>
+ </div><div className="workspacePreview" aria-label="Me+ workspace overview, illustrative only">
+  <div className="previewHeading"><img src="/brand/companion.svg" width="48" height="48" alt=""/><div><strong>A little more clarity.</strong><small>Today · Plan · Capture · Review</small></div></div>
+  <div className="previewFocus"><p className="eyebrow">NOW</p><h2>Make room for what matters.</h2><p>Your signed-in Today view uses your available actions and calendar context to suggest a next step.</p></div>
+  <div className="previewRow"><span>01</span> See priorities in Today</div><div className="previewRow"><span>02</span> Keep a thought in Capture</div><div className="previewRow"><span>03</span> Review confirmed decisions</div><p className="previewLabel">An overview of the workspace. Sign in to see your own records.</p>
+ </div></section>
+ <section aria-labelledby="workspace-title"><div className="sectionHeading"><div><p className="eyebrow">ONE CONNECTED WORKSPACE</p><h2 id="workspace-title">Start where you are.</h2></div><p>The same light, focused Me+ 2.0 experience across phone and web.</p></div>
+ <div className="featureGrid">{[["today", "Today & Plan", "Find the next useful action and see the priorities available to you."], ["capture", "Quick capture", "Save a personal note with a confirmed receipt. Turn it into action when you choose."], ["review", "Daily review", "Look back at recorded decisions and progress without invented scores."]].map(([path, title, copy]) => <article className="appCard" key={path}><h3>{title}</h3><p style={{ color: 'var(--muted)' }}>{copy}</p><Link className="textLink" href={`/${path}`}>Open {path} →</Link></article>)}</div></section>
+ <section className="closingFrame"><div><p className="eyebrow">ME+ ON ANDROID</p><h2 style={{ marginBottom: 8 }}>Your companion, on your phone.</h2><p style={{ color: 'var(--muted)', marginBottom: 0 }}>Health Connect sync, personal priorities and quick capture.{artifact ? ` Current development build: ${artifact.version} (build ${artifact.versionCode}).` : ''}</p></div><Link href="/download" className="primaryButton">Download Android</Link></section>
+ <footer className="siteFooter"><div><strong className="footerBrand">Me+</strong><span>Personal intelligence, with you in control.</span></div><nav aria-label="Footer navigation"><Link href="/download">Android download</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
+ </main>;
 }
-
-
