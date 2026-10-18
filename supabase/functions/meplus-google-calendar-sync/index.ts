@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { calendarWindow } from "../_shared/ingestion-window.ts";
 
 const H={"content-type":"application/json"}, TZ="Europe/Berlin", SCHED="google_calendar_sync";
 const respond=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:H});
@@ -91,6 +92,18 @@ Deno.serve(async(req)=>{
   const {data:valid,error:authError}=await db.rpc("server_validate_calendar_wake",{p_secret:wake});
   if(authError||valid!==true) return respond({error:"unauthorized"},401);
 
+  const body=await req.json().catch(()=>({}));
+  if(body?.mode==="auth_probe"){
+    let authorized=false;
+    try{await accessToken();authorized=true;}catch{}
+    if(body.probe_id!==undefined){
+      if(typeof body.probe_id!=="string"||!/^[0-9a-f-]{36}$/i.test(body.probe_id))return respond({error:"invalid_probe"},400);
+      const recorded=await db.rpc("server_record_meplus_integration_probe",{p_probe_id:body.probe_id,p_provider:"google-calendar-supabase",p_authorized:authorized});
+      if(recorded.error||recorded.data!==true)return respond({error:"probe_not_recorded"},409);
+    }
+    return respond({configured:authorized,status:authorized?"authorized":"authorization_required"},authorized?200:502);
+  }
+
   const {data:sources,error:sourceError}=await db.from("data_sources")
     .select("id,user_id,external_account_ref,metadata")
     .eq("provider","google-calendar-supabase")
@@ -114,8 +127,7 @@ Deno.serve(async(req)=>{
 
       const token=await accessToken();
       const now=new Date();
-      const start=new Date(now.getTime()-14*86400000).toISOString();
-      const end=new Date(now.getTime()+180*86400000).toISOString();
+      const {start,end}=calendarWindow(now,source.metadata);
 
       const all:any[]=[];
       const counts:any[]=[];

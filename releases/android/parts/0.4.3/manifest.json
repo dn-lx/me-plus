@@ -1,0 +1,38 @@
+{
+  "version": "0.4.3",
+  "filename": "me-plus-0.4.3.apk",
+  "sizeBytes": 44841420,
+  "sha256": "749456115700cff683d565d4f894504ad7efa101f68cbd690f9f4aca9004b112",
+  "parts": [
+    {
+      "filename": "part-000.bin",
+      "sizeBytes": 8388608,
+      "sha256": "222056b003ee879d100e0096958251021d08e882ec881a718dcaa301dd66b794"
+    },
+    {
+      "filename": "part-001.bin",
+      "sizeBytes": 8388608,
+      "sha256": "95ebd8c34741123dbd92a7c022d4d83043bbb7936174001d761130cf860a06b8"
+    },
+    {
+      "filename": "part-002.bin",
+      "sizeBytes": 8388608,
+      "sha256": "512d642cfac904f32cd3ee65012f99910f441ff3af0a0959f74674873787fae1"
+    },
+    {
+      "filename": "part-003.bin",
+      "sizeBytes": 8388608,
+      "sha256": "1ce83c2744ea08019aa1daf6252cf9224537fa13e038d2dee7ad04968d24f0a9"
+    },
+    {
+      "filename": "part-004.bin",
+      "sizeBytes": 8388608,
+      "sha256": "9817a46fac5ceaa746f943bbdda7fafaa900ccb7075d44b2c8e7625e4e346718"
+    },
+    {
+      "filename": "part-005.bin",
+      "sizeBytes": 2898380,
+      "sha256": "289bb577b0b7a5c41c5d0d98c3456e2e83df86fe83b1376d10b89ac065a74778"
+    }
+  ]
+}

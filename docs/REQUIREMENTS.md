@@ -1,7 +1,7 @@
 # Requirements, Issues & Execution Plan
 
-**Status:** Active  
-**Last updated:** 2026-10-06  
+**Status:** Active
+**Last updated:** 2026-10-18
 **Primary branch:** `dev`
 
 Use this document as the project-level, checkable source of truth for requested features, known issues, planned improvements and completion evidence.
@@ -42,7 +42,6 @@ Acceptance: behavioral owner/race/replay tests, exact-head hosted checks, render
 
 Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the reviewed native controller from PR #79.
 
-
 ## [ ] ME2-HEALTH-017 — Reliable phone uploads and three-hour automatic sync
 
 **Priority:** P0 · Health / Android reliability
@@ -53,6 +52,42 @@ Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the revi
 - Acceptance: isolated baseline failure then passing repair/replay/negative tests, hosted workspace checks, verified versioned APK and physical-phone background/reboot/denial/offline/sign-out tests. Shared database application needs explicit authorization because dev and prod share the same project.
 
 Plan/evidence: `docs/plans/ME2-HEALTH-017-phone-sync.md`; PR #81. Not complete until deployment and device acceptance are observed.
+
+## [x] ME2-BACKEND-002 — Native database and scoped integration foundation
+
+**Priority:** P1 · Backend / integrations
+
+Deliver owner-authenticated profile bootstrap, native daily/weekly/once routines and audit, deterministic sleep-gated materialization, 1–5 recommendation feedback, bounded workspace reads and scoped/revocable/rate-limited MCP tools. Preserve the fresh database and keep optional runtimes replaceable. User authorized live backend work without Supabase PRs; app and website release are deferred.
+
+Acceptance evidence: isolated PostgreSQL and live-schema rollback tests passed for auth/ownership/retry/DST/feedback/token lifecycle; hosted negative MCP/Google authentication checks passed; independent review clear. Migrations and endpoints deployed; no historical data restored. Exact versions and limits: `docs/plans/ME2-BACKEND-002-integrations.md`.
+
+## [x] ME2-INTEGRATIONS-004 — Integration controls before user authorization
+
+**Priority:** P1 · Backend / integrations
+
+Finish safe status, owner-bound expiring authorization probes, pause/start/clock controls and offline N26 rollout preparation while the user defers sign-in. Require real database sync evidence before recurring ingestion. Preserve history cutoffs and protect shared server credentials.
+
+Evidence: migration20261016121130 and Google proof callbacks deployed; isolated/live rollback controls acceptance and hosted failed-authorization callback smoke passed. N26 functions-only ZIPs build and deny invalid credentials, with a pinned reproducible CI artifact pipeline. N26 deployment is an explicit capability blocker, not claimed delivered. Details: `docs/plans/ME2-INTEGRATIONS-004-control-and-rollout.md`.
+
+## [x] ME2-SETUP-005 — Native lifecycle and backend readiness
+- Status: deployed; hosted PostgreSQL 17.6 concurrency and live-schema rollback checks passed.
+- Expire only stale internal native occurrences; preserve completed/partial/skipped, manual/legacy and external history under concurrent decisions.
+- Owner readiness reports current configuration separately from pending app/device acceptance and deferred authorization/N26.
+- Plan: `docs/plans/ME2-SETUP-005-native-lifecycle.md`.
+
+## [x] ME2-AGENTS-006 — Letta/n8n/Langfuse preparation before authorization
+
+Prepare credential-free local Letta App Server sessions, inactive n8n workflow packages and disabled metadata-only Langfuse exporter, bounded scoped MCP access, safe activation tooling and privacy/error tests. User requests integration preparation now; accounts, provider authorization and hosted execution remain later. No paid provisioning or canonical-state duplication.
+
+Evidence: isolated n8n2.43.7 import and real local Letta SDK0.8.45 handshake passed without credentials/inference; scoped protocol/privacy/error tests and independent security review passed. Hosted checks at ccb3029 are green; final SHA remains subject to CI. Preparation complete; approved persistent hosting, provider credentials, actual authorized execution and recovery/model acceptance remain ME2-CONNECT-003. Plan: `docs/plans/ME2-AGENTS-006-letta-n8n.md`.
+
+## [ ] ME2-CONNECT-003 — Provider authorization and real client/device activation
+
+**Priority:** P1 · Integrations / user-assisted
+
+Google Drive Health Sync and Calendar require renewed authorization. N26 requires rollout of the source-prepared history guard followed by fresh bank consent. Health Connect requires actual device upload/retry at app stage. MCP requires an actual securely configured scoped client; OAuth-style ChatGPT setup is not implemented. Activate external cron only after successful fresh-only ingestion. Letta/n8n/Langfuse remain optional behind measured-benefit, privacy and recovery gates.
+
+Acceptance: actual Google probes and source snapshots succeed, N26 imports only the configured day window with valid consent, device upload/retry succeeds, a real scoped MCP client executes allowed tools and is denied ungranted tools. Record provenance without credentials. No integration is complete merely because a worker is deployed.
 
 
 ## [x] ME2-NATIVE-001 — Reproducible and retry-safe native task writes
@@ -68,43 +103,135 @@ Implementation: `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
 Completion evidence: PR #76 code head `31f10f4`: all seven CI gates passed; isolated PostgreSQL reproduces the old bug then passes both suites twice; independent review clear. Development implementation verified; live repair deployment and hosted app E2E are explicitly outside this requirement. Final PR head remains subject to CI.
 
 
-## [ ] REQ-001 — Short requirement title
+## [x] ME2-ARCH-007 — Evidence-based architecture and delivery plan
 
-**Priority:** P0 / P1 / P2 / P3  
-**Scope:** App / Web / Backend / Data / Infrastructure / Cross-platform  
-**Type:** Feature / Bug / Reliability / UX / Security / Maintenance
+**Priority:** P1 · Documentation / planning
 
-**Problem / need**  
-Describe the observable problem or requested outcome in plain language.
+Audit current dev, prepared backend/mobile work, canonical design and deployment metadata; recommend boundaries, technology choices and a complete roadmap covering N26 and ING. Do not implement, install, activate or deploy.
 
-**Goal**  
-Describe the desired end state, not the implementation.
+Acceptance: source-linked findings, explicit current/prepared/proposed states, bank coverage assumptions and acceptance gates, prioritized dependencies, preserved design authority, consistent repository/Drive documentation and documentation checks. Evidence: [audit](ARCHITECTURE-AUDIT-2026-10-17.md), [roadmap](ROADMAP.md), proposed [ADR 0002](adr/0002-meplus2-modular-core-and-adapters.md). Planning completion: documentation-only PR #78; guarded canonical Drive architecture/roadmap edits read back with original text preserved; strict documentation checks and 8 focused documentation/task-state tests passed. Implementation requirements remain unchecked.
 
-**Requirements**
-- Concrete behavior 1.
-- Concrete behavior 2.
-- Important constraints.
-- Privacy/security/accessibility expectations where relevant.
-- Performance budget and analytics behavior where they are part of the user/product requirement.
+## [ ] ME2-BASE-008 — Reproducible source, schema and deployment baseline
 
-**Acceptance criteria**
-- [ ] Observable criterion 1.
-- [ ] Observable criterion 2.
-- [ ] Negative/error path verified.
-- [ ] Relevant tests/checks pass.
-- [ ] Browser/runtime, performance or analytics-contract evidence captured when relevant.
+**Priority:** P0 · Infrastructure / reliability · **Dependency:** review pending PRs independently.
 
-**UI verification contract (when applicable)**
-- Theme/state(s): TODO / Not applicable.
-- Critical viewport(s): TODO / Not applicable.
-- Visual reference/invariant: TODO / Not applicable.
-- Contrast/alignment/overflow/clipping expectations: TODO / Not applicable.
+Reconcile active function source/digests/auth config, migration ledger, dev/prod/API targets, pending PR #77/#38 dependencies and legacy runtime disposition. Create a reproducible isolated schema/config baseline with synthetic fixtures.
 
-**Dependencies**
-- None / REQ-XYZ / external dependency.
+Acceptance: exact deployable source identified; no unknown-source redeploy; clean environment reproduces contracts; migration provenance and compatibility verified; no historical migration replay or live-data import to repair documentation. Generic bootstrap tests own explicit incomplete/complete fixtures and preserve the strict guard without relying on placeholder Me+ requirements (known PR #78 CI blocker). Audit findings A01–A03/A19.
 
-**Completion evidence**  
-_Add PR/commit, test/build result, screenshots/device verification or other proof here before marking complete._
+## [ ] ME2-CONTRACT-009 — Versioned capability contracts and server module boundaries
+
+**Priority:** P1 · Cross-platform / backend · **Dependency:** ME2-BASE-008.
+
+Inventory owner RPCs, machine Gateway and MCP capabilities; align DTO/lifecycle/error/request-ID semantics with SQL. Generate database types and validate untrusted payloads. Extract reusable server/provider code from presentation modules while preserving Node/Deno boundaries.
+
+Acceptance: clients and adapters use one documented capability model; schema/runtime checks agree; transactional rules have one authority; no privileged server dependency in client bundles; compatibility and regression checks cover incremental extraction. A07/A08/A13/A18.
+
+## [ ] ME2-SEC-010 — Complete owner-session and data isolation boundaries
+
+**Priority:** P0 · Auth / privacy · **Dependency:** ME2-BASE-008.
+
+Finish web refresh/logout/recovery/safe return routing and account-scoped cache handling; evaluate protected native session storage. Separate user sessions from machine/scoped-client credentials and isolated tests from shared live data.
+
+Acceptance: anonymous/cross-owner/forged-client denial, refresh/revocation/recovery and two-device isolation; no secret in a client/log; cookie-write origin protection; native session-size/error/logout behavior verified; test jobs cannot silently use live write credentials. A03/A06.
+
+## [ ] ME2-JOBS-011 — Durable bounded work and retry semantics
+
+**Priority:** P0 before banking activation · Backend / reliability · **Dependencies:** ME2-BASE-008, ME2-CONTRACT-009.
+
+Persist job receipts and connection-scoped leases/generations, classify bounded retries and commit page application/checkpoints atomically. Reuse existing scheduler/dispatch infrastructure before adding a queue service.
+
+Acceptance: crash/retry/replay/concurrent-worker and revoke/pause cases preserve data and last-success semantics; poison jobs inspectable; no network call held inside a database transaction; slow work survives the initiating HTTP response. A11.
+
+## [ ] ME2-BANK-012 — Independent N26 and ING read-only finance integration
+
+**Priority:** P1; security/correctness gates P0 · Finance / integrations · **Dependencies:** ME2-BASE-008 through ME2-JOBS-011 as applicable.
+
+Deliver both banks through provider/institution/connection/account contracts, independent consent/control/sync, exact money and auditable source facts. ING Germany retail is an assumption pending country/product confirmation. Retain Enable Banking as the first candidate; verify actual capabilities, entitlements and fees.
+
+Acceptance: both banks separately pass authorization, cutoff, account identity, pagination, decimal/balance/transaction/reversal, cross-bank transfer, crash/retry, pause/revoke, user-visible freshness and real source-sync gates. No bank credentials or payment capability. Full [banking plan](plans/ME2-BANK-012-n26-ing.md). A09–A12. Latest user request supersedes earlier N26 deferral for planning priority.
+
+## [ ] ME2-DELIVERY-013 — Immutable web/native/backend release chain
+
+**Priority:** P0 · Delivery / infrastructure · **Dependency:** ME2-BASE-008.
+
+Separate frozen dependency preflight, immutable native compilation, artifact/installed verification and approved distribution. Preserve designated Windows Android builder. Verify web/backend published runtime identity and compatible migration/config rollout.
+
+Acceptance: build performs no source/lockfile/binary commits; artifact hash/signer/source/version traceable; branch deletion safe; actual install/HTTP/auth checks pass; rollback rehearsed; specific dev→prod approval remains required. A04.
+
+## [ ] ME2-HEALTH-014 — Device/source accuracy and incremental health acceptance
+
+**Priority:** P1; missing migration gate P0 before device release · Health / integrations.
+
+Reconcile PR #38 and the missing batch-run migration; inventory Health Connect/Zepp coverage, source precedence and duplicate metrics; define deletion/cursor-expiry/backfill behavior. Preserve permissions, quality and raw revisions.
+
+Acceptance: real device grant/deny/resume/upload/retry, multiple bounded batches, revision and deletion semantics, expired cursor, Health Sync overlap and no sensitive logs. Foreground-only work is labeled honestly. Official Zepp export/API evaluation only. A05.
+
+## [ ] ME2-CLIENT-015 — Complete daily and cross-device owner flows
+
+**Priority:** P1 · App / web · **Dependencies:** ME2-CONTRACT-009, ME2-SEC-010.
+
+Complete Today/Now/Review, native task/routine controls, optional helpfulness/follow-through, small check-ins and connection/privacy settings. Use canonical typed writes rather than separate client rules; support labeled cached reads and a limited request-ID outbox.
+
+Acceptance: committed readback across two devices, session recovery, retry/version conflicts, empty/stale/offline/error states; keyboard/screen-reader/contrast and phone/tablet/desktop checks; rationale and minimum actions; no consequential offline external effects. A13/A14.
+
+## [ ] ME2-OPS-016 — Recovery, retention, export and operational evidence
+
+**Priority:** P0 release gate / P1 delivery · Operations / privacy.
+
+Define core database/object/config/secret-reference backup scope, retention/deletion, data export, operational thresholds and source/runtime health. Reuse the existing observer.
+
+Acceptance: isolated restore/export/deletion and failure/rollback drills; documented owner and actual achievable RPO/RTO; sanitized correlations; no raw private trace payloads; actionable alerts. Proposed RPO ≤24h/RTO ≤4h requires validation against plan/cost and owner expectations. A16.
+
+## [ ] ME2-NOTIFY-017 — Useful, consented notification delivery
+
+**Priority:** P1 · App / attention policy · **Dependencies:** ME2-CLIENT-015, ME2-JOBS-011 where asynchronous delivery is used.
+
+Implement permission, quiet-hour, attention, deduplication, expiry and acknowledgement contracts, with minimal private lock-screen content. Delivery cannot change canonical completion truth.
+
+Acceptance: duplicate/retry, timezone/DST, denied/expired token, multiple device and expired-action cases; actionable prompts and separate delivery/outcome metrics. A15.
+
+## [ ] ME2-EVAL-018 — Reliable structured intelligence and measured learning
+
+**Priority:** P1 · Reasoning / quality · **Dependencies:** baseline/source reconciliation and privacy gates.
+
+Establish baseline output/route/cost, fail-closed handling for incomplete/invalid responses and a versioned held-out synthetic benchmark. Keep helpfulness, follow-through and actual outcomes distinct; account for small samples/selection bias.
+
+Acceptance: no critical safety/permission/schema failures in promotion cases; bounded retries/cost/context; comparable quality/latency/tool-count evidence; no model change bundled into tracing; reproducible fallback. A17.
+
+## [ ] ME2-AGENT-019 — Selective optional runtime acceptance
+
+**Priority:** P2 · Optional infrastructure · **Dependencies:** ME2-EVAL-018, ME2-OPS-016.
+
+Advance prepared Letta/n8n/Langfuse packages only for a measured use case. Require isolated identity/tools, scoped actual credentials, benefit/cost/privacy, restore/fallback and revocation acceptance. Keep skills reviewed and Temporal conditional.
+
+Acceptance: real allowed and denied tool execution, loss-of-runtime fallback, approved model/budget, backup restore, trace canary/deletion and recoverable workflow exports. No second canonical store or routine scheduler. Preparation from PR #77 is not full adoption. A17.
+
+## [ ] ME2-DOMAIN-020 — Small complete product-domain slices
+
+**Priority:** P1/P2 by selected use case · App / domain capability · **Dependency:** accepted daily loop.
+
+Reuse existing canonical data for goals/check-ins, learning/Spanish/practice, workouts/recovery, food/hydration, finance obligations and reviews. Select one useful flow at a time; preserve uncertain estimates and user corrections.
+
+Acceptance per selected slice: factual source and derived interpretation distinguished, typed write/readback, continuity, useful UI/conversational flow, privacy/negative paths and actual usage feedback. Data-model presence alone is insufficient. A20.
+
+## [ ] ME2-SLACK-021 — Optional scoped Slack use case
+
+**Priority:** P2 optional · Collaboration / potential integration · **Dependency:** user selects a product use case.
+
+Slack may link to canonical plans and review discussions. Inbound task capture or outbound product notifications require explicit selected scope, workspace/user mapping and minimum permissions. The ChatGPT connector does not provide Me+ runtime authorization.
+
+Acceptance if selected: verified workspace/channel/recipient, authenticated events, replay/rate-limit/injection handling, no unapproved writes or private-state mirroring, disconnect/retention and tool-scope tests. No Slack message or app integration is required to complete this planning task. A21.
+
+## [ ] ME2-CONNECT-003 — Provider and real client/device activation
+
+**Priority:** P1 · User-assisted integration acceptance · **Dependencies:** per-source security/deployment/client gates.
+
+Google Health Sync/Calendar need renewed provider authorization; N26 and ING need independently accepted workers and fresh bank consent; Health Connect needs actual device evidence; MCP needs a securely configured scoped client. Keep clocks off until each source's own genuine sync succeeds. OAuth-style hosted ChatGPT connection remains separate scope if needed.
+
+Acceptance: actual fresh snapshots/uploads, bounded retry/readback, allowed/denied client operations and revocation, independent source pause/start/clock behavior, no secret leakage. Preserve this existing requirement ID from PR #77 and retain its completed preparation requirements when consolidating that PR.
+
+Prepared foundation work ME2-BACKEND-002, ME2-INTEGRATIONS-004, ME2-SETUP-005 and ME2-AGENTS-006 is tracked in [PR #77](https://github.com/dn-lx/me-plus/pull/77). Its code/tests/deployment evidence must be preserved on merge; it does not close the new acceptance requirements above.
 
 ---
 
@@ -114,10 +241,10 @@ _Add PR/commit, test/build result, screenshots/device verification or other proo
 
 **Priority:** P0
 
-**Observed behavior**  
+**Observed behavior**
 Known Me+ intents can trigger repeated specification, Drive, database, connector or entity discovery even when canonical identifiers already exist. This increases latency, tool usage and inconsistency across cold and resumed chats.
 
-**Expected behavior**  
+**Expected behavior**
 Known intents use a deterministic fast path: intent/aliases → canonical specification(s) → latest relevant checkpoint → no generic Personal State by default → purpose-specific context/execution surface. Missing/stale registrations and ambiguous intents use an explicit, bounded and diagnosable fallback.
 
 **Acceptance criteria**
@@ -129,8 +256,8 @@ Known intents use a deterministic fast path: intent/aliases → canonical specif
 - [x] Critical `shell-quote` dependency audit blocker fixed without suppressing the advisory; current Security checks pass.
 - [x] Staged guardrail covers intent/topic precedence, whole-word whitespace matching, direct issue lookup, registration validity/revalidation, bounded ambiguity and bootstrap fallback diagnostics.
 - [x] Disposable PostgreSQL regression suite passes 64/64 assertions with denied-role and replay checks.
-- [x] Current live routing regression remains 12/12 and system-wide read-only health shows no ENG-007 regression.
-- [ ] Task PR merged to `dev` and post-merge state reverified.
+- [x] Historical live routing regression passed 12/12; no current-version routing benchmark was run in the architecture audit.
+- [x] Task PR #67 merged to `dev` (GitHub merge status rechecked 17 October 2026); current runtime provenance and latency remain separate gates.
 - [ ] Guardrail migration generated through the approved Supabase CLI/release workflow and deployed only after explicit reviewed dev→prod approval.
 - [ ] Representative v1.17 cold/resumed interactions provide comparable p50/p95, payload-byte and observed-call evidence.
 
@@ -140,77 +267,12 @@ Known intents use a deterministic fast path: intent/aliases → canonical specif
 - Fallback discovery is explicit and bounded to at most two follow-up discovery calls.
 - Database-only timings must never be reported as end-to-end user latency.
 
-**Completion evidence**  
-PR #67, current head `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`. Live gateway is Edge Function 25 / `gateway-v1.17.0` with `bootstrap-context-v3`. Isolated routing run `37590204039` reports 64 passed / 0 failed and no production access; current Security, Runtime, Version and Agent Stack workflows are green. Live routing regression remains 12/12. Earlier comparable core measurement: `get_me_context` payload 35,704 → 6,758 bytes (-81.07%) and single-run DB execution 19.673 → 11.268 ms (-42.72%). The inspected 24-hour audit window still lacks v1.17 traffic, so end-to-end p50/p95 remains unverified.
+**Historical completion evidence**
+The following measurements are from the earlier ENG-007 checkpoint, not a fresh runtime benchmark. PR #67, historical code head `48d2b2cc4ab43eed27712d69333f2ecfc56e2e17`. The historical gateway was Edge Function 25 / `gateway-v1.17.0` with `bootstrap-context-v3`. Isolated routing run `37590204039` reports 64 passed / 0 failed and no production access; current Security, Runtime, Version and Agent Stack workflows are green. Historical routing regression passed 12/12. Earlier comparable core measurement: `get_me_context` payload 35,704 → 6,758 bytes (-81.07%) and single-run DB execution 19.673 → 11.268 ms (-42.72%). The inspected 24-hour audit window still lacks v1.17 traffic, so end-to-end p50/p95 remains unverified.
 
 
-## [ ] ISSUE-001 — Short issue title
+# Execution and completion
 
-**Priority:** P0 / P1 / P2 / P3
+Use [ROADMAP.md](ROADMAP.md) for dependency order and exit gates. No application implementation is authorized by this planning revision. Current-source, prepared, deployed, authorized, first-sync, recurring-accepted and released are separate statuses.
 
-**Observed behavior**  
-What currently happens?
-
-**Expected behavior**  
-What should happen?
-
-**Reproduction / evidence**
-1. Step or condition.
-2. Step or condition.
-3. Result.
-
-**Acceptance criteria**
-- [ ] Root cause identified.
-- [ ] Fix verified against reproduction.
-- [ ] Regression test added when practical.
-- [ ] No relevant adjacent behavior regressed.
-
-**Completion evidence**  
-_Add verification here._
-
----
-
-# Planned work / roadmap
-
-Use this section for ordered work that is not yet detailed enough to become a full requirement.
-
-## Phase 1 — Foundation
-- [ ] PLAN-001 — Example foundational work.
-
-## Phase 2 — Core experience
-- [ ] PLAN-002 — Example product work.
-
-## Phase 3 — Quality and release
-- [ ] PLAN-003 — Example QA/release work.
-
-Convert a plan item into a detailed requirement before implementation when scope/risk is non-trivial. If delivery sequencing, migration, rollback or handoff is also non-trivial, use the implementation-planning skill for the task-specific “how”; do not turn this requirements file into an implementation transcript.
-
----
-
-# Decisions and constraints
-
-Record decisions that materially shape execution but do not justify an ADR yet.
-
-- Example: app and web must use one analytics contract.
-- Example: background scheduling is best-effort rather than exact.
-- Example: production data must never be copied into test logs.
-
-Promote architectural/security decisions to an ADR when they become durable or cross-cutting.
-
-# Completion summary
-
-Use this section for a quick status view.
-
-- [ ] P0 complete.
-- [ ] P1 complete.
-- [ ] P2 complete.
-- [ ] P3 complete.
-
-# Maintenance rules
-
-- Keep requirement IDs stable after work begins.
-- Do not silently change acceptance criteria after implementation; record the change.
-- If a requirement is cancelled, mark it clearly as cancelled with reason/date instead of deleting it.
-- If a requirement moves to another repository, leave a pointer.
-- Keep this document concise enough to scan; implementation notes belong in code/PRs/handoffs.
-
+A requirement is complete only when its acceptance evidence exists. Keep runtime/deployment actions separately authorized, preserve user data/history and record tests/limits in the task PR. Proposed performance/cost/recovery targets in the roadmap need measured validation before being promised.

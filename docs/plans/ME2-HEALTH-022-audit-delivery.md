@@ -15,3 +15,11 @@ PR84 at b8b20e2 passed eight hosted gates including signed Android0.4.2/code8 co
 
 ## Verification / rollback
 Hosted quality/security/runtime checks and isolated SQL contracts; desktop/narrow browser screenshots visually reviewed. Verify Netlify exact commit and installer HTTPS size/hash after dev merge. Backend compatibility normalization is additive; raw readings/revisions remain unchanged. Revert trigger/code through reviewed follow-up if required. Production remains locked. Physical background/reboot/offline and two-user acceptance require observed device evidence.
+
+
+## Delivery evidence — 18 October
+- HTTP500 batch-key repair is live; real traffic reached226 completed batches with0post-repair failures and7,644records. Unit normalization is live; strict numeric-roundtrip historical repair is tracked separately in PR86.
+- Automatic dense-window starvation reproduced and fixed in0.4.3/code9;11focused engine tests pass, including privacy/revision/reordering. Hosted run39119321617 built b27d1ea77321fd0aad1d43efa1ec59c910928253 successfully; APK hash749456115700cff683d565d4f894504ad7efa101f68cbd690f9f4aca9004b112 and existing signer verified. Part assembly reproduces identical bytes.
+- All eight pre-existing PRs reconciled and merged into dev. Backend optional runtimes stay disabled; historical migrations not redeployed.
+- User requested Google Artemis. Installed pinned351ca8422f7b5b54e80a9c1ce03a222e02415b6b on D:, actual doctor run reports device/model-key prerequisites missing. Device tests remain pending; no fabricated UI evidence.
+- Owner chose raw7days then compaction; dedicated reviewed implementation tracked in ME2-HEALTH-023 / PR86, separately gated before deletion.

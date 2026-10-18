@@ -2,14 +2,26 @@
 
 ## [Unreleased]
 
+### Documentation
+- Audited the Me+ 2.0 source/runtime boundaries, proposed a modular-core architecture, and replaced the starter backlog with an ordered roadmap covering N26 and ING, client/session contracts, durable jobs, health acceptance, delivery, privacy/recovery and optional runtime gates. Planning only; no product/runtime/dependency changes.
+
+
+- Credential-free Letta local App Server task-tool adapter and inactive n8n tasks workflow packages, with fail-closed activation tooling and tasks-only grant metadata. Added disabled metadata-only Langfuse OTLP v4 preparation without worker/model changes. Provider accounts and authenticated hosted acceptance remain deferred.
+- Owner-scoped integration readiness/probe/pause/start controls; recurring sync requires fresh server authorization proof and successful source sync. Added reproducible N26 functions-only deployment artifacts while provider authorization remains deferred.
+- Me+ 2.0 owner-scoped routine scheduling/history, feedback, workspace API and expiring/revocable scoped MCP client tools. Native routine clock is active; external integrations remain pending authorization with disabled clocks.
+- Native occurrence lifecycle cleanup covers disabled and ended schedules, preserves execution history, and removes elapsed internal snapshots from the active workspace. Added owner-only backend configuration readiness with separate app/device acceptance gates.
+- Auth profile bootstrap after the V1 reset, Calendar wake authentication, and fresh-start ingestion guards for Google connectors. N26 history guard is source-prepared pending backend rollout and renewed consent.
+- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair applied and verified on the shared backend on 16 October 2026.
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
+
 ### Added
 - Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
 
 ### Fixed
-- Android 0.4.3/code9 checkpoints acknowledged SHA-256 reading digests within dense scan/change windows so a worker deadline cannot repeatedly starve the remaining samples. Same-account token refresh no longer cancels a healthy sync.
-- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The reviewed server batch-key repair is now applied and real multi-batch uploads succeed.
-- Normalize typed Health Connect unit aliases before existing quality validation; repair only proven automatic unit rejections while retaining raw evidence and manual corrections.
-- Publish the exact signed 0.4.2 installer and complete Companion navigation across legal/banking pages. Server status distinguishes batch acknowledgement from full phone catch-up.
+- Android0.4.3/code9 resumes dense Health Connect uploads within fixed pages/windows using acknowledged reading hashes; account-stable token refresh no longer cancels automatic sync. Signed development installers retain the existing upgrade signer.
+- Health batches use distinct run identities without bypassing source locks. Typed Health Connect unit aliases are normalized before the quality gate; validated historical rows retain raw provenance.
+- Legal/bank pages share Companion navigation; server batch acknowledgement is clearly distinguished from complete phone synchronization.
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The server batch repair was applied and verified with real multi-batch traffic on18October.
 
 - Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
 
@@ -138,5 +150,4 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
-
 

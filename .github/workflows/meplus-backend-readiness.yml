@@ -1,0 +1,153 @@
+name: Me+ backend readiness
+on:
+  push:
+    branches: [feature/me2-backend-integrations]
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'supabase/migrations/*meplus2*'
+      - 'supabase/functions/**'
+      - 'apps/web/lib/finance/n26-*.ts'
+      - 'tests/*.test.mjs'
+      - 'integrations/agent-clients/**'
+      - 'tooling/letta-runtime/**'
+      - 'scripts/build-backend-functions.mjs'
+      - 'scripts/verify-backend-functions.mjs'
+      - 'tooling/backend-build/**'
+      - 'netlify/functions/n26-*.mts'
+      - 'supabase/tests/backend-readiness/**'
+      - '.github/workflows/meplus-backend-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backend-readiness-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: meplus_backend_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable_ci_fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: meplus_backend_test
+      PGUSER: postgres
+      PGPASSWORD: disposable_ci_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node integration suite
+        run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Check offline agent setup
+        run: |
+          node integrations/agent-clients/setup.mjs letta
+          node integrations/agent-clients/setup.mjs n8n
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-integration-setup
+          path: |
+            integrations/agent-clients/
+            tooling/letta-runtime/package.json
+            tooling/letta-runtime/pnpm-lock.yaml
+            tooling/letta-runtime/pnpm-workspace.yaml
+            tooling/letta-runtime/smoke.mjs
+          if-no-files-found: error
+          retention-days: 30
+      - name: Disposable schema and owner contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = meplus_backend_test
+          files=(
+            supabase/tests/backend-readiness/native-routines-fixture.sql
+            supabase/tests/backend-readiness/scoped-client-extra-fixture.sql
+            supabase/migrations/20261016084425_meplus2_auth_profile_bootstrap_fix.sql
+            supabase/tests/backend-readiness/auth-trigger-fixture.sql
+            supabase/migrations/20261015110000_meplus_2_unified_atomic_action_execution.sql
+            supabase/migrations/20261016083256_meplus_native_action_replay_receipts.sql
+            supabase/migrations/20261016085920_meplus2_native_routines_feedback.sql
+            supabase/migrations/20261016114024_meplus2_scoped_client_registry.sql
+            supabase/migrations/20261016114053_meplus2_scoped_client_dispatch.sql
+            supabase/tests/backend-readiness/integration-control-fixture.sql
+            supabase/migrations/20261016121130_meplus2_integration_control.sql
+            supabase/tests/backend-readiness/native-lifecycle-fixture.sql
+            supabase/migrations/20261016123952_meplus2_native_occurrence_lifecycle.sql
+            supabase/migrations/20261016123953_meplus2_backend_readiness_contract.sql
+            supabase/tests/backend-readiness/native-lifecycle-rollback.sql
+            supabase/tests/backend-readiness/integration-control-rollback.sql
+            supabase/tests/backend-readiness/auth-native-rollback.sql
+            supabase/tests/backend-readiness/native-routines-rollback.sql
+            supabase/tests/backend-readiness/scoped-client-rollback.sql
+          )
+          for file in "${files[@]}"; do
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+          done
+      - name: Concurrent native completion and cleanup
+        run: python3 supabase/tests/backend-readiness/native-lifecycle-concurrency.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build N26 functions without a website deploy
+        env:
+          MEPLUS_BACKEND_BUILD_MODULES: ${{ github.workspace }}/tooling/backend-build/node_modules
+        run: |
+          npm ci --prefix tooling/backend-build --ignore-scripts --no-audit --no-fund
+          node scripts/build-backend-functions.mjs
+          node scripts/verify-backend-functions.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: n26-backend-functions
+          path: dist/backend-functions/archives/
+          if-no-files-found: error
+          retention-days: 30
+
+  n8n-import-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Import credential-free manual workflow in isolated n8n 2.43.7
+        run: |
+          docker run --rm --network none \
+            -e N8N_DIAGNOSTICS_ENABLED=false \
+            -e N8N_VERSION_NOTIFICATIONS_ENABLED=false \
+            -e N8N_PERSONALIZATION_ENABLED=false \
+            -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
+            -v "$PWD/integrations/agent-clients/n8n:/fixtures:ro" \
+            --entrypoint n8n docker.n8n.io/n8nio/n8n:2.43.7 \
+            import:workflow --input=/fixtures/tasks-readonly.json
+
+  letta-local-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned local Letta SDK runtime
+        run: npx --yes pnpm@11.25.0 --dir tooling/letta-runtime install --frozen-lockfile --ignore-scripts --config.manage-package-manager-versions=false
+      - name: Audit isolated runtime dependencies
+        run: npx --yes pnpm@11.25.0 --dir tooling/letta-runtime audit --prod --audit-level=high
+      - name: Local App Server policy without account, API key or inference
+        run: node --experimental-strip-types tooling/letta-runtime/smoke.mjs

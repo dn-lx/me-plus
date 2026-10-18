@@ -39,3 +39,6 @@ CLAUDE.local.md
 # Framework build output
 .next/
 *.tsbuildinfo
+
+# Supabase CLI generated project cache
+/supabase/.temp/
