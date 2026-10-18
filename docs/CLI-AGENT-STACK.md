@@ -2,6 +2,14 @@
 
 This starter can use a deliberately small set of complementary local coding hosts when a project benefits from them. The goal is stronger implementation and review, not collecting every available agent.
 
+## Me+ app implementation platform
+
+ChatGPT/Codex is the selected Me+ app builder, per owner direction on 17 October 2026. It preserves the existing Expo/React Native monorepo and the accepted Me+ 2.0 UI/UX v2 prototype. GitHub MCP owns repository/PR/CI operations. No Antigravity provider call is required to build or change the app.
+
+Antigravity CLI 1.4.0 remains an installed optional host at `D:\Tools\Antigravity\bin\agy.exe` with workspace `D:\Development\me-plus-antigravity`. Its earlier analysis attempt hit provider quota; this is historical, not an active delivery dependency.
+
+Android compilation remains the designated Windows Actions pipeline from an immutable committed SHA. The pipeline uses a frozen lockfile, verifies package/version/signer/ARM64/embedded bundle and uploads artifacts without mutating the source branch. GitHub MCP performs any reviewed distribution write separately. Netlify hosts web/API and verified downloads. Desktop Commander remains Android-host troubleshooting only; no production deployment is authorized.
+
 ## Optional baseline
 
 | Host | Use when its verified capabilities fit | Notes |
@@ -190,3 +198,4 @@ Then verify inside each installed host that:
 ## Maintenance policy
 
 Third-party plugins can execute hooks or background helpers. Review their source/release notes before installation or major upgrades. Keep plugin upgrades separate from application feature work when practical, and rerun the starter validation after changing the agent stack.
+

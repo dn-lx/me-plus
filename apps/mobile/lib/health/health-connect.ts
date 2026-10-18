@@ -38,6 +38,21 @@ export type HealthConnectScan = {
   readings: SensorReading[];
 };
 
+export type HealthConnectPermissionState = {
+  initialized: boolean;
+  backgroundRead: boolean;
+  recordReadPermissionCount: number;
+  recordReadTypes: HealthConnectRecordType[];
+};
+
+export type HealthConnectChanges = {
+  readings: SensorReading[];
+  deletionCount: number;
+  nextChangesToken: string;
+  changesTokenExpired: boolean;
+  hasMore: boolean;
+};
+
 type GenericMetadata = {
   id?: string | null;
   lastModifiedTime?: string | null;
@@ -94,11 +109,7 @@ export async function requestHealthConnectReadPermissions() {
   );
 }
 
-export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInventory> {
-  return (await scanHealthConnect(days)).inventory;
-}
-
-export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
+export async function getHealthConnectPermissionState(): Promise<HealthConnectPermissionState> {
   assertAndroid();
   const healthConnect = await import("react-native-health-connect");
   const initialized = await healthConnect.initialize();
@@ -108,7 +119,80 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
   }
 
   const grantedPermissions = await healthConnect.getGrantedPermissions();
-  const windowEnd = new Date();
+  const grantedTypes = new Set(
+    grantedPermissions
+      .filter((permission) => permission.accessType === "read")
+      .map((permission) => String(permission.recordType)),
+  );
+  const recordReadTypes = HEALTH_CONNECT_RECORD_TYPES.filter((type) => grantedTypes.has(type));
+
+  return {
+    initialized,
+    backgroundRead: grantedTypes.has("BackgroundAccessPermission"),
+    recordReadPermissionCount: recordReadTypes.length,
+    recordReadTypes,
+  };
+}
+
+export async function readHealthConnectChanges(
+  changesToken?: string,
+  recordTypes: readonly HealthConnectRecordType[] = HEALTH_CONNECT_RECORD_TYPES,
+): Promise<HealthConnectChanges> {
+  assertAndroid();
+  const healthConnect = await import("react-native-health-connect");
+  const initialized = await healthConnect.initialize();
+
+  if (!initialized) {
+    throw new Error("Health Connect could not be initialized on this device.");
+  }
+
+  const result = await healthConnect.getChanges({
+    recordTypes: [...recordTypes],
+    ...(changesToken ? { changesToken } : {}),
+  } as never);
+
+  const readings = result.upsertionChanges.flatMap((change, index) => {
+    const record = change.record as unknown as GenericRecord;
+    const recordType = record.recordType;
+
+    if (
+      typeof recordType !== "string" ||
+      !HEALTH_CONNECT_RECORD_TYPES.includes(recordType as HealthConnectRecordType)
+    ) {
+      return [];
+    }
+
+    return mapRecordToReadings(recordType as HealthConnectRecordType, record, index);
+  });
+
+  return {
+    readings,
+    deletionCount: result.deletionChanges.length,
+    nextChangesToken: result.nextChangesToken,
+    changesTokenExpired: result.changesTokenExpired,
+    hasMore: result.hasMore,
+  };
+}
+
+export async function inventoryHealthConnect(days = 7): Promise<HealthConnectInventory> {
+  return (await scanHealthConnect(days)).inventory;
+}
+
+export async function scanHealthConnect(
+  days = 7,
+  recordTypes: readonly HealthConnectRecordType[] = HEALTH_CONNECT_RECORD_TYPES,
+  endAt = new Date(),
+): Promise<HealthConnectScan> {
+  assertAndroid();
+  const healthConnect = await import("react-native-health-connect");
+  const initialized = await healthConnect.initialize();
+
+  if (!initialized) {
+    throw new Error("Health Connect could not be initialized on this device.");
+  }
+
+  const grantedPermissions = await healthConnect.getGrantedPermissions();
+  const windowEnd = endAt;
   const windowStart = new Date(windowEnd.getTime() - days * 24 * 60 * 60 * 1000);
   const timeRangeFilter = {
     operator: "between" as const,
@@ -117,7 +201,7 @@ export async function scanHealthConnect(days = 7): Promise<HealthConnectScan> {
   };
 
   const results = await Promise.all(
-    HEALTH_CONNECT_RECORD_TYPES.map(async (recordType) => {
+    recordTypes.map(async (recordType) => {
       try {
         const records = await readAllRecords(healthConnect, recordType, timeRangeFilter);
         const dataOrigins = Array.from(
@@ -200,9 +284,8 @@ async function readAllRecords(
     pageCount += 1;
 
     const nextPageToken = result.pageToken;
-    if (!nextPageToken || nextPageToken === pageToken) {
-      break;
-    }
+    if (!nextPageToken) break;
+    if (nextPageToken === pageToken) throw new Error("Health Connect pagination did not advance.");
 
     pageToken = nextPageToken;
 
@@ -506,3 +589,11 @@ function assertAndroid() {
 function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown Health Connect error";
 }
+
+export async function requestHealthConnectBackgroundPermission() {
+  assertAndroid();
+  const hc = await import("react-native-health-connect");
+  if (!await hc.initialize()) throw new Error("Health Connect is unavailable.");
+  return hc.requestPermission([{ accessType: "read", recordType: "BackgroundAccessPermission" }]);
+}
+

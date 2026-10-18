@@ -252,8 +252,12 @@ test('Me+ 2.0 action decisions share an atomic, owner-scoped path', async () => 
   assert.match(completion,/server_gateway_complete_action_atomic/);
   assert.doesNotMatch(completion,/\.update\(/);
   assert.doesNotMatch(completion,/\.insert\(/);
-  assert.match(web,/db\.auth\.getUser\(\)/);
-  assert.match(web,/record_meplus_action_decision/);
+  const handler = await readFile(resolve(root,'apps/web/lib/action-decision-handler.ts'),'utf8');
+  assert.match(web,/executeActionDecision\(id, decision, db\)/);
+  assert.match(handler,/client\.auth\.getUser\(\)/);
+  assert.match(handler,/record_meplus_action_decision/);
+  assert.match(handler,/\.eq\("user_id", userId\)/);
+  assert.doesNotMatch(handler,/\.update\(/);
 });
 
 test('Me+ Daily Review is a private read-only event view', async () => {

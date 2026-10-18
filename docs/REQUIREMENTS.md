@@ -1,7 +1,7 @@
 # Requirements, Issues & Execution Plan
 
 **Status:** Active  
-**Last updated:** 2026-10-16
+**Last updated:** 2026-10-06  
 **Primary branch:** `dev`
 
 Use this document as the project-level, checkable source of truth for requested features, known issues, planned improvements and completion evidence.
@@ -31,6 +31,29 @@ Order work so lower-priority features do not depend on unreliable or incorrect f
 ---
 
 # Active requirements
+
+## [ ] ME2-APP-019 — Me+ 2.0 native core and loss-aware phone sync
+
+Use the retained 14 October UI/UX v2 prototype for the native Today/Plan/Capture/Review/More core. Preserve real owner state, honest loading/error/receipt states and the selected Companion identity. ChatGPT/Codex builds the app; GitHub MCP owns GitHub operations.
+
+Phone sync targets 180 minutes; every due run replays at least 24 hours. A longer outage extends recovery to the last acknowledged time; interrupted windows never slide forward. Supabase must deduplicate owner/source/external-ID/provider revisions and preserve distinct sources and corrections. No AI guesses determine duplicate identity.
+
+Acceptance: behavioral owner/race/replay tests, exact-head hosted checks, rendered synthetic UI flows at phone/desktop widths, signed immutable-source Android artifact and real-device sync/catch-up verification. No claim of a fully implemented 64-screen prototype or complete Me+ architecture is made by the core slice.
+
+Plan: `docs/plans/ME2-APP-019-native-core-sync.md`; PR #81 incorporates the reviewed native controller from PR #79.
+
+
+## [ ] ME2-HEALTH-017 — Reliable phone uploads and three-hour automatic sync
+
+**Priority:** P0 · Health / Android reliability
+
+- Independent bounded batches from one source must upload in the same minute, preserve revision idempotency, manual corrections and source-wide overlap protection.
+- Phone schedules background Health Connect read/upload every 180 minutes after explicit permission, resumes saved progress and catches up when opened; disable/sign-out stops further batches. UI shows last successful automatic sync and Android deferral constraints.
+- Document ChatGPT/Codex as selected app builder (owner continuation supersedes the original Antigravity choice), and actual build/execution responsibilities.
+- Acceptance: isolated baseline failure then passing repair/replay/negative tests, hosted workspace checks, verified versioned APK and physical-phone background/reboot/denial/offline/sign-out tests. Shared database application needs explicit authorization because dev and prod share the same project.
+
+Plan/evidence: `docs/plans/ME2-HEALTH-017-phone-sync.md`; PR #81. Not complete until deployment and device acceptance are observed.
+
 
 ## [x] ME2-NATIVE-001 — Reproducible and retry-safe native task writes
 
@@ -81,6 +104,7 @@ Evidence: isolated n8n2.43.7 import and real local Letta SDK0.8.45 handshake pas
 Google Drive Health Sync and Calendar require renewed authorization. N26 requires rollout of the source-prepared history guard followed by fresh bank consent. Health Connect requires actual device upload/retry at app stage. MCP requires an actual securely configured scoped client; OAuth-style ChatGPT setup is not implemented. Activate external cron only after successful fresh-only ingestion. Letta/n8n/Langfuse remain optional behind measured-benefit, privacy and recovery gates.
 
 Acceptance: actual Google probes and source snapshots succeed, N26 imports only the configured day window with valid consent, device upload/retry succeeds, a real scoped MCP client executes allowed tools and is denied ungranted tools. Record provenance without credentials. No integration is complete merely because a worker is deployed.
+
 
 ## [ ] REQ-001 — Short requirement title
 
@@ -227,3 +251,4 @@ Use this section for a quick status view.
 - If a requirement is cancelled, mark it clearly as cancelled with reason/date instead of deleting it.
 - If a requirement moves to another repository, leave a pointer.
 - Keep this document concise enough to scan; implementation notes belong in code/PRs/handoffs.
+
