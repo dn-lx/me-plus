@@ -312,6 +312,17 @@ jobs:
         run: |
           python -m pip install uv==0.13.1
           uv sync --frozen --no-dev --no-install-project
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('config/artemis.jsonc')
+          text=p.read_text()
+          primary='"model": "gemini-3.8-flash"'
+          fallback='"fallback": {\n      "provider": "google",\n      "model": "gemini-3.7-flash"'
+          assert primary in text and fallback in text
+          text=text.replace(primary,'"model": "gemini-3.7-flash"',1)
+          text=text.replace(fallback,fallback.replace('gemini-3.7-flash','gemini-2.5-flash'),1)
+          p.write_text(text)
+          PY
       - name: Download immutable signed candidate
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
