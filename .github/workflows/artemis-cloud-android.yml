@@ -1,0 +1,94 @@
+name: Artemis cloud Android acceptance
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - '.github/workflows/artemis-cloud-android.yml'
+      - 'scripts/artemis-cloud-android.sh'
+      - 'scripts/verify-artemis-outcome.py'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: artemis-cloud-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  android-artemis:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Check out pinned Google Artemis
+        uses: actions/checkout@v7
+        with:
+          repository: google/artemis
+          ref: 351ca8422f7b5b54e80a9c1ce03a222e02415b6b
+          path: .artemis-tool
+          persist-credentials: false
+      - name: Install locked Artemis dependencies
+        working-directory: .artemis-tool
+        run: |
+          python -m pip install uv==0.13.1
+          uv sync --frozen --no-dev --no-install-project
+      - name: Download immutable signed candidate
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: me-plus-android-0.4.3-b27d1ea77321fd0aad1d43efa1ec59c910928253
+          run-id: 39119321617
+          github-token: ${{ github.token }}
+          path: .artemis-candidate
+      - name: Verify candidate bytes and provenance
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path(".artemis-candidate")
+          apk=root/"me-plus-0.4.3.apk"
+          meta=json.loads((root/"0.4.3.json").read_text(encoding="utf-8-sig"))
+          assert hashlib.sha256(apk.read_bytes()).hexdigest()=="749456115700cff683d565d4f894504ad7efa101f68cbd690f9f4aca9004b112"
+          assert apk.stat().st_size==44841420
+          assert meta["sourceCommit"]=="b27d1ea77321fd0aad1d43efa1ec59c910928253"
+          assert meta["packageName"]=="app.meplus.mobile" and meta["versionCode"]==9
+          assert meta["signerCertificateSha256"]=="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c"
+          PY
+      - name: Enable runner KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Explore signed app with Artemis on cloud emulator
+        uses: ReactiveCircus/android-emulator-runner@ed009f5318f15b1cf93a191b856c4f1748a2d4c1
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ARTEMIS_APP_DIR: ${{ runner.temp }}/meplus-artemis
+          ARTEMIS_TRACES_DIR: ${{ github.workspace }}/artemis-evidence/traces
+          ARTEMIS_HELPER_AUTO_INSTALL: 'false'
+          ARTEMIS_HIERARCHY_BACKEND: uiautomator
+          ARTEMIS_KEEP_DEVICE_AWAKE: 'false'
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 2048M
+          disk-size: 4096M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: bash scripts/artemis-cloud-android.sh
+      - name: Preserve actual device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meplus-artemis-cloud-${{ github.sha }}
+          path: artemis-evidence
+          if-no-files-found: warn
+          retention-days: 3
