@@ -14,7 +14,7 @@ begin
   input := jsonb_build_object('source',source,'readings',jsonb_build_array(reading));
   -- The unfixed guard rejects this with source_sync_already_completed / P0001.
   result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('b',64))));
-  if result ? 'error' or (result->>'recordsCreated')::int is distinct from 1 then raise exception 'Second batch failed: %',result; end if;
+  if result ? 'error' or result->>'syncRunId' is null or (result->>'recordsCreated')::int is distinct from 1 then raise exception 'Second batch failed: %',result; end if;
   if (select metadata->>'runKey' from public.source_sync_runs where id=first_run) =
      (select metadata->>'runKey' from public.source_sync_runs where id=(result->>'syncRunId')::uuid) then raise exception 'Batch run keys collided'; end if;
   if (select metadata->>'runKey' from public.source_sync_runs where id=first_run) is distinct from ('health_batch:' || first_run::text)
@@ -22,6 +22,11 @@ begin
   result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey',repeat('b',64))));
   if result ? 'error' or (result->>'recordsCreated')::int is distinct from 0 or (select count(*) from public.observations where data_source_id=ds) <> 2 then raise exception 'Retry duplicated records'; end if;
   if exists(select 1 from private.source_sync_leases where data_source_id=ds) then raise exception 'Completed batch retained lease'; end if;
+  -- Failed atomic batches must also release their source lease.
+  result := public.server_ingest_health_batch(owner,input,jsonb_build_array(jsonb_build_object('reading',reading,'revisionKey','invalid')));
+  if not (result ? 'error') then raise exception 'Expected failed atomic batch'; end if;
+  if exists(select 1 from private.source_sync_leases where data_source_id=ds) then raise exception 'Failed batch retained lease'; end if;
+  if (select count(*) from public.observations where data_source_id=ds) <> 2 then raise exception 'Failed batch changed observations'; end if;
   -- Ordinary sync callers retain their completed-run protection.
   insert into public.source_sync_runs(user_id,data_source_id,status,metadata) values(owner,ds,'running','{"runKey":"ordinary","syncPurpose":"ordinary"}');
   update public.source_sync_runs set status='completed' where data_source_id=ds and status='running';

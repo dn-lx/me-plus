@@ -2,7 +2,8 @@
 import {createServer} from 'node:http';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
+const playwright=await import(process.env.PLAYWRIGHT_MODULE);
+const {chromium}=playwright.default??playwright;
 const out=process.env.UI_QA_OUTPUT||'/tmp/meplus-web-ui';await mkdir(out,{recursive:true});
 const owner='11111111-1111-4111-8111-111111111111';let notes=new Map(),mode='ok';
 const user={id:owner,email:'owner@example.test',aud:'authenticated',role:'authenticated',created_at:'2026-01-01T00:00:00Z',app_metadata:{},user_metadata:{}};
