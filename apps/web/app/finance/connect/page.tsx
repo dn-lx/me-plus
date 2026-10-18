@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { createClient } from "../../../lib/supabase/client";
+import { SiteNav } from '../../components/site-nav';
 
 export default function ConnectN26Page() {
   const [supabase] = useState(() => createClient());
@@ -138,7 +139,8 @@ export default function ConnectN26Page() {
 
   return (
     <main className="shell">
-      <header className="hero">
+      <SiteNav user={session?.user} />
+      <header className="legalHero">
         <p className="eyebrow">ME+ FINANCE</p>
         <h1>Connect N26</h1>
         <p className="lede">
@@ -200,3 +202,4 @@ export default function ConnectN26Page() {
     </main>
   );
 }
+

@@ -9,8 +9,8 @@ Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/
   "repository": "dn-lx/me-plus",
   "base": "dev",
   "branch": "fix/me2-health-audit-delivery",
-  "pr": null,
-  "status": "in_progress",
+  "pr": 85,
+  "status": "implementing",
   "last_verified_sha": "2bfd0f76149290257dcc13148f369b15155e7a74",
   "next_step": "Isolated health unit compatibility tests, immutable installer delivery, automatic sync and PR reconciliation.",
   "updated_at": "2026-10-18T10:20:00Z"

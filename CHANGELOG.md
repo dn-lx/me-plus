@@ -6,7 +6,9 @@
 - Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
 
 ### Fixed
-- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The separate server batch repair remains pending connector recovery.
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The reviewed server batch-key repair is now applied and real multi-batch uploads succeed.
+- Normalize typed Health Connect unit aliases before existing quality validation; repair only proven automatic unit rejections while retaining raw evidence and manual corrections.
+- Publish the exact signed 0.4.2 installer and complete Companion navigation across legal/banking pages. Server status distinguishes batch acknowledgement from full phone catch-up.
 
 - Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
 
@@ -135,4 +137,5 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
+
 
