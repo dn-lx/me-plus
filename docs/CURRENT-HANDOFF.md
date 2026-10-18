@@ -5,15 +5,15 @@ Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "ME2-HEALTH-022",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
+  "branch": "fix/me2-health-audit-delivery",
   "pr": null,
-  "status": "idle",
-  "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-18T00:00:00Z"
+  "status": "in_progress",
+  "last_verified_sha": "2bfd0f76149290257dcc13148f369b15155e7a74",
+  "next_step": "Isolated health unit compatibility tests, immutable installer delivery, automatic sync and PR reconciliation.",
+  "updated_at": "2026-10-18T10:20:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
@@ -22,9 +22,10 @@ Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/
 - Native target0.4.2/code8: expire interrupted running state after5minutes and explicit retry. Saved cursors/replay windows and last successful acknowledgement remain intact. A newly compiled/verified artifact is required; do not relabel0.4.1.
 - Dev-only app publication authorized. GitHub operations MCP only. Supabase projectwbqnctrvxohxwiaignhg is shared; no production app merge/deployment or unrelated schema/live test writes.
 
-## Unresolved health upload blocker
-- Live19:36UTC logs17October: source_sync_already_completed. Readback: approved a_health_batch_run_key_before_insert trigger still absent. Fresh apply_migration again fails Invalid or expired requestState. Connector reads work. Root-cause repair is not live; do not claim uploads fixed. Narrow migration already owner-approved; alternate browser fallback needs user approval under browser connector policy.
-- Existing reviewed migration20261017145227_health_batch_unique_run_key.sql gives distinct health batch run keys while source leases and raw revision deduplication remain. Independent review found no migration blocker; nullable SQL assertions strengthened. No unrelated migrations may be applied.
+## Health upload repair applied
+- Reviewed batch trigger applied18October as20261018100608 health_batch_unique_run_key. Catalog confirms ordering/privileges; real subsequent multi-batch uploads succeed with health_batch keys. No live synthetic writes.
+- Audit found typed Health Connect unit aliases disagree with quality-gate units; compatibility fix and isolated tests in progress. Raw payloads/corrections stay intact.
+- Current work/evidence: docs/plans/ME2-HEALTH-022-audit-delivery.md. PR84 is merged; Android0.4.2 exact-source build39083754192 succeeded. Distribution remains pending until reviewed part manifest and verified HTTPS bytes.
 
 ## Verified previous installer
 - Published0.4.1/code7 built from1f534d1;44,808,768bytes;SHA25611eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Companion launcher independently checked. Dev distribution uses six parts and fail-closed assembly. Prior details:docs/plans/ME2-APP-019-native-core-sync.md.
