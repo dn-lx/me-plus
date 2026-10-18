@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { ingestionCutoff, acceptsObservation } from "../_shared/ingestion-window.ts";
 
 type FolderConfig = { key: string; id: string; name: string };
 type DriveFile = { id: string; name: string; mimeType?: string; modifiedTime?: string; size?: string; md5Checksum?: string };
@@ -157,7 +158,8 @@ async function readingsFromCsv(
   file: DriveFile,
   csv: string,
   chunkStartMs: number,
-  chunkEndMs: number
+  chunkEndMs: number,
+  cutoff: number | null = null
 ): Promise<{ readings: Reading[]; rowCount: number; maxObservedAt: string | null }> {
   const rows = parseCsv(csv);
   if (rows.length < 2) return { readings: [], rowCount: Math.max(rows.length - 1, 0), maxObservedAt: null };
@@ -179,7 +181,7 @@ async function readingsFromCsv(
     if (!maxObservedAt || observedAt > maxObservedAt) maxObservedAt = observedAt;
 
     const observedMs = Date.parse(observedAt);
-    if (!Number.isFinite(observedMs)) continue;
+    if (!Number.isFinite(observedMs) || !acceptsObservation(observedAt, cutoff)) continue;
     // Reconcile every valid row in a changed Health Sync file. Health Sync can
     // append or backfill observations after their original two-hour window.
     // Stable external IDs plus revision hashes make full-file reconciliation
@@ -386,10 +388,19 @@ Deno.serve(async (req: Request) => {
     : runKeyForChunk(chunk.startMs);
 
   const google = await getGoogleAccessToken();
+  if (requestBody?.mode === "auth_probe") {
+    if (requestBody.probe_id !== undefined) {
+      if (typeof requestBody.probe_id !== "string" || !/^[0-9a-f-]{36}$/i.test(requestBody.probe_id)) return json({error:"invalid_probe"},400);
+      const recorded=await supabase.rpc("server_record_meplus_integration_probe",{p_probe_id:requestBody.probe_id,p_provider:"google-drive-healthsync",p_authorized:Boolean(google.token)});
+      if(recorded.error || recorded.data!==true) return json({error:"probe_not_recorded"},409);
+    }
+    return json({configured: Boolean(google.token), status: google.token ? "authorized" : "authorization_required"}, google.token ? 200 : 502);
+  }
   if (!google.token) {
-    await supabase.from("data_sources")
-      .update({ metadata: { authConfigured: false, lastAuthError: google.error, lastAuthCheckedAt: new Date().toISOString() } })
-      .eq("provider", "google-drive-healthsync");
+    const {data: failedSources} = await supabase.from("data_sources").select("id,metadata").eq("provider", "google-drive-healthsync");
+    for (const source of failedSources ?? []) {
+      await supabase.from("data_sources").update({metadata: {...(source.metadata ?? {}), authConfigured: false, lastAuthError: google.error, lastAuthCheckedAt: new Date().toISOString()}}).eq("id", source.id);
+    }
     return json({
       status: "failed",
       error: "healthsync_drive_auth_failed",
@@ -494,7 +505,7 @@ Deno.serve(async (req: Request) => {
           try {
             const csv = await downloadFile(google.token, file.id);
             const contentHash = await sha256Hex(csv);
-            const parsed = await readingsFromCsv(folder, file, csv, chunk.startMs, chunk.endMs);
+            const parsed = await readingsFromCsv(folder, file, csv, chunk.startMs, chunk.endMs, ingestionCutoff(source.metadata));
             rowsParsed += parsed.rowCount;
             readingsParsed += parsed.readings.length;
 

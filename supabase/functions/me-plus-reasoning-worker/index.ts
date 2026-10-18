@@ -8,6 +8,9 @@ const ROUTING_POLICY_VERSION = "meplus-ai-routing-v4-luna-adaptive-effort";
 const MAX_DISPATCHES_PER_WAKE = 1;
 const LANGFUSE_CONFIG = {
   enabled: Deno.env.get("MEPLUS_LANGFUSE_ENABLED") === "true",
+  privacyApproved: Deno.env.get("MEPLUS_LANGFUSE_PRIVACY_APPROVED") === "true",
+  retentionApproved: Deno.env.get("MEPLUS_LANGFUSE_RETENTION_APPROVED") === "true",
+  approvedModels: (Deno.env.get("MEPLUS_LANGFUSE_APPROVED_MODELS") ?? "").split(',').map(v=>v.trim()).filter(Boolean),
   publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY") ?? undefined,
   secretKey: Deno.env.get("LANGFUSE_SECRET_KEY") ?? undefined,
   host: Deno.env.get("LANGFUSE_HOST") ?? undefined,
@@ -1416,3 +1419,4 @@ export default {
     return Response.json({ ok: true, worker: "me-plus-reasoning-worker", routing_policy: ROUTING_POLICY_VERSION, processed: results.length, results });
   })
 };
+

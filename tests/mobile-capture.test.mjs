@@ -1,0 +1,8 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {saveCaptureNote} from '../apps/mobile/lib/capture-note.ts';
+function fixture(){let owner='a';const rows=new Map(),requests=[];const db={auth:{getUser:async()=>({data:{user:{id:owner}},error:null}),getSession:async()=>({data:{session:{user:{id:owner},access_token:'test-only'}},error:null})}};
+ const send=async(input,token)=>{assert.equal(token,'test-only');requests.push(input);if(!rows.has(input.id))rows.set(input.id,{ok:true,...input});return rows.get(input.id);};return{db,send,rows,requests,setOwner:v=>{owner=v;}};}
+test('lost acknowledgement retries stable server identity and confirms exact owner/text',async()=>{const f=fixture();await saveCaptureNote(f.db,'a','stable',' My thought ',f.send);await saveCaptureNote(f.db,'a','stable',' My thought ',f.send);assert.equal(f.rows.size,1);assert.equal(f.rows.get('stable').content,'My thought');});
+test('wrong owner and invalid notes cannot begin a request',async()=>{const f=fixture();f.setOwner('b');await assert.rejects(saveCaptureNote(f.db,'a','stable','note',f.send),/same account/);assert.equal(f.requests.length,0);await assert.rejects(saveCaptureNote(f.db,'b','stable',' ',f.send),/Write a note/);});
+test('conflicting receipt and account change cannot report confirmed save',async()=>{const f=fixture();f.rows.set('stable',{ok:true,id:'stable',owner:'a',content:'other'});await assert.rejects(saveCaptureNote(f.db,'a','stable','new',f.send),/not confirmed/);await assert.rejects(saveCaptureNote(f.db,'a','other','note',async row=>{f.setOwner('b');return {ok:true,...row};}),/Account changed/);});

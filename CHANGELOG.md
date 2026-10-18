@@ -2,6 +2,53 @@
 
 ## [Unreleased]
 
+- Credential-free Letta local App Server task-tool adapter and inactive n8n tasks workflow packages, with fail-closed activation tooling and tasks-only grant metadata. Added disabled metadata-only Langfuse OTLP v4 preparation without worker/model changes. Provider accounts and authenticated hosted acceptance remain deferred.
+- Owner-scoped integration readiness/probe/pause/start controls; recurring sync requires fresh server authorization proof and successful source sync. Added reproducible N26 functions-only deployment artifacts while provider authorization remains deferred.
+- Me+ 2.0 owner-scoped routine scheduling/history, feedback, workspace API and expiring/revocable scoped MCP client tools. Native routine clock is active; external integrations remain pending authorization with disabled clocks.
+- Native occurrence lifecycle cleanup covers disabled and ended schedules, preserves execution history, and removes elapsed internal snapshots from the active workspace. Added owner-only backend configuration readiness with separate app/device acceptance gates.
+- Auth profile bootstrap after the V1 reset, Calendar wake authentication, and fresh-start ingestion guards for Google connectors. N26 history guard is source-prepared pending backend rollout and renewed consent.
+- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair applied and verified on the shared backend on 16 October 2026.
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
+
+### Added
+- Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
+
+### Fixed
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The separate server batch repair remains pending connector recovery.
+
+- Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
+
+- Align Expo SDK 57, Router and SQLite patch versions with Expo compatibility requirements for the Android build.
+
+### Added
+- Me+ 2.0 native core adopts the retained UI/UX v2 light design, Today/Plan/Capture/Review/More navigation, server-confirmed decisions and owner-scoped notes/history. Companion icon is wired into the Android configuration.
+- Every due phone sync replays a rolling 24-hour window; longer outages extend to the last confirmation and interrupted windows retain their original progress. Supabase handles overlapping records idempotently.
+
+### Changed
+- ChatGPT/Codex is now the app builder. Android compilation uses owner-approved GitHub-hosted Windows Actions; builds upload verified artifacts without committing lockfiles or APKs back to source branches.
+
+
+### Added
+- Added the selected Me+ Companion brand kit: editable logos, app/web icons, monochrome marks and download badges with usage guidance; runtime integration is separate.
+- Android opt-in Health Connect background sync targets every three hours, catches up on resume, shows the last successful automatic sync, and resumes acknowledged hourly backfill checkpoints. Android power/network restrictions can defer execution; native acceptance is pending.
+- Antigravity CLI is the selected Me+ app implementation platform; GitHub MCP owns repository operations and the Windows Android toolchain produces APKs.
+
+### Fixed
+- Recover the unapplied atomic-health batch run-key repair: independent 50-reading batches no longer collide under the source-sync minute guard after the migration is approved and applied. Shared database deployment is pending.
+- Automatic sync binds uploads/cursors to the initiating account and current read permissions; disabling sync or signing out cancels further batches.
+
+### Changed
+- Native source target is 0.4.1 / versionCode 7 / me-plus-0.4.1.apk. Existing verified download remains 0.3.1 until actual new bytes pass native provenance checks.
+
+
+### Added
+- Connected core web Home, Login, Today, Daily Review and Android Download with responsive navigation.
+- Download displays verified APK version, filename, checksum and build metadata; future artifacts require matching bytes.
+
+### Fixed
+- Web Now fails closed on calendar errors and evaluates freshness after reads. Action decisions require confirmed canonical readback.
+
+
 ### Added
 - ENG-007 routing guardrail patch candidate with isolated PostgreSQL behavioral, denied-role and replacement-replay CI. The candidate is not deployed; release remains gated by provenance reconciliation and security checks.
 - Documented the read-only Me+ Improvement Watch: daily meaningful-improvement review and a Monday digest, separate from runtime-health and document-drift monitoring.
@@ -9,6 +56,8 @@
 - Versioned Android APK distribution: Android is built and verified on the designated Windows build host, then the verified APK is staged as a static download in the Netlify web deploy. Netlify remains web-only and never compiles Android.
 
 ### Fixed
+- Native task reschedule retries retain no-op receipts so they cannot restore stale dates after a newer edit; replay lookup ignores unrelated event sources. Repair is staged for release, not deployed.
+- SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Live deployment remains a separate release gate.
 - N26 authorization callbacks return to the configured site origin on Netlify branch deploys.
 - Netlify web builds detect and repair a cached pnpm install whose Next.js launcher points to a missing package file.
 
@@ -94,3 +143,4 @@
 - Execution routing documentation is provider-neutral by default instead of assigning persistent vendor roles.
 - Dependency-maintenance branch instructions now follow the canonical `dev → prod` workflow.
 - Removed overlapping in-house frontend-design, design-taste and motion-design skills, and retired the Awesome Design catalogue after UI/UX Pro Max covered that structured design-intelligence role more broadly.
+

@@ -1,0 +1,51 @@
+name: Me+ v2 web browser acceptance
+on:
+  pull_request:
+    branches: [dev]
+    paths: ['apps/web/**', 'tests/web-ui-acceptance.mjs', '.github/workflows/web-ui-acceptance.yml']
+permissions:
+  contents: read
+concurrency:
+  group: web-ui-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  ui:
+    name: web / synthetic browser acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:8766
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SECRET_KEY: ci_placeholder_not_a_key
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - name: Install isolated browser harness
+        run: |
+          npm install --prefix /tmp/meplus-web-ui-runtime playwright@1.58.2
+          node /tmp/meplus-web-ui-runtime/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Exercise v2 web with loopback-only synthetic account
+        env:
+          PLAYWRIGHT_MODULE: /tmp/meplus-web-ui-runtime/node_modules/playwright/index.js
+          UI_QA_OUTPUT: /tmp/meplus-web-ui
+        run: |
+          pnpm --filter @me-plus/web exec next start --port 8765 > /tmp/meplus-web-server.log 2>&1 &
+          for attempt in $(seq 1 30); do curl -sf http://localhost:8765 > /dev/null && break; sleep 1; done
+          node tests/web-ui-acceptance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: me-plus-web-ui-${{ github.event.pull_request.head.sha }}
+          path: /tmp/meplus-web-ui/
+          retention-days: 7
+          if-no-files-found: ignore

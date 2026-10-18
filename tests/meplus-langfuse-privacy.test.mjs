@@ -11,7 +11,7 @@ const metrics={
  output:'NEVER_EXPORT_RAW_RESPONSE'
 };
 test('Langfuse OTLP exports only allowlisted operational metadata',async()=>{
- const body=await buildLangfusePayload(metrics);
+ const body=await buildLangfusePayload(metrics,['gpt-6.1-luna']);
  const serialized=JSON.stringify(body);
  assert.equal(body.resourceSpans.length,1);
  const span=body.resourceSpans[0].scopeSpans[0].spans[0];
@@ -28,15 +28,33 @@ test('Langfuse OTLP exports only allowlisted operational metadata',async()=>{
    assert.ok(!serialized.includes(privateValue));
  }
  assert.ok(!attrs.some(x=>/input|output|prompt|user\.id|finance|journal/i.test(x) && !x.startsWith('gen_ai.usage.')));
+ assert.ok(!serialized.includes(metrics.dispatchId));
 });
 test('Langfuse is off without explicit opt-in and credentials',async()=>{
  assert.equal(await exportLangfuseTrace(metrics,{enabled:false}),false);
  assert.equal(await exportLangfuseTrace(metrics,{enabled:true}),false);
 });
-test('Langfuse rejects cleartext export destinations',async()=>{
- await assert.rejects(exportLangfuseTrace(metrics,{
-  enabled:true,publicKey:'test-key',secretKey:'test-secret',host:'http://example.invalid'
- }),/HTTPS/);
+const config={enabled:true,privacyApproved:true,retentionApproved:true,approvedModels:['gpt-6.1-luna'],publicKey:'pk-lf-fixture0001',secretKey:'sk-lf-fixture0001',host:'https://example.invalid'};
+test('Langfuse denies privacy gates, credentials and unsafe origins without network',async()=>{
+ let calls=0;const denied=async()=>{calls++;throw Error('must not reach network');};
+ for(const cfg of [{...config,privacyApproved:false},{...config,retentionApproved:false},{...config,approvedModels:[]},{...config,publicKey:'invalid'},
+  ...['http://example.invalid','https://u:p@example.invalid','https://example.invalid/path','https://example.invalid?x=1','https://example.invalid#x','https://example.invalid:444'].map(host=>({...config,host}))])
+  assert.equal(await exportLangfuseTrace(metrics,cfg,denied),false);
+ assert.equal(calls,0);
+});
+test('Langfuse bounded acknowledgements and failures stay nonblocking',async()=>{
+ let sent;
+ const ok=async(url,init)=>{sent={url,init};return new Response('{}');};
+ assert.equal(await exportLangfuseTrace(metrics,config,ok),true);assert.equal(sent.init.redirect,'error');
+ assert.equal(sent.url,'https://example.invalid/api/public/otel/v1/traces');
+ for(const response of [new Response('{}',{status:503}),new Response('{'),new Response('x'.repeat(16385)),new Response('{"partialSuccess":{"rejectedSpans":"1"}}'),new Response('{"partialSuccess":{"errorMessage":"rejected"}}')])
+  assert.equal(await exportLangfuseTrace(metrics,config,async()=>response),false);
+ assert.equal(await exportLangfuseTrace(metrics,config,async()=>{throw Error('offline');}),false);
+});
+test('untrusted trace metadata cannot escape through allowlisted attributes',async()=>{
+ for(const change of [{dispatchId:'private-user-name'},{route:'PRIVATE_HEALTH_FINANCE_JOURNAL'},{model:'unapproved'},
+   {inputTokens:Infinity},{outputTokens:-1},{costUsd:NaN},{attempt:101},{completedAt:'invalid'},{completedAt:'2026-10-14T00:00:00Z'}])
+  await assert.rejects(buildLangfusePayload({...metrics,...change},config.approvedModels),/invalid_trace_metadata/);
 });
 
 
@@ -49,3 +67,4 @@ test('reasoning worker preserves active Luna model routing and optional tracing'
   assert.match(source,/MEPLUS_LANGFUSE_ENABLED/);
   assert.match(source,/langfuse_trace_unavailable_nonblocking/);
 });
+

@@ -36,21 +36,25 @@
       "ezbr_sha256": "0792492ef88a7f86a7c80f95e310c788b6d111bbef7649de6037986ac80b48de",
       "verify_jwt": false,
       "status": "ACTIVE",
-      "expected_runtime": "active"
+      "expected_runtime": "retired_inert"
     },
     "me-plus-healthsync-drive": {
-      "version": 21,
-      "ezbr_sha256": "ddadd6c1904b9368e6894fe72df148bc85183c0474a66b5f74fdc53180856163",
+      "version": 28,
+      "ezbr_sha256": "c0069c1c9bae7836a85381e9e78f7c4b49f12456346d5e926a201d4488a191d5",
       "verify_jwt": false,
       "status": "ACTIVE",
-      "expected_runtime": "active"
+      "expected_runtime": "active",
+      "captured_at": "2026-10-16",
+      "source_verified": true
     },
     "meplus-google-calendar-sync": {
-      "version": 16,
-      "ezbr_sha256": "ce143c15dd604ccb4ad84134f7296a320450dcd5cb6917522683920fad32a4a3",
-      "verify_jwt": true,
+      "version": 19,
+      "ezbr_sha256": "dde1c607613ebf47ad7df47cb8582d3f3ca8df0be206f103753c69d7be6fe13b",
+      "verify_jwt": false,
       "status": "ACTIVE",
-      "expected_runtime": "active"
+      "expected_runtime": "active",
+      "captured_at": "2026-10-16",
+      "source_verified": true
     },
     "me-plus-routing-test": {
       "version": 2,
@@ -79,6 +83,15 @@
       "verify_jwt": true,
       "status": "ACTIVE",
       "expected_runtime": "active"
+    },
+    "me-plus-mcp": {
+      "version": 1,
+      "ezbr_sha256": "88830986586d78f41e1c7df65af7922444a7e67eafa177d5b1e8a09996df58c7",
+      "verify_jwt": false,
+      "status": "ACTIVE",
+      "expected_runtime": "active",
+      "captured_at": "2026-10-16",
+      "source_verified": true
     }
   }
 }

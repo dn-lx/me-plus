@@ -1,0 +1,5 @@
+packages:
+  - '.'
+overrides:
+  '@modelcontextprotocol/sdk': '1.32.1'
+  sharp: '0.35.5'

@@ -9,10 +9,10 @@ External tool access is host-specific. This repository records capability requir
 | Source control / PRs / CI | Required | GitHub | Branches, diffs, pull requests, CI, releases, and durable engineering evidence |
 | Current library/API docs | Required | Context7 / official docs | Verify framework, SDK, AI-provider, and integration behavior before implementation |
 | Database/auth/storage | Required | Supabase | Durable application data, authentication, row-level policies, migrations, and optional storage |
-| Hosting/deployments | Required | TBD | Preview/staging and production deployment with environment isolation |
+| Hosting/deployments | Required | Netlify / Supabase Edge Functions | Preview/staging and production deployment with environment isolation |
 | Browser/computer verification | Required | Playwright / browser tooling | Rendered UI, accessibility, and end-to-end verification |
 | Code relationships | Optional | Graphify | Architecture and change-impact analysis as the codebase grows |
-| Runtime observability | Required | TBD | Privacy-aware errors, runtime health, and integration failure diagnostics |
+| Runtime observability | Required | Supabase audit, scheduler health and AI usage ledgers | Privacy-aware errors, runtime health, and integration failure diagnostics |
 | Product analytics/flags | Optional | TBD | Owner-visible product telemetry only when useful |
 | Payments | Not used | — | Not used |
 | Transactional email | Optional | TBD | Notifications or reports when a concrete workflow requires email |

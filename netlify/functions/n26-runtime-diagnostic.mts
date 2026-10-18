@@ -30,6 +30,7 @@ export default async function handler(request: Request) {
 
   return Response.json({
     ok: true,
+    backendContract: "n26-history-cutoff-v1",
     schedulerAuthentication: "supabase_vault_secret_sha256_verifier",
     allWorkerAccessorsPresent: variables.every(
       (item) => item.workerAccessorPresent,
