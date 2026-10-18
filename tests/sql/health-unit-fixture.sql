@@ -49,7 +49,7 @@ begin
       || jsonb_build_object('qualityGate','health-v1');
   end if;
   return new;
-end $function$
+end $function$;
 
 create trigger trg_health_observation_quality_v1 before insert or update of domain,observation_type,observed_at,value_number,unit
 on public.observations for each row execute function private.apply_health_observation_quality_v1();

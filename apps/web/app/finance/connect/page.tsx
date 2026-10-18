@@ -139,7 +139,7 @@ export default function ConnectN26Page() {
 
   return (
     <main className="shell">
-      <SiteNav user={session?.user} />
+      <SiteNav user={session?.user ?? null} />
       <header className="legalHero">
         <p className="eyebrow">ME+ FINANCE</p>
         <h1>Connect N26</h1>
