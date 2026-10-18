@@ -13,24 +13,29 @@ Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/
   "status": "idle",
   "last_verified_sha": null,
   "next_step": null,
-  "updated_at": "2026-10-18T00:00:00Z"
+  "updated_at": "2026-10-18T11:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Current delivery
-- PR#84 / ME2-APP-020: website aligned with native v2 light design and Companion logo/icons. Today, Plan, Capture, Review, More. Capture confirms exact owner/content; drafts clear on account changes. More reads owner-scoped server upload acknowledgements. Plan/evidence: docs/plans/ME2-APP-020-sync-web-brand.md.
-- Native target0.4.2/code8: expire interrupted running state after5minutes and explicit retry. Saved cursors/replay windows and last successful acknowledgement remain intact. A newly compiled/verified artifact is required; do not relabel0.4.1.
-- Dev-only app publication authorized. GitHub operations MCP only. Supabase projectwbqnctrvxohxwiaignhg is shared; no production app merge/deployment or unrelated schema/live test writes.
+## Development delivery
+- Existing PRs38,60,66,75,77,78,79,84 merged into dev after reconciliation and exact-head checks. Preserve current native/design source; recovered historical migrations are provenance and must not be replayed.
+- PR85 merged into dev at b5ca8bde0b391ec6c3699899c68a02bca2945072 after all9exact-head gates passed. ME2-HEALTH-022: complete web Companion navigation, honest per-batch upload status, signed Android0.4.2 and0.4.3 installers, automatic-sync starvation repair, Health Connect unit compatibility. Android0.4.3/code9 built successfully from b27d1ea77321fd0aad1d43efa1ec59c910928253 in hosted run39119321617. APK44,841,420bytes, SHA256749456115700cff683d565d4f894504ad7efa101f68cbd690f9f4aca9004b112; existing signer fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c. Distribution assembly reconstructs identical signed bytes.
+- Automatic engine persists acknowledged reading hashes within fixed bootstrap windows and changes pages, preventing repeated budget-limited replay from starving the tail. Same-owner token refresh no longer cancels work. Eleven focused replay/reorder/revision/privacy tests passed independently. Actual Android background scheduling remains device acceptance.
+- Supabase batch repair applied as20261018100608 health_batch_unique_run_key; unit compatibility applied as20261018101405. Real subsequent traffic:226 successful batches,0 failed after repair,7,644 raw records at last audit; no identity duplicates observed. Last receipt10:14:02UTC. This proves batch ingestion, not completion of the phone backlog or automatic scheduling.
+- PR86 / ME2-HEALTH-023: owner-approved seven-day high-frequency row/payload compaction. Packed numeric/provenance receipts and daily descriptive summaries preserve late revisions and quality; corrected/referenced/sparse facts stay canonical. Independent review fixes and expanded isolated PostgreSQL contracts passed at f923dbea47ab9f455953954ab0b437d9a5208bc1. Compaction and numeric-roundtrip migrations applied as20261018110638 /20261018110635. Policy enabled, daily03:15UTC cron and service-only ACLs verified. Bounded initialrun0compacted/0failed, all7,644raw records retained. Additional post-lock FK-reference recheck is under deterministic concurrency verification; no retention deletion has occurred.
 
-## Unresolved health upload blocker
-- Live19:36UTC logs17October: source_sync_already_completed. Readback: approved a_health_batch_run_key_before_insert trigger still absent. Fresh apply_migration again fails Invalid or expired requestState. Connector reads work. Root-cause repair is not live; do not claim uploads fixed. Narrow migration already owner-approved; alternate browser fallback needs user approval under browser connector policy.
-- Existing reviewed migration20261017145227_health_batch_unique_run_key.sql gives distinct health batch run keys while source leases and raw revision deduplication remain. Independent review found no migration blocker; nullable SQL assertions strengthened. No unrelated migrations may be applied.
+## Artemis device acceptance
+- User explicitly selected https://github.com/google/artemis for Android testing. Pinned source351ca8422f7b5b54e80a9c1ce03a222e02415b6b staged at D:/MePlus/tools/artemis; dependencies and all caches/state on D:.
+- Launcher D:/MePlus/tools/artemis/MePlus-Artemis.ps1; credentials file D:/MePlus/artemis-state/.env. No credentials belong in Git or chat.
+- Actual Artemis doctor: Python/config/host/ADB ready; no connected authorized device/emulator and missing model API credential. User cannot connect USB and explicitly authorized cloud testing. Local Gemini key validatedHTTP200, user added Actions secret; never expose it. PR87 runs pinned Artemis against a fresh API35 Google APIs emulator and exact signed0.4.3 artifact. APK installation/launch succeeded; actual strict screen checks running. Optional scrcpy replay not installed. No Artemis app test has run.
+- After device/key are ready: observe the app using Artemis, install verified0.4.3 as an upgrade without clearing data, inspect sync state and permissions, test retry/catch-up, resume/offline/token refresh and Android background scheduling with actual server receipts. Use bounded tasks and save traces on D:. Never manufacture health readings or claim physical acceptance from source/CI.
 
-## Verified previous installer
-- Published0.4.1/code7 built from1f534d1;44,808,768bytes;SHA25611eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Companion launcher independently checked. Dev distribution uses six parts and fail-closed assembly. Prior details:docs/plans/ME2-APP-019-native-core-sync.md.
-- Android hosted Windows builder authorized17October; no local runner prerequisite. Netlify primary production deploy6ab8d3e80c341219b5881e92 stays locked. Promote dev→prod only with specific approval. PR#79 older0.4.0 remains superseded/unmerged.
-- Physical phone/background/reboot/offline and actual authenticated two-user acceptance remain pending. Synthetic browser/SQL checks cannot establish device acceptance.
-- Temporary Netlify branch allowlist fix/me2-sync-web-brand for exact-head preview must be removed after development publication; keep dev,v2 and prod unchanged.
+## Remaining delivery checks
+- PR85 merged. Verify Netlify dev commit and HTTPS installer hash; branch deploy6ad4aa658b356a3a0171b922 is building b5ca8bde.
+- PR86: verify post-lock reference race hardening, apply only its followup migration, run bounded no-op and merge into dev. PR87: inspect real Artemis outcomes/screenshots, fix actual failures and merge after checks. Physical-phone health acceptance remains separate.
+- User authorized all PRs into dev and necessary shared Supabase health changes. Local writes only D:. GitHub operations MCP only. No production app promotion authorized; Netlify production deploy6ab8d3e80c341219b5881e92 remains locked.
+- Temporary Netlify branch allowlist fix/me2-sync-web-brand should be removed after development publication; keep dev,v2,prod unchanged.
+- Physical background/reboot/offline and authenticated two-user acceptance remain pending.
 
-## Backend source reconciliation — 18 October
-PR77 source/fixtures restore already-applied owner APIs, scoped MCP and dormant integration controls. Historical migrations are provenance, not a deployment request; do not replay them. Optional Letta/n8n/Langfuse stay disabled pending real scoped acceptance. Plans: docs/plans/ME2-BACKEND-002-integrations.md and docs/plans/ME2-AGENTS-006-letta-n8n.md.
+## Backend source boundaries
+PR77 restored already-applied owner APIs, scoped MCP and dormant integration controls. Optional Letta/n8n/Langfuse remain disabled pending real scoped acceptance; no reasoning worker/provider activation or unrelated migration deployment. Plans: docs/plans/ME2-BACKEND-002-integrations.md and docs/plans/ME2-AGENTS-006-letta-n8n.md.

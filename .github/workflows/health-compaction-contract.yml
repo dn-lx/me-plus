@@ -43,3 +43,11 @@ jobs:
           for file in tests/sql/health-sync-fixture.sql supabase/migrations/20260928122843_health_bulk_upsert_keys.sql supabase/migrations/20260929144000_health_raw_event_revision_history.sql supabase/migrations/20260929230221_health_atomic_ingest_v4.sql tests/sql/health-sync-live-guards.sql tests/sql/health-sync-install-guards.sql supabase/migrations/20261017145227_health_batch_unique_run_key.sql tests/sql/health-unit-fixture.sql supabase/migrations/20261018101405_health_connect_unit_compatibility.sql supabase/migrations/20261018103853_health_unit_numeric_roundtrip.sql tests/sql/health-unit-contract.sql tests/sql/health-compaction-fixture.sql supabase/migrations/20261018103839_health_seven_day_compaction.sql tests/sql/health-compaction-contract.sql; do
             psql -X -v ON_ERROR_STOP=1 -f "$file"
           done
+      - name: Reproduce reference snapshot race then verify locked recheck twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/sql/health-compaction-reference-race.py --expect-unsafe
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018111313_health_compaction_locked_reference_recheck.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018111313_health_compaction_locked_reference_recheck.sql
+          python3 tests/sql/health-compaction-reference-race.py

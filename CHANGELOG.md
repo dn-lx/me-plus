@@ -15,10 +15,14 @@
 - SEC-008: restrict privileged health/medication RPCs to the server role, with isolated denied-call and migration-replay regression checks. Source reconciled with the already-applied live security migration.
 
 ### Added
+- Owner-approved seven-day high-frequency Health Connect row/payload compaction: retain packed normalized provenance and quality-aware daily summaries, preserve corrections/references, deduplicate archived revisions, and record bounded daily maintenance audits/heartbeats.
 - Me+ 2.0 light web workspace with Companion branding, Today/Plan/Capture/Review/More navigation, confirmed personal-note capture and server health-upload status.
 
 ### Fixed
-- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The separate server batch repair remains pending connector recovery.
+- Android0.4.3/code9 resumes dense Health Connect uploads within fixed pages/windows using acknowledged reading hashes; account-stable token refresh no longer cancels automatic sync. Signed development installers retain the existing upgrade signer.
+- Health batches use distinct run identities without bypassing source locks. Typed Health Connect unit aliases are normalized before the quality gate; validated historical rows retain raw provenance.
+- Legal/bank pages share Companion navigation; server batch acknowledgement is clearly distinguished from complete phone synchronization.
+- Android 0.4.2/code8 expires interrupted automatic-sync status and offers an explicit retry while preserving saved progress. The server batch repair was applied and verified with real multi-batch traffic on18October.
 
 - Publish the signed Me+ 0.4.1 development installer with Companion app icons and verified checksum; bounded artifact storage reconstructs identical APK bytes during the web build.
 

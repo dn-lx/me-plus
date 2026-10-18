@@ -1,5 +1,6 @@
 import 'expo-sqlite/localStorage/install';
 import { Platform } from 'react-native';
+import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
 import { supabase } from '../supabase/client';
 import { getHealthConnectPermissionState, readHealthConnectChanges, scanHealthConnect } from './health-connect';
 import { syncHealthConnectReadings } from './sync-health-readings';
@@ -81,6 +82,7 @@ async function run(background: boolean, force: boolean) {
         return result.readings;
       },
       upload: async readings => { await syncHealthConnectReadings(readings, {}, { ownerId: owner, assertActive }); },
+      fingerprint: reading => digestStringAsync(CryptoDigestAlgorithm.SHA256, stableHealthReading(reading)),
       now: Date.now,
       // Replaying overlaps is safe: Supabase keys by owner/source/external ID
       // and provider revision. Longer outages extend back to last acknowledgement.
@@ -94,3 +96,13 @@ async function run(background: boolean, force: boolean) {
     throw cause;
   }
 }
+
+// Stable across provider object-key order; only the digest is stored locally.
+function stableHealthReading(value: unknown): string {
+  if (Array.isArray(value)) return '[' + value.map(stableHealthReading).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.entries(value)
+    .filter(([, item]) => item !== undefined).sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, item]) => JSON.stringify(key) + ':' + stableHealthReading(item)).join(',') + '}';
+  return JSON.stringify(value) ?? 'null';
+}
+

@@ -1,3 +1,5 @@
+import { SiteNav } from '../components/site-nav';
+
 export const metadata = {
   title: "Terms · Me+",
   description: "Terms for the Me+ personal intelligence application.",
@@ -6,6 +8,7 @@ export const metadata = {
 export default function TermsPage() {
   return (
     <main className="shell legalPage">
+      <SiteNav current="terms" />
       <header className="hero legalHero">
         <p className="eyebrow">ME+ TERMS</p>
         <h1>Terms of use</h1>
@@ -87,3 +90,4 @@ export default function TermsPage() {
     </main>
   );
 }
+

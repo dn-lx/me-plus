@@ -36,6 +36,7 @@ try{for(const width of [360,1363]){
  assert.equal((await fetch(noteEndpoint,{method:'POST',body:'{}'})).status,401);
  assert.equal((await fetch(noteEndpoint,{method:'POST',headers:{...authHeaders,Authorization:'Bearer rejected'},body:'{}'})).status,401);
  assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify({id:crypto.randomUUID(),owner:'other',content:'Denied'})})).status,400);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:'{'})).status,400);
  assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:'x'.repeat(40001)})).status,413);
  const note={id:crypto.randomUUID(),owner,content:'Native API synthetic note',data_source_id:'forged',processing_status:'forged'};
  const response=await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify(note)});assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,id:note.id,owner,content:note.content});
@@ -44,6 +45,13 @@ try{for(const width of [360,1363]){
  assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify({...note,content:'Different'})})).status,409);
  await page.screenshot({path:`${out}/capture-error-${width}.png`,fullPage:true});
  await page.getByRole('link',{name:'More',exact:true}).click();await page.getByRole('heading',{name:'Health Connect',exact:true}).waitFor();await page.getByText('No successful upload recorded',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`${out}/more-${width}.png`,fullPage:true});
- assert.deepEqual(errors,[]);results.push({width,home:true,download:true,authRedirect:true,captureReceipt:true,deniedDraftRetained:true,moreEmpty:true,nativeCaptureBoundary:true,pageErrors:errors});await context.close();
+ for(const [route,title] of [['privacy','Privacy'],['terms','Terms of use'],['finance/connect','Connect N26']]){
+  await page.goto(base+'/'+route);await page.getByRole('heading',{name:title,exact:true}).waitFor();
+  assert.equal(await page.locator('img.brandMark').evaluate(img=>img.complete&&img.naturalWidth>0),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.screenshot({path:`${out}/${route.replace('/','-')}-${width}.png`,fullPage:true});
+ }
+ assert.deepEqual(errors,[]);results.push({width,home:true,download:true,authRedirect:true,captureReceipt:true,deniedDraftRetained:true,moreEmpty:true,nativeCaptureBoundary:true,sharedNavigation:true,pageErrors:errors});await context.close();
 }}finally{await browser.close();fixture.close();await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));}
 console.log(JSON.stringify(results));
+

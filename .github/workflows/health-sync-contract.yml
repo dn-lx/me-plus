@@ -2,7 +2,7 @@ name: Health sync batch contracts
 on:
   pull_request:
     branches: [dev]
-    paths: ['supabase/migrations/*health_batch*', 'tests/sql/health-*', '.github/workflows/health-sync-contract.yml']
+    paths: ['supabase/migrations/*health_batch*', 'supabase/migrations/*health_connect_unit*', 'supabase/migrations/*health_unit_numeric*', 'tests/sql/health-*', '.github/workflows/health-sync-contract.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -52,3 +52,21 @@ jobs:
             psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-sync-run-keys.sql
             psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-ingestion-atomic.sql
           done
+      - name: Verify typed units against recovered live quality gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-unit-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018101405_health_connect_unit_compatibility.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018103853_health_unit_numeric_roundtrip.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/health-unit-contract.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018101405_health_connect_unit_compatibility.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018103853_health_unit_numeric_roundtrip.sql
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $$begin
+            if exists (select 1 from unit_after_snapshot s join public.observations o using(id)
+              where (o.unit,o.quality,o.confidence,o.provenance) is distinct from (s.unit,s.quality,s.confidence,s.provenance))
+            then raise exception 'unit migration replay changed checked observations'; end if;
+          end $$;
+          SQL
+

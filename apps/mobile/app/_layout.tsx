@@ -9,6 +9,7 @@ import { scheduleBackgroundHealthSync, stopBackgroundHealthSync } from '../lib/h
 export default function RootLayout() {
   useEffect(() => {
     let disposed = false;
+    let sessionOwner: string | null | undefined;
     const resume = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -24,8 +25,10 @@ export default function RootLayout() {
     void resume();
     const state = AppState.addEventListener('change', next => { if (next === 'active') void resume(); });
     const timer = setInterval(() => { if (AppState.currentState === 'active') void resume(); }, 60_000);
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      cancelHealthSync();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextOwner = session?.user.id ?? null;
+      if (sessionOwner !== undefined && nextOwner !== sessionOwner) cancelHealthSync();
+      sessionOwner = nextOwner;
       // Supabase auth operations must run outside its callback/lock.
       setTimeout(() => { void resume(); }, 0);
     });
@@ -38,4 +41,5 @@ export default function RootLayout() {
     </>
   );
 }
+
 
