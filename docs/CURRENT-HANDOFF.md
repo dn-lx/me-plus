@@ -31,3 +31,6 @@ Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/
 - Android hosted Windows builder authorized17October; no local runner prerequisite. Netlify primary production deploy6ab8d3e80c341219b5881e92 stays locked. Promote dev→prod only with specific approval. PR#79 older0.4.0 remains superseded/unmerged.
 - Physical phone/background/reboot/offline and actual authenticated two-user acceptance remain pending. Synthetic browser/SQL checks cannot establish device acceptance.
 - Temporary Netlify branch allowlist fix/me2-sync-web-brand for exact-head preview must be removed after development publication; keep dev,v2 and prod unchanged.
+
+## Backend source reconciliation — 18 October
+PR77 source/fixtures restore already-applied owner APIs, scoped MCP and dormant integration controls. Historical migrations are provenance, not a deployment request; do not replay them. Optional Letta/n8n/Langfuse stay disabled pending real scoped acceptance. Plans: docs/plans/ME2-BACKEND-002-integrations.md and docs/plans/ME2-AGENTS-006-letta-n8n.md.

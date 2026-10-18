@@ -1,0 +1,8 @@
+CREATE SCHEMA extensions;
+GRANT USAGE ON SCHEMA auth TO service_role;
+CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+CREATE TABLE public.data_sources (id uuid NOT NULL DEFAULT gen_random_uuid(), user_id uuid NOT NULL, kind text NOT NULL, provider text NOT NULL, display_name text NOT NULL, status text NOT NULL DEFAULT 'active'::text, external_account_ref text, last_sync_at timestamp with time zone, metadata jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now());
+CREATE TABLE public.goals (id uuid NOT NULL DEFAULT gen_random_uuid(), user_id uuid NOT NULL, parent_goal_id uuid, domain text NOT NULL, title text NOT NULL, description text, status text NOT NULL DEFAULT 'active'::text, priority smallint NOT NULL DEFAULT 3, starts_on date, target_date date, target_definition jsonb, progress_strategy text, motivation text, constraints jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), archived_at timestamp with time zone);
+CREATE TABLE public.outcomes (id uuid NOT NULL DEFAULT gen_random_uuid(), user_id uuid NOT NULL, action_id uuid, recommendation_id uuid, outcome_type text NOT NULL, observed_at timestamp with time zone NOT NULL, subjective_value jsonb, objective_refs jsonb, summary text, created_at timestamp with time zone NOT NULL DEFAULT now());
+CREATE FUNCTION public.get_health_context(uuid,timestamptz) RETURNS jsonb LANGUAGE sql AS $$ SELECT jsonb_build_object('fixture_user',$1) $$;

@@ -1,0 +1,9 @@
+{
+  "name": "meplus-letta-runtime-contract",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@letta-ai/letta-agent-sdk": "0.8.45"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

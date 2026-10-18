@@ -15,3 +15,8 @@ Version impact: patch maintenance. No new telemetry or performance-sensitive app
 ## Completion evidence
 
 PR #76, code head `31f10f4`: all seven CI gates passed (isolated PostgreSQL, workspace runtime, dependency audit, secret scan, Semgrep, version and agent policy). PostgreSQL tests reproduce the old no-op bug, then pass ownership/rollback and replay/source-scope suites twice after repair. Independent review found no blocker. Local Node suite: 95 passed, 7 skipped, 0 failed. Final docs/whitespace commit requires fresh CI. Live deployment, hosted JWT/schema and concurrency acceptance remain unverified.
+
+
+## 16 October authorized backend continuation
+
+PR #76 merged into dev as cf90a19. The repair was applied as live version 20261016084240 and passed the actual hosted schema rollback acceptance tests. Source filename remains 20261016083256; do not replay it. See ME2-BACKEND-002-integrations.md for current provenance and remaining app/auth/device gates; earlier not-deployed wording above is historical.
