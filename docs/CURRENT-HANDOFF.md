@@ -1,42 +1,33 @@
 # Current Handoff
 
-**Last updated:** 2026-10-17
-Canonical specs: Me+ Google Drive. Operational state: Supabase. Current implementation/checks: GitHub.
+**Last updated:** 2026-10-18
+Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": "ME2-CLIENT-015A",
-  "repository": "dn-lx/me-plus",
+  "task_id": null,
+  "repository": null,
   "base": "dev",
-  "branch": "feature/me2-mobile-today",
-  "pr": 79,
-  "status": "blocked",
+  "branch": null,
+  "pr": null,
+  "status": "idle",
   "last_verified_sha": null,
-  "next_step": "Restore designated Windows Actions runner, build current committed source, verify APK provenance and device acceptance. Do not publish an unbuilt 0.4.0 artifact.",
-  "updated_at": "2026-10-17T14:24:30.337828+00:00"
+  "next_step": null,
+  "updated_at": "2026-10-18T00:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 
-## Development handoff
-- User authorized web app/APK publication to development only. All coordinator GitHub writes use GitHub MCP. No prod, schema, live-data test writes or provider activation.
-- ME2-WEB-016 separates the core responsive web app and verified existing Android download from pending native work. Plan: `docs/plans/ME2-WEB-016-core-app-download.md`.
-- Mobile PR #79 at c887843 targets 0.4.0 / versionCode 6 / me-plus-0.4.0.apk. Four hosted checks green; Android run 39038848460 queued because designated Windows runner DESKTOP-RG1HH2I is offline. No installed runner was found to restart. New APK is not built or available.
-- Existing 0.3.1 APK remains labeled with its actual version/code/hash. Web build validates metadata and bytes; no relabeling to 0.4.0. Native/authenticated two-user acceptance remains pending.
-- Antigravity workspace `D:\Development\me-plus-antigravity`; original dirty `D:\Development\me-plus` untouched. Approved telemetry path repair retained the hook.
+## Current delivery
+- PR#84 / ME2-APP-020: website aligned with native v2 light design and Companion logo/icons. Today, Plan, Capture, Review, More. Capture confirms exact owner/content; drafts clear on account changes. More reads owner-scoped server upload acknowledgements. Plan/evidence: docs/plans/ME2-APP-020-sync-web-brand.md.
+- Native target0.4.2/code8: expire interrupted running state after5minutes and explicit retry. Saved cursors/replay windows and last successful acknowledgement remain intact. A newly compiled/verified artifact is required; do not relabel0.4.1.
+- Dev-only app publication authorized. GitHub operations MCP only. Supabase projectwbqnctrvxohxwiaignhg is shared; no production app merge/deployment or unrelated schema/live test writes.
 
-## Release boundaries
-- Promotion `dev → prod`; no current production approval. Netlify primary published deploy is locked. Supabase project wbqnctrvxohxwiaignhg is shared by dev/prod; branches do not isolate records.
-- Android compiles on designated Windows Actions runner; Netlify distributes verified bytes. Verify manifest/code/name, source SHA, embedded JS, ARM64 ABI, signer continuity and checksum.
-- Dev cf90a19 includes PR #76 native retry repair source, not its live deployment. Never blindly replay recovered migrations. PR #69 restricted privileged RPCs; #70–#74 added Today/Now/Review/atomic decisions.
-- Independent PRs #38/#66/#75/#77/#78 remain outside this task. Prior evidence: `docs/handoffs/2026-10-07.md`, `docs/plans/ME2-NATIVE-001-contract-recovery.md`.
+## Unresolved health upload blocker
+- Live19:36UTC logs17October: source_sync_already_completed. Readback: approved a_health_batch_run_key_before_insert trigger still absent. Fresh apply_migration again fails Invalid or expired requestState. Connector reads work. Root-cause repair is not live; do not claim uploads fixed. Narrow migration already owner-approved; alternate browser fallback needs user approval under browser connector policy.
+- Existing reviewed migration20261017145227_health_batch_unique_run_key.sql gives distinct health batch run keys while source leases and raw revision deduplication remain. Independent review found no migration blocker; nullable SQL assertions strengthened. No unrelated migrations may be applied.
 
-## Web PR #80 review
-- Web-only source: no native application or version bump; shared new ranking helpers are not exported by the existing native package entrypoint. The Android path filter still queues a build for shared-package additions; its offline status is not evidence that a new native APK exists.
-- Before final documentation/CSS commit: 117 passed, 7 skipped, 0 failed; all workspace typechecks and Next.js build passed. Four hosted checks green at d526bcc; branch deployment 6ad383242f5e5cb9be99924c ready for that SHA. Final head requires fresh checks.
-- Browser at available 500 CSS-pixel viewport: Home and Download render without horizontal overflow; version, code, filename, size and SHA shown; Today redirects to login with safe next; blank sign-in focuses the required email field. Only browser-extension metadata errors observed. Full desktop/360px, authenticated Today/Review interaction and physical Android remain unverified.
-- Final development publication is authorized; prod and primary published deploy stay unchanged. Temporary feature branch deployment allowance must be removed after dev verification. Deployment/evidence details in the task plan.
-
-The preview APK was downloaded independently over HTTPS and its SHA-256 exactly matched committed provenance: `0b2ea0577b39bbf0a6b5f561fc49327cf50feadde827714aa71e7e60521f7c6b` (44,362,126 bytes, version 0.3.1). New 0.4.0 remains unavailable.
-
-## Mobile continuation after web delivery
-Web PR #80 is merged into dev at 2f46e00497c051883291eba07aabd0998ff48698. This merge commit retains that complete web source and combines it with reviewed native 0.4.0/code6. New exact-head CI is required. No APK built yet: runner DESKTOP-RG1HH2I remains offline. Existing 0.3.1 download stays accurately labeled. No changes to prod, schema or providers.
+## Verified previous installer
+- Published0.4.1/code7 built from1f534d1;44,808,768bytes;SHA25611eb94077f55f371d4c88c12c77ba88ebbcd45e404b104224bd5d26b7cbfa709. Companion launcher independently checked. Dev distribution uses six parts and fail-closed assembly. Prior details:docs/plans/ME2-APP-019-native-core-sync.md.
+- Android hosted Windows builder authorized17October; no local runner prerequisite. Netlify primary production deploy6ab8d3e80c341219b5881e92 stays locked. Promote dev→prod only with specific approval. PR#79 older0.4.0 remains superseded/unmerged.
+- Physical phone/background/reboot/offline and actual authenticated two-user acceptance remain pending. Synthetic browser/SQL checks cannot establish device acceptance.
+- Temporary Netlify branch allowlist fix/me2-sync-web-brand for exact-head preview must be removed after development publication; keep dev,v2 and prod unchanged.

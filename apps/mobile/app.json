@@ -3,9 +3,9 @@
     "name": "Me+",
     "slug": "me-plus",
     "scheme": "meplus",
-    "version": "0.4.0",
+    "version": "0.4.2",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
       "expo-sqlite",
@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "app.meplus.mobile",
-      "versionCode": 6,
+      "versionCode": 8,
       "permissions": [
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_RESTING_HEART_RATE",
@@ -39,11 +39,19 @@
         "android.permission.health.READ_EXERCISE",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
         "android.permission.health.READ_TOTAL_CALORIES_BURNED",
-        "android.permission.health.READ_WEIGHT"
-      ]
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "../../brand/companion/android/adaptive-foreground.png",
+        "backgroundImage": "../../brand/companion/android/adaptive-background.png",
+        "monochromeImage": "../../brand/companion/android/adaptive-monochrome.png",
+        "backgroundColor": "#121C32"
+      }
     },
     "ios": {
       "bundleIdentifier": "app.meplus.mobile"
-    }
+    },
+    "icon": "../../brand/companion/android/launcher-1024.png"
   }
 }

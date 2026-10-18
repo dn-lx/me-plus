@@ -1,5 +1,7 @@
 # ME2-CLIENT-015A — Android Today first slice
 
+> Historical checkpoint, superseded by ME2-APP-019 and ME2-APP-020. Current dev uses the v2 light design, ChatGPT/Codex, hosted Windows builds and native0.4.2/code8. Preserve current source and release identity; old version/build references below are historical evidence.
+
 ## Outcome
 Replace the mobile starter landing page with an authenticated daily flow: Today priorities, a conservative Now suggestion, recent guidance, and canonical Complete / Partial / Skip decisions with committed readback.
 

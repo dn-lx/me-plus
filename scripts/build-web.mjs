@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveNextBinary } from "./ensure-next-install.mjs";
+import { assembleAndroidDownloads } from "./assemble-android-downloads.mjs";
 
 export function nextBuildInvocation(root) {
   return {
@@ -13,6 +14,7 @@ export function nextBuildInvocation(root) {
 }
 
 export function runNextBuild(root) {
+  assembleAndroidDownloads(root);
   const invocation = nextBuildInvocation(root);
   return spawnSync(invocation.command, invocation.args, {
     cwd: invocation.cwd,
@@ -31,3 +33,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 
   process.exit(result.status ?? 1);
 }
+

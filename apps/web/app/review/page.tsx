@@ -126,7 +126,7 @@ export default async function ReviewPage() {
 
       {queryError ? (
         <section className="appCard calmAlert" role="alert">
-          <h2 style={{ fontSize: "1.15rem", marginBottom: 6, color: "#fca5a5" }}>
+          <h2 style={{ fontSize: "1.15rem", marginBottom: 6, color: "#a12836" }}>
             Review Unavailable
           </h2>
           <p style={{ margin: 0 }}>
@@ -155,7 +155,7 @@ export default async function ReviewPage() {
               </span>
               <span>·</span>
               <span>
-                <strong style={{ color: "#fde68a" }}>{totals.partial}</strong> partial
+                <strong style={{ color: "#835800" }}>{totals.partial}</strong> partial
               </span>
               <span>·</span>
               <span>
