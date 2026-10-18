@@ -16,6 +16,7 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:8766
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SECRET_KEY: ci_placeholder_not_a_key
       CI: 'true'
     steps:
       - uses: actions/checkout@v4

@@ -24,6 +24,10 @@ try {
    else if(url.pathname.endsWith('/action_events'))data=[{id:'evt',event_type:'completed',occurred_at:new Date().toISOString()}];
    await route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(data)});
   });
+  await page.route('https://api.example.test/api/capture',async route=>{
+   if(route.request().method()==='OPTIONS'){await route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'POST,OPTIONS'}});return;}
+   const row=JSON.parse(route.request().postData());await route.fulfill({status:200,headers:{'content-type':'application/json','access-control-allow-origin':'*'},body:JSON.stringify({ok:true,...row})});
+  });
   action.status='planned';
   await page.goto('http://127.0.0.1:8765/');
   await page.getByRole('textbox',{name:'Me+ email'}).fill(user.email);

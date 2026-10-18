@@ -8,7 +8,7 @@ const out=process.env.UI_QA_OUTPUT||'/tmp/meplus-web-ui';await mkdir(out,{recurs
 const owner='11111111-1111-4111-8111-111111111111';let notes=new Map(),mode='ok';
 const user={id:owner,email:'owner@example.test',aud:'authenticated',role:'authenticated',created_at:'2026-01-01T00:00:00Z',app_metadata:{},user_metadata:{}};
 const fixture=createServer(async(req,res)=>{let body='';for await(const c of req)body+=c;const url=new URL(req.url,'http://127.0.0.1:8766');let data;
- if(url.pathname==='/auth/v1/user')data=user;
+ if(url.pathname==='/auth/v1/user'){if(req.headers.authorization==='Bearer rejected'){res.statusCode=401;data={message:'invalid token',code:'bad_jwt'};}else data=user;}
  else if(url.pathname==='/qa/mode'){mode=body;data={ok:true};}
  else if(url.pathname==='/rest/v1/conversation_captures'){
   if(req.method==='POST'){const row=JSON.parse(body);if(row.user_id!==owner){res.statusCode=403;data={message:'denied'};}else if(mode==='denied'){res.statusCode=403;data={message:'test denial'};}else if(notes.has(row.id)){res.statusCode=409;data={code:'23505'};}else{notes.set(row.id,row);res.statusCode=201;data=null;}}
@@ -32,8 +32,18 @@ try{for(const width of [360,1363]){
  await context.addCookies([{name:'sb-127-auth-token',value:'base64-'+enc(session),domain:'localhost',path:'/'}]);
  await page.goto(base+'/capture');await page.getByRole('heading',{name:'Capture',exact:true}).waitFor();await page.getByLabel('What would you like to keep?').fill('Synthetic QA note');await page.getByRole('button',{name:'Save note',exact:true}).click();await page.getByRole('status').filter({hasText:'Note saved and confirmed.'}).waitFor();assert.equal(await page.getByLabel('What would you like to keep?').inputValue(),'');
  await fetch('http://127.0.0.1:8766/qa/mode',{method:'POST',body:'denied'});await page.getByLabel('What would you like to keep?').fill('Keep this draft');await page.getByRole('button',{name:'Save note',exact:true}).click();await page.getByRole('status').filter({hasText:'Save not confirmed'}).waitFor();assert.equal(await page.getByLabel('What would you like to keep?').inputValue(),'Keep this draft');await fetch('http://127.0.0.1:8766/qa/mode',{method:'POST',body:'ok'});
+ const noteEndpoint=base+'/api/capture',authHeaders={'Content-Type':'application/json',Authorization:`Bearer ${token}`};
+ assert.equal((await fetch(noteEndpoint,{method:'POST',body:'{}'})).status,401);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:{...authHeaders,Authorization:'Bearer rejected'},body:'{}'})).status,401);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify({id:crypto.randomUUID(),owner:'other',content:'Denied'})})).status,400);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:'x'.repeat(40001)})).status,413);
+ const note={id:crypto.randomUUID(),owner,content:'Native API synthetic note',data_source_id:'forged',processing_status:'forged'};
+ const response=await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify(note)});assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,id:note.id,owner,content:note.content});
+ assert.equal(notes.get(note.id).user_id,owner);assert.equal(notes.get(note.id).channel,'me-plus-mobile');assert.equal(notes.get(note.id).processing_status,'captured');assert.equal(notes.get(note.id).data_source_id,undefined);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify(note)})).status,200);
+ assert.equal((await fetch(noteEndpoint,{method:'POST',headers:authHeaders,body:JSON.stringify({...note,content:'Different'})})).status,409);
  await page.screenshot({path:`${out}/capture-error-${width}.png`,fullPage:true});
  await page.getByRole('link',{name:'More',exact:true}).click();await page.getByRole('heading',{name:'Health Connect',exact:true}).waitFor();await page.getByText('No successful upload recorded',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`${out}/more-${width}.png`,fullPage:true});
- assert.deepEqual(errors,[]);results.push({width,home:true,download:true,authRedirect:true,captureReceipt:true,deniedDraftRetained:true,moreEmpty:true,pageErrors:errors});await context.close();
+ assert.deepEqual(errors,[]);results.push({width,home:true,download:true,authRedirect:true,captureReceipt:true,deniedDraftRetained:true,moreEmpty:true,nativeCaptureBoundary:true,pageErrors:errors});await context.close();
 }}finally{await browser.close();fixture.close();await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));}
 console.log(JSON.stringify(results));

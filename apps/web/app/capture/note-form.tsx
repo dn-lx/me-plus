@@ -1,10 +1,40 @@
 'use client';
-import {useState,useEffect,useRef,type FormEvent} from 'react';
-import {createClient} from '../../lib/supabase/client';
-import {saveWebNote} from './actions';
-export function NoteForm({owner}:{owner:string}){
- const [text,setText]=useState(''),[id,setId]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[ok,setOk]=useState(false),[validAccount,setValidAccount]=useState(true);const lifetime=useRef(0);
- useEffect(()=>{const client=createClient();const {data}=client.auth.onAuthStateChange((_event,session)=>{if(session?.user.id!==owner){lifetime.current++;setText('');setId('');setMessage('Your account changed. Reload this page before capturing a note.');setValidAccount(false);}});return()=>{lifetime.current++;data.subscription.unsubscribe();};},[owner]);
- async function submit(e:FormEvent){e.preventDefault();if(busy||!text.trim()||!validAccount)return;const epoch=lifetime.current,noteId=id||crypto.randomUUID();setId(noteId);setBusy(true);setMessage('');try{const result=await saveWebNote({id:noteId,content:text,owner});if(epoch!==lifetime.current)return;setOk(result.ok);setMessage(result.message);if(result.ok){setText('');setId('');}}catch{if(epoch===lifetime.current){setOk(false);setMessage('Connection interrupted. Your draft is still here; retry to confirm it.');}}finally{if(epoch===lifetime.current)setBusy(false);}}
- return <form onSubmit={submit}><div className="formGroup"><label className="formLabel" htmlFor="capture-note">What would you like to keep?</label><textarea id="capture-note" className="formInput" value={text} onChange={e=>{setText(e.target.value);setId('');setMessage('');}} maxLength={8000} required disabled={busy||!validAccount} placeholder="A thought, an idea, something to return to…"/><span style={{fontSize:'.8rem',color:'var(--muted)'}}>{text.length.toLocaleString()} / 8,000 characters</span></div><button className="primaryButton" disabled={busy||!text.trim()||!validAccount}>{busy?'Confirming…':'Save note'}</button>{message?<p role="status" className={`statusMessage ${ok?'statusSuccess':'statusError'}`}>{message}</p>:null}</form>;
+import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { createClient } from '../../lib/supabase/client';
+import { saveWebNote } from './actions';
+export function NoteForm({ owner }: {
+    owner: string;
+}) {
+    const [text, setText] = useState(''), [id, setId] = useState(''), [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [ok, setOk] = useState(false), [validAccount, setValidAccount] = useState(true);
+    const lifetime = useRef(0);
+    useEffect(() => { const client = createClient(); const { data } = client.auth.onAuthStateChange((_event, session) => { if (session?.user.id !== owner) {
+        lifetime.current++;
+        setText('');
+        setId('');
+        setMessage('Your account changed. Reload this page before capturing a note.');
+        setValidAccount(false);
+    } }); return () => { lifetime.current++; data.subscription.unsubscribe(); }; }, [owner]);
+    async function submit(e: FormEvent) { e.preventDefault(); if (busy || !text.trim() || !validAccount)
+        return; const epoch = lifetime.current, noteId = id || crypto.randomUUID(); setId(noteId); setBusy(true); setMessage(''); try {
+        const result = await saveWebNote({ id: noteId, content: text, owner });
+        if (epoch !== lifetime.current)
+            return;
+        setOk(result.ok);
+        setMessage(result.message);
+        if (result.ok) {
+            setText('');
+            setId('');
+        }
+    }
+    catch {
+        if (epoch === lifetime.current) {
+            setOk(false);
+            setMessage('Connection interrupted. Your draft is still here; retry to confirm it.');
+        }
+    }
+    finally {
+        if (epoch === lifetime.current)
+            setBusy(false);
+    } }
+    return <form onSubmit={submit}><div className="formGroup"><label className="formLabel" htmlFor="capture-note">What would you like to keep?</label><textarea id="capture-note" className="formInput" value={text} onChange={e => { setText(e.target.value); setId(''); setMessage(''); }} maxLength={8000} required disabled={busy || !validAccount} placeholder="A thought, an idea, something to return to…"/><span style={{ fontSize: '.8rem', color: 'var(--muted)' }}>{text.length.toLocaleString()} / 8,000 characters</span></div><button className="primaryButton" disabled={busy || !text.trim() || !validAccount}>{busy ? 'Confirming…' : 'Save note'}</button>{message ? <p role="status" className={`statusMessage ${ok ? 'statusSuccess' : 'statusError'}`}>{message}</p> : null}</form>;
 }

@@ -17,3 +17,6 @@ Owner request: resolve the continuing phone HTTP500 and align website/app with e
 
 ## Blockers and rollback
 Supabase write connector expires requestState. No live synthetic test writes. Repair needs a working authorized migration path; do not claim uploads restored before catalog and actual server evidence. Revert app/web changes for rollback; prior installers remain available. Applying backend trigger is additive and independently reversible. Authenticated real-phone/background/reboot/offline acceptance requires the device; browser/synthetic checks cannot establish it.
+
+## Live column-grant correction
+Read-only catalog confirmed authenticated users have column-level INSERT grants but cannot set capture id/processing_status. Both prior native Capture and the initial web candidate attempted those fields. Reuse the existing server admin writer behind verified owner auth: web server action retains session/RLS readback; native POST/api/capture validates Bearer token, expected owner, UUID/content and40k body budget, fixes provenance and fields, and confirms owner/content with account checks. Client secrets/grants/schema do not change. Stable note IDs preserve retry receipts. Deploy web endpoint before distributing/installing0.4.2. Independent security review and negative owner/receipt tests required.
