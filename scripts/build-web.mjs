@@ -15,6 +15,10 @@ export function nextBuildInvocation(root) {
 
 export function runNextBuild(root) {
   assembleAndroidDownloads(root);
+  const prepared = spawnSync(process.execPath, [
+    '--experimental-strip-types', join(root, 'scripts', 'prepare-android-release.mjs'),
+  ], {cwd: root, stdio: 'inherit'});
+  if (prepared.error || prepared.status !== 0) return prepared;
   const invocation = nextBuildInvocation(root);
   return spawnSync(invocation.command, invocation.args, {
     cwd: invocation.cwd,

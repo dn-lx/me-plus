@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { SiteNav } from "./components/site-nav";
-import { getLatestVerifiedArtifact } from "../lib/download-artifact";
+import { getPublishedAndroidArtifact } from "../lib/published-android-release";
 export const dynamic = "force-static";
 export default function HomePage() {
-    const artifact = getLatestVerifiedArtifact();
+    const artifact = getPublishedAndroidArtifact();
     return <main className="shell">
  <SiteNav current="home"/>
  <section className="hero" aria-labelledby="home-title"><div className="heroCopy">

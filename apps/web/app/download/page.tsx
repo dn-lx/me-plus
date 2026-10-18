@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteNav } from "../components/site-nav";
-import { getLatestVerifiedArtifact } from "../../lib/download-artifact";
+import { getPublishedAndroidArtifact } from "../../lib/published-android-release";
 
 export const dynamic = "force-static";
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function DownloadPage() {
-  const artifact = getLatestVerifiedArtifact();
+  const artifact = getPublishedAndroidArtifact();
 
   return (
     <main className="shell">
