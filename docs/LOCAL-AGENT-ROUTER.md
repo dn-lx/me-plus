@@ -2,6 +2,10 @@
 
 The local agent router is an optional execution bridge for delegating scoped work to Claude Code or Gemini CLI on a developer-controlled machine.
 
+Use [the terminal model orchestrator](MODEL-ORCHESTRATOR.md) to select a worker
+from capability classes and return normalized results from ChatGPT, Claude or
+Gemini. The direct router command below remains supported.
+
 It is deliberately **not** a general remote shell.
 
 ## Boundary

@@ -37,3 +37,16 @@ Codespace API access currently fails with HTTP 403; browser control cannot start
 Tests with fake provider processes can verify routing/error handling but cannot
 prove live authentication or account entitlement. Final acceptance requires the
 two authenticated provider calls in the actual Codespace.
+
+## Verification and review
+
+19 November: 221 deterministic tests passed, 7 environment-dependent tests
+skipped, none failed. Focused router/orchestrator tests: 12 passed, including
+real fake-Claude/Gemini subprocesses, literal shell metacharacters, timeout kill,
+provider-envelope errors and coordinator-only routing. Documentation, agent-stack,
+task-state, context-budget and version validation pass. A fresh sequential
+security pass traced packet/profile input to the fixed executable allowlist and
+`shell: false`; prototype-property routing and malformed budget/context values
+are rejected before execution. Native CLI permissions remain the actual worker
+tool boundary, as documented. No independent authenticated-provider review or
+live Codespace acceptance was possible in this session. PR remains draft.

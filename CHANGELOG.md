@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Terminal model orchestrator for ChatGPT, Claude or Gemini coordinators: capability-profile routing to Claude Code/Gemini CLI, execution previews, bounded invocations and normalized provider failures. Live provider sign-in remains a per-Codespace setup step.
+
 ### Documentation
 - Audited the Me+ 2.0 source/runtime boundaries, proposed a modular-core architecture, and replaced the starter backlog with an ordered roadmap covering N26 and ING, client/session contracts, durable jobs, health acceptance, delivery, privacy/recovery and optional runtime gates. Planning only; no product/runtime/dependency changes.
 

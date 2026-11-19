@@ -23,6 +23,7 @@ Load `docs/REQUIREMENTS.md` additionally when the task concerns product/backlog/
 | `docs/AGENT-ORCHESTRATION.md` | Planning multi-role or independent-review work |
 | `docs/EXECUTION-ROUTING-POLICY.md` | Choosing agent host/model/parallelism |
 | `docs/LOCAL-AGENT-ROUTER.md` | Delegating scoped work to local Claude Code or Gemini CLI |
+| `docs/MODEL-ORCHESTRATOR.md` | Coordinating Claude/Gemini workers through a Codespaces terminal |
 | `docs/AGENT-PLATFORM-WORKFLOWS.md` | Host portability/onboarding |
 | `docs/MEMORY-CONTEXT-POLICY.md` | Context/token problems or memory design |
 | `docs/CODE-HEALTH-AND-CONTEXT.md` | Cleanup/dead-code/context-efficiency work |
