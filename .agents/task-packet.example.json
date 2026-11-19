@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "taskId": "orchestrator-smoke",
+  "mode": "plan",
+  "outcome": "Without editing files or invoking tools, reply with ORCHESTRATOR_OK.",
+  "constraints": ["Do not read credentials or contact external services through tools"],
+  "acceptanceCriteria": ["The final response contains ORCHESTRATOR_OK"],
+  "budget": { "maxTurns": 2, "timeoutMs": 60000 }
+}

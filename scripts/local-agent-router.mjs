@@ -28,10 +28,19 @@ export function validateTaskPacket(packet) {
   if (typeof packet.taskId !== 'string' || !packet.taskId.trim()) throw new Error('taskId is required')
   if (typeof packet.outcome !== 'string' || !packet.outcome.trim()) throw new Error('outcome is required')
   if (!['plan', 'implement', 'review'].includes(packet.mode)) throw new Error('mode must be plan, implement, or review')
-  if (packet.context?.files && !Array.isArray(packet.context.files)) throw new Error('context.files must be an array')
-  if (packet.constraints && !Array.isArray(packet.constraints)) throw new Error('constraints must be an array')
-  if (packet.acceptanceCriteria && !Array.isArray(packet.acceptanceCriteria)) throw new Error('acceptanceCriteria must be an array')
-  if (packet.checks && !Array.isArray(packet.checks)) throw new Error('checks must be an array')
+  for (const key of ['context', 'budget']) {
+    if (packet[key] !== undefined && (!packet[key] || typeof packet[key] !== 'object' || Array.isArray(packet[key]))) {
+      throw new Error(`${key} must be an object`)
+    }
+  }
+  for (const [label, value] of [
+    ['context.files', packet.context?.files], ['context.notes', packet.context?.notes],
+    ['constraints', packet.constraints], ['acceptanceCriteria', packet.acceptanceCriteria], ['checks', packet.checks],
+  ]) {
+    if (value !== undefined && (!Array.isArray(value) || value.some(item => typeof item !== 'string'))) {
+      throw new Error(`${label} must be an array of strings`)
+    }
+  }
 
   const maxTurns = packet.budget?.maxTurns ?? 12
   const timeoutMs = packet.budget?.timeoutMs ?? 15 * 60 * 1000
@@ -69,7 +78,7 @@ export function buildPrompt(packet) {
 }
 
 export function buildInvocation(agent, packet, cwd = process.cwd()) {
-  const adapter = ROUTER_AGENTS[agent]
+  const adapter = Object.hasOwn(ROUTER_AGENTS, agent) ? ROUTER_AGENTS[agent] : null
   if (!adapter) throw new Error(`Unsupported agent: ${agent}. Allowed agents: ${Object.keys(ROUTER_AGENTS).join(', ')}`)
   const validated = validateTaskPacket(packet)
   const prompt = buildPrompt(validated)
@@ -87,6 +96,8 @@ export function runInvocation(invocation) {
     encoding: 'utf8',
     shell: false,
     timeout: invocation.timeoutMs,
+    killSignal: 'SIGKILL',
+    maxBuffer: 4 * 1024 * 1024,
     env: process.env,
   })
 

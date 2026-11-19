@@ -1,19 +1,19 @@
 # Current Handoff
 
-**Last updated:** 2026-10-18
+**Last updated:** 2026-11-19
 Canonical design/specs: retained Me+2.0 v2 review. Live state: Supabase. Source/checks: GitHub.
 
 <!-- AGENT_TASK_STATE_START -->
 {
-  "task_id": null,
-  "repository": null,
+  "task_id": "model-orchestrator",
+  "repository": "dn-lx/me-plus",
   "base": "dev",
-  "branch": null,
-  "pr": null,
-  "status": "idle",
+  "branch": "feature/model-orchestrator",
+  "pr": 91,
+  "status": "blocked",
   "last_verified_sha": null,
-  "next_step": null,
-  "updated_at": "2026-10-18T11:00:00Z"
+  "next_step": "Codespace403/browser unavailable. Apply PR91 preserving local edits; sign in to Claude/Gemini; run both smoke calls in docs/MODEL-ORCHESTRATOR.md.",
+  "updated_at": "2026-11-19T14:00:00Z"
 }
 <!-- AGENT_TASK_STATE_END -->
 

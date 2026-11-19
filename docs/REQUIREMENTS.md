@@ -1,5 +1,21 @@
 # Requirements, Issues & Execution Plan
 
+## [ ] ORCH-001 — Terminal orchestration from ChatGPT, Claude or Gemini
+
+Owner-selected scope (19 November 2026): Codespaces terminal access to the
+existing Claude Code/Gemini CLI bridge; no hosted MCP service required.
+
+Acceptance:
+- [x] Any of the three interfaces can route scoped packets using capability classes.
+- [x] Preview does not invoke a provider; execution is explicit and bounded.
+- [x] Invalid configuration, provider errors and malformed output fail closed.
+- [x] Coordinator owns GitHub operations, verification and final acceptance.
+- [ ] Both authenticated providers return the smoke response in the actual Codespace.
+
+Evidence: `tests/agent-orchestrator.test.mjs`, `tests/local-agent-router.test.mjs`;
+setup/limits in `docs/MODEL-ORCHESTRATOR.md`. PR #91. Live Codespace acceptance is
+blocked by API HTTP 403 and unavailable browser control in this session.
+
 **Status:** Active
 **Last updated:** 2026-10-18
 **Primary branch:** `dev`

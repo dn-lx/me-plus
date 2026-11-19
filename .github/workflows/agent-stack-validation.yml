@@ -28,7 +28,7 @@ jobs:
       - name: Test bootstrap end to end
         run: node --test tests/bootstrap-project-e2e.test.mjs
       - name: Test local agent router
-        run: node --test tests/local-agent-router.test.mjs
+        run: node --test tests/local-agent-router.test.mjs tests/agent-orchestrator.test.mjs
       - name: Validate documentation consistency
         run: node scripts/validate-docs.mjs
       - name: Validate canonical agent stack

@@ -36,6 +36,8 @@ test('unsupported agents cannot become arbitrary commands', () => {
   assert.throws(() => buildInvocation('bash', packet), /Unsupported agent/)
   assert.throws(() => buildInvocation('git', packet), /Unsupported agent/)
   assert.throws(() => buildInvocation('gh', packet), /Unsupported agent/)
+  assert.throws(() => buildInvocation('constructor', packet), /Unsupported agent/)
+  assert.throws(() => buildInvocation('__proto__', packet), /Unsupported agent/)
 })
 
 test('delegated prompt reserves GitHub mutations for native connector', () => {
