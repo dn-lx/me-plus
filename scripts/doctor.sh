@@ -13,8 +13,8 @@ echo
 for bin in git gh node npm python3 rg tmux claude codex agy; do
   printf '%-11s' "$bin"
   if command -v "$bin" >/dev/null 2>&1; then
-    if [[ "$bin" == tmux ]]; then "$bin" -V 2>&1 | head -n 1
-    else "$bin" --version 2>&1 | head -n 1; fi
+    if [[ "$bin" == tmux ]]; then "$bin" -V 2>&1 | head -n 1 || true
+    else "$bin" --version 2>&1 | head -n 1 || true; fi
   else
     echo 'NOT INSTALLED'
   fi
