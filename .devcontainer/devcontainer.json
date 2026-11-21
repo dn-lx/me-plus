@@ -1,0 +1,22 @@
+{
+  "name": "Multi-agent Codespace | Claude · Codex · Antigravity",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "node",
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
+  "remoteEnv": {
+    "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "bash .devcontainer/install-agents.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.scrollback": 10000
+      }
+    }
+  }
+}
