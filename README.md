@@ -35,6 +35,10 @@ Sign in interactively, **separately**, when required:
 claude
 codex login --device-auth
 agy
+
+# GitHub CLI uses its own authorization
+# (needed for GitHub PR commands inside this Codespace)
+gh auth login -h github.com
 ```
 
 Use the providers' own login flows. The installer does not accept or commit passwords, keys or tokens. Subscription access depends on provider eligibility. API-based usage may incur separate charges.
@@ -94,6 +98,8 @@ bash scripts/remote.sh status
 bash scripts/remote.sh start
 bash scripts/remote.sh attach
 ```
+
+The `status` command checks whether the remote process is running, **not** whether the device has completed pairing. Pairing may need repeating after a container rebuild.
 
 Codespaces `postStartCommand` requests that Desktop Commander reconnect in a detached tmux session when the Codespace starts. If its prior device pairing is unavailable, use `attach` and follow the official pairing instructions. Credentials remain in the user's private home folder, never this Git repository. No automatic permission bypass is enabled.
 
