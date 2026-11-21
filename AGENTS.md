@@ -1,17 +1,22 @@
-# Multi-agent Codespace guidelines
+# Multi-agent Codespace rules
 
-This is a **development environment repository**, not an application repository.
-Keep it small: only Codespaces provisioning, agent installation/diagnostics and clear usage documentation.
+This repository provisions independent developer tools. It is **not** an application or an orchestrator.
 
-## Agent independence
-- Claude Code (`claude`), OpenAI Codex (`codex`), and Antigravity CLI (`agy`) are separate official agents.
-- None is required to act as an orchestrator for the others. No automatic delegation or pooled subscription quotas are configured.
-- Each provider login and permission grant is independent. Do not copy authentication secrets between agents or commit credentials.
-- A Codespace may sleep. Do not treat it as an always-on agent server.
+## Three separate agents
+- Claude Code (`claude`), Codex (`codex`) and Antigravity (`agy`) run independently.
+- Never merge subscription credentials, impersonate another provider or silently call an agent from another agent.
+- Use `scripts/project.sh add <repository>` to create three distinct Git worktrees. Make code changes only in your assigned worktree.
+- The environment repository itself should contain only setup, diagnostics, launchers and instructions.
+- If two agents work on the same product, coordinate with Git commits and reviewed pull requests, **not** by editing the same dirty directory.
 
-## Changing project code
-- Clone application repositories separately, outside this environment repo's tracked files.
-- Assign each modifying agent its own branch/worktree; never let two agents modify the same dirty worktree.
-- Run a project's own tests and review changes before opening PRs.
-- Never deploy to production or merge protected branches without specific user authorization.
-- Store reusable decisions in project docs or committed changes, not solely in an agent conversation.
+## Required safeguards
+- Inspect a project's `AGENTS.md`, `CLAUDE.md` and equivalent instructions before touching its code.
+- Never print, copy, commit, or transmit access tokens, cookies, keys or other secrets.
+- Never change a protected `main`/`master`/`prod` branch directly or deploy production without explicit approval.
+- Prefer the target project's integration branch (`dev` if present), create feature branches, run appropriate tests, review the diff and summarize remaining failures.
+- Never bypass approvals, disable security checks, or auto-approve tool execution just to accelerate coding.
+- Don't change another agent's branch/worktree or delete preserved historical work.
+- A running terminal/tmux session can outlive a browser tab, but not a stopped or rebuilt Codespace.
+
+## Handoffs
+Record completed changes and test commands in the relevant project's commits/PRs. For cross-agent review, ask a different agent to inspect the diff in **its own clean worktree** before applying any suggested edits. The user chooses when to launch each agent.
