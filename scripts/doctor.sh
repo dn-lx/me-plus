@@ -10,7 +10,11 @@ printf '\n'
 for tool in git node npm python3 tmux claude codex agy; do
   printf '%-10s' "$tool"
   if command -v "$tool" >/dev/null 2>&1; then
-    "$tool" --version 2>&1 | head -n 1 || true
+    if [ "$tool" = "tmux" ]; then
+      "$tool" -V 2>&1 | head -n 1 || true
+    else
+      "$tool" --version 2>&1 | head -n 1 || true
+    fi
   else
     printf 'NOT INSTALLED\n'
   fi
