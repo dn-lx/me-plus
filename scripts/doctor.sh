@@ -36,6 +36,8 @@ if [[ "${1:-}" == --auth ]]; then
     auth_json="$(claude auth status 2>/dev/null || true)"
     printf '%s' "$auth_json" | python3 -c 'import json,sys; print("logged in" if json.load(sys.stdin).get("loggedIn") else "not logged in")' 2>/dev/null || echo 'status unavailable'
   else echo 'not installed'; fi
+  printf 'GitHub CLI: '
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then echo 'logged in'; else echo 'not logged in'; fi
   echo 'Antigravity: check authentication interactively in agy; model listing alone does not prove sign-in.'
   echo 'Credentials were not printed.'
 elif [[ "${1:-}" != "" ]]; then
