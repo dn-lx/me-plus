@@ -1,66 +1,80 @@
 # Multi-agent Codespace
 
-One lightweight GitHub Codespace with **three independently usable coding agents**:
+A minimal GitHub Codespace for **three independent coding agents**, each with its own account and conversation:
 
-| Agent | Terminal command | Sign in with |
+| Agent | Command | Account |
 | --- | --- | --- |
-| Anthropic Claude Code | `claude` | Your eligible Claude account |
-| OpenAI Codex CLI | `codex` | Your eligible ChatGPT account |
-| Google Antigravity CLI | `agy` | Your eligible Google account |
+| Claude Code | `claude` | Anthropic |
+| OpenAI Codex CLI | `codex` | ChatGPT / OpenAI |
+| Google Antigravity CLI | `agy` | Google |
 
-**No central orchestrator is installed.** Choose any agent at any time. All three can read the same repository files but their chats, entitlements and rate limits remain separate. This repository is an environment; clone your actual applications into separate working directories or Codespaces.
+There is **no orchestrator** or pooled subscription quota. Run one agent per terminal or switch whenever you want.
 
-## Use your existing Codespace
+## Existing Codespace
 
-Open [GitHub Codespaces](https://github.com/codespaces) and enter the existing Codespace. Do **not** create a second Codespace just to switch agent.
+- **Repository:** `dn-lx/multi-agent-codespace`
+- **Codespace display name:** `multi-agent-codespace`
+- **Workspace folder:** `/workspaces/multi-agent-codespace`
+- **Integration branch:** `dev`
+- **Technical Codespace hostname:** `cuddly-couscous-jj6wgvgvrg63q96p` (unchanged)
+- **Remote container user:** `node`
 
-For the **currently running Codespace**, the three CLIs were installed separately in `/home/codespace/.local/bin` on 21 November 2026, but subscription sign-ins were still pending. Until its configuration is rebuilt, you can continue to use its current Linux home and terminal.
+Open [GitHub Codespaces](https://github.com/codespaces), select **multi-agent-codespace**, and choose **File → Open Folder** if needed to open `/workspaces/multi-agent-codespace`. Do not create a second Codespace.
 
-**Important — preserve outstanding work first:** At the time of inspection, the running Codespace had uncommitted files on `feature/model-orchestrator`. Do not delete, reset or change that worktree to apply this cleanup. First commit/push the work to an appropriate branch or otherwise back it up. Repository cleanup happens on a separate GitHub branch.
+The Codespace was rebuilt with the minimal container on 21 November 2026. Its Git checkout is the seven-file `dev` branch. The startup script installs the three CLIs into `~/.local/bin` and checks their versions. Provider sign-ins must be completed individually; the rebuild does **not** transfer previous login sessions.
 
-After the cleanup is approved and integrated, use **Codespaces: Rebuild Container** to adopt this minimalist devcontainer. Rebuilding changes the remote user to `node`, and may require you to sign in again. It reinstalls the CLIs automatically but does **not** import personal credentials.
+### Start using the agents
 
-## Access from iPad or laptop
-
-Open the Codespace in Safari, Chrome, or VS Code and select any of three separate terminals:
+Open a separate browser terminal tab for each:
 
 ```bash
-# Terminal 1
+cd /workspaces/multi-agent-codespace
 claude
+```
 
-# Terminal 2
+```bash
+cd /workspaces/multi-agent-codespace
 codex
+```
 
-# Terminal 3
+```bash
+cd /workspaces/multi-agent-codespace
 agy
 ```
 
-To authenticate Codex using a device authorization where supported:
+For device-based Codex login where available:
 
 ```bash
 codex login --device-auth
 ```
 
-Complete Claude and Google sign-ins through their official prompts. A headless Codespace may require troubleshooting Google D-Bus/keyring and browser OAuth. The devcontainer adds Linux Secret Service prerequisites, but **successful login is not guaranteed**. No API keys are required for ordinary subscription-backed CLI sign-ins; API-based usage is separately billed.
+Follow the official prompts for Claude and Google. Antigravity on headless Linux may need D-Bus/keyring troubleshooting. The container includes those prerequisites, but each provider's sign-in must still be tested.
 
-When connected remotely, `gh codespace ssh` can reach a running Codespace from an authorized host. An interactive CLI session does not automatically appear in a provider's separate mobile/web app; where supported, session remote control must be configured individually.
-
-## Diagnostics
+### Diagnostics
 
 ```bash
+cd /workspaces/multi-agent-codespace
 bash scripts/doctor.sh
 ```
 
-Read-only check of versions and command visibility. For each agent, run an additional harmless read-only task after signing in.
+This only checks executable visibility, versions and Git environment. It doesn't read or expose credentials.
 
-## Costs and limitations
+### Remote access
 
-GitHub Codespaces compute and storage usage may incur charges beyond your account allowance; Codespaces automatically suspends after inactivity. Each AI provider enforces its own plan limits. This configuration does not pool subscriptions, track usage across providers, or allow the agents to talk to each other automatically.
+An authorized Windows computer can use `gh codespace ssh -c cuddly-couscous-jj6wgvgvrg63q96p` to manage the Codespace. If Windows is offline, the Codespace can also be accessed directly through GitHub's browser editor. Remote Desktop Commander inside Linux would require a separate installation and device pairing.
 
-## Repository scope and safeguards
+### Historical project preservation
 
-Do not add Me+ web/mobile apps, Supabase migrations, generated artifacts, or unrelated project source to this environment repository. Keep actual product repositories distinct.
+The old Me+ checkout, including its unfinished files, was preserved at `/workspaces/_legacy-me-plus-preserved-20261121`. The source history also remains in the `prod` branch and `archive/me-plus-dev-before-cleanup-20261121`. **Do not delete this preservation folder until you've backed up or reviewed the unfinished files.**
 
-The original Me+ source is preserved on the historical `prod` branch and on `archive/me-plus-dev-before-cleanup-20261121`. The old `feature/model-orchestrator` work must be preserved before altering the active Codespace working tree.
+The old `/workspaces/me-plus` path is only a compatibility symlink to the renamed clean workspace, retained so existing editor sessions don't break. Use `/workspaces/multi-agent-codespace` going forward.
 
-Official references: [Claude Code](https://code.claude.com/docs/en/setup) · [Codex CLI](https://github.com/openai/codex) · [Antigravity](https://antigravity.google/download) · [Codespaces](https://docs.github.com/en/codespaces).
+### Constraints
+
+- Codespaces suspends after inactivity and may have compute/storage charges beyond your GitHub allowance.
+- CLI subscriptions and their rate limits are separate; API-based access may be billed separately.
+- Each modifying agent should work on its own branch or worktree; don't run simultaneous editors against the same dirty worktree.
+- No merging into production, secret sharing, or destructive cleanup of preserved work without express approval.
+- Keep this repository limited to agent setup; clone actual apps into their own workspaces.
+
+References: [Claude Code](https://code.claude.com/docs/en/setup) · [Codex](https://github.com/openai/codex) · [Google Antigravity](https://antigravity.google/download) · [GitHub Codespaces](https://docs.github.com/en/codespaces).
