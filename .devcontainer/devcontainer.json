@@ -18,5 +18,6 @@
         "terminal.integrated.scrollback": 10000
       }
     }
-  }
+  },
+  "workspaceFolder": "/workspaces/multi-agent-codespace"
 }
