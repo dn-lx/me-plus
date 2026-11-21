@@ -1,0 +1,19 @@
+{
+  "name": "Me+ — Claude Code, Codex and Antigravity (independent)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "node",
+  "remoteEnv": {
+    "PATH": "/home/node/.local/bin:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "bash .devcontainer/install-agents.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.scrollback": 10000
+      }
+    }
+  }
+}
